@@ -32,6 +32,9 @@
 .techno-chatbot-menu > a.active + ul { max-height: 9999px; opacity: 1; }
 .techno-chatbot-menu ul a { text-decoration: none; color: var(--techno-header-text); display: block; padding: 5px 10px; cursor: pointer; border-bottom: 1px solid rgba(0, 0, 0, 0.5); font-weight: 500; }
 .techno-chatbot-menu ul a:hover{ background: var(--techno-header-text); color: var(--techno-header-bg); }
+.techno-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; flex-shrink: 0; transition: background-color 0.3s ease; } 
+.techno-status-dot.online { background-color: #22c55e; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25); } 
+.techno-status-dot.offline { background-color: #9ca3af; }
 
 /* Messages */ 
 #techno-chatbot-messages { display: flex; flex: 1; flex-direction: column; padding: 10px 10px 25px 10px; overflow-y: auto; font-size: var(--techno-chatbot-chatmsgsize); } 

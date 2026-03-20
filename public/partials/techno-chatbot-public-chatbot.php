@@ -25,7 +25,12 @@
 <div id="techno-chatbot-window" class="techno-chatbot-hidden">
 
 	<div class="techno-chatbot-header">
-		<span><?php echo $headertxt; ?></span>
+		<span>
+			<?php echo $headertxt; ?>
+			<?php if( $livechat_enabled ){ ?>
+				<span id="techno-support-status-dot" class="techno-status-dot offline" title="Support Offline"></span>
+			<?php } ?>
+		</span>
 		<div class="techno-chatbot-menu">
 			<a id="techno-chatbot-menu-trigger">Menu</a>
 			<ul id="techno-chatbot-menu-list">

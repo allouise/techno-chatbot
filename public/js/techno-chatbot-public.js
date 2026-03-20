@@ -23,6 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const CONTACT_STATE_KEY = 'techno_chatbot_contact_state';
     const CONTACT_METHOD_KEY = 'techno_chatbot_contact_method';
     const CHAT_START_KEY = 'techno_chatbot_start';
+    const LIVECHAT_NAME_KEY = 'techno_livechat_visitor_name';
+
+    let liveChatSessionId = null;
+    let liveChatLastId = 0;
+    let liveChatPollTimer = null;
+    let liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY) || null;
+    let statusDotCache = { online: false, ts: 0 };
+    let statusDotTimer = null;
 
     if(!localStorage.getItem(CHAT_START_KEY)){
         localStorage.setItem(CHAT_START_KEY, Date.now());
@@ -65,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function botReply(text) {
+        if(!text) return Promise.resolve();
         const typing = showTyping();
         const delay = getTypingDelay(text);
         return new Promise(resolve => {
@@ -94,6 +103,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if(state === 2 || state === 3){
             disableInput(false);
         }
+        if(state === 5){
+            const savedSession = localStorage.getItem('techno_livechat_session');
+            if(savedSession){
+                liveChatSessionId = savedSession;
+                liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY);
+                startLiveChatPolling();
+            }
+        }
+        if(state === 6){
+            disableInput(false);
+        }
         scrollToBottom();
     }
 
@@ -103,6 +123,12 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(CONTACT_METHOD_KEY);
         localStorage.removeItem(FAIL_COUNT_KEY);
         localStorage.removeItem(CHAT_START_KEY);
+        localStorage.removeItem(LIVECHAT_NAME_KEY);    // add this
+        localStorage.removeItem('techno_livechat_session'); // add this too
+        liveChatSessionId = null;
+        liveChatVisitorName = null;
+        liveChatLastId = 0;
+        if(liveChatPollTimer) clearInterval(liveChatPollTimer);
         el.messages.innerHTML = '';
         botReply(technoChatbot.welcomeMessage);
         disableInput(false);
@@ -193,6 +219,56 @@ document.addEventListener('DOMContentLoaded', () => {
         return matrix[b.length][a.length];
     }
 
+    function updateStatusDot(online) {
+        const dot = document.getElementById('techno-support-status-dot');
+        if (!dot) return;
+        dot.classList.toggle('online', online);
+        dot.classList.toggle('offline', !online);
+        dot.title = online ? 'Support Online' : 'Support Offline';
+    }
+
+    async function refreshStatusDot() {
+        if (!technoChatbot.liveChatEnabled) return;
+
+        if (getState() === 5) return;
+
+        const now = Date.now();
+        if (now - statusDotCache.ts < 15000) {
+            updateStatusDot(statusDotCache.online);
+            return;
+        }
+
+        try {
+            const res = await fetch(technoChatbot.ajax_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'techno_check_support_online',
+                    nonce: technoChatbot.nonce
+                })
+            });
+            const data = await res.json();
+            const online = data.success && data.data.online;
+            console.log(data);
+            statusDotCache = { online, ts: now };
+            updateStatusDot(online);
+        } catch(e) {
+            updateStatusDot(false);
+        }
+    }
+
+    function startStatusDotPolling() {
+        refreshStatusDot();
+        statusDotTimer = setInterval(refreshStatusDot, 15000);
+    }
+
+    function stopStatusDotPolling() {
+        if (statusDotTimer) {
+            clearInterval(statusDotTimer);
+            statusDotTimer = null;
+        }
+    }
+
     async function handleFaqReply(message){
 
         const answer = findFaqAnswer(message);
@@ -215,13 +291,22 @@ document.addEventListener('DOMContentLoaded', () => {
             failCount++;
             localStorage.setItem(FAIL_COUNT_KEY, failCount);
             if(failCount >= failLimit){
-                await botReply(technoChatbot.noAnswerFinal);
                 const nextStep = parseInt(technoChatbot.nextStep);
-                if (nextStep === 0) {
-                    showContactOptions(); 
-                } else if (nextStep === 1) {
-                    /* do nothing — just show noAnswerFinal, no further action */
-                } else if (nextStep === 2) {
+                let finalMsg;
+                if(nextStep === 0){
+                    finalMsg = technoChatbot.noAnswerFinalContact;
+                } else if(nextStep === 2){
+                    finalMsg = technoChatbot.noAnswerFinalLivechat;
+                } else {
+                    finalMsg = technoChatbot.noAnswerFinalDefault;
+                }
+
+                await botReply(finalMsg || technoChatbot.noAnswer || '...');
+                if(nextStep === 0){
+                    showContactOptions();
+                } else if(nextStep === 1){
+                    /* just show message, no further action */
+                } else if(nextStep === 2){
                     await checkAndTransferToLiveChat();
                 }
                 localStorage.setItem(FAIL_COUNT_KEY, 0);
@@ -236,6 +321,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function checkAndTransferToLiveChat() {
+
+        if (!technoChatbot.liveChatEnabled) {
+            await botReply(technoChatbot.offlineSupport);
+            showContactOptions();
+            return;
+        }
         
         const res = await fetch(technoChatbot.ajax_url, {
             method: 'POST',
@@ -246,20 +337,76 @@ document.addEventListener('DOMContentLoaded', () => {
             })
         });
         const data = await res.json();
+        const online = data.success && data.data.online;
 
-        if (data.success && data.data.online) {
-            // Support is online — initiate live chat
-            setState(5); // new state: live chat mode
-            await botReply(technoChatbot.liveChatConnectingMsg);
-            startLiveChatPolling();
+        statusDotCache = { online, ts: Date.now() };
+        updateStatusDot(online);
+
+        if (online) {
+            setState(6);
+            await botReply(technoChatbot.getName);
+            disableInput(false);
         } else {
-            // Nobody online — fall back to contact options or message
-            await botReply(technoChatbot.liveChatOfflineMsg);
-            showContactOptions(); // or just leave it, your choice
+            await botReply(technoChatbot.offlineSupport);
+            showContactOptions();
+        }
+    }
+
+    function startLiveChatPolling() {
+        liveChatSessionId = localStorage.getItem('techno_livechat_session')
+            || ('sess_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+        localStorage.setItem('techno_livechat_session', liveChatSessionId);
+
+        updateStatusDot(true);
+        disableInput(false);
+
+        fetch(technoChatbot.ajax_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                action: 'techno_livechat_visitor_send',
+                nonce: technoChatbot.nonce,
+                session_id: liveChatSessionId,
+                visitor_name: liveChatVisitorName || 'Visitor',
+                message: '--- Chat started by ' + (liveChatVisitorName || 'Visitor') + ' ---'
+            })
+        });
+
+        liveChatPollTimer = setInterval(pollLiveChatMessages, 3000);
+    }
+
+    async function pollLiveChatMessages() {
+        const res = await fetch(technoChatbot.ajax_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                action: 'techno_livechat_poll',
+                nonce: technoChatbot.nonce,
+                session_id: liveChatSessionId,
+                after_id: liveChatLastId
+            })
+        });
+        const data = await res.json();
+        if (data.success && data.data.messages.length) {
+            data.data.messages.forEach(msg => {
+                if (msg.sender === 'admin') {
+                    addMessage(msg.message, 'admin');
+                }
+                liveChatLastId = Math.max(liveChatLastId, parseInt(msg.id));
+            });
         }
     }
 
     function setState(state){
+        /* 
+         * 0 Normal FAQ mode 
+         * 1 Showing phone/email contact options
+         * 2 Waiting for phone/email value
+         * 3 Waiting for time-to-call
+         * 4 Contact flow finished
+         * 5 Live chat active
+         * 6 Waiting for visitor name
+         */
         localStorage.setItem(CONTACT_STATE_KEY, state);
     }
 
@@ -379,11 +526,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!el.window.classList.contains('techno-chatbot-hidden')) {
             scrollToBottom();
+            startStatusDotPolling();
+        } else {
+            stopStatusDotPolling();
         }
     });
 
     el.close?.addEventListener('click', () => {
         el.window.classList.add('techno-chatbot-hidden');
+        stopStatusDotPolling();
     });
 
     el.menubtn.addEventListener('click', () => {
@@ -425,6 +576,53 @@ document.addEventListener('DOMContentLoaded', () => {
             await finishContact();
             return;
         }
+
+        if (state === 5) {
+            fetch(technoChatbot.ajax_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'techno_livechat_visitor_send',
+                    nonce: technoChatbot.nonce,
+                    session_id: liveChatSessionId,
+                    visitor_name: liveChatVisitorName || 'Visitor',
+                    message: userMessage
+                })
+            });
+            return;
+        }
+
+        if (state === 6) {
+            liveChatVisitorName = userMessage;
+            localStorage.setItem(LIVECHAT_NAME_KEY, liveChatVisitorName);
+
+            const res = await fetch(technoChatbot.ajax_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'techno_check_support_online',
+                    nonce: technoChatbot.nonce
+                })
+            });
+            const data = await res.json();
+            const online = data.success && data.data.online;
+
+            // Bust cache with fresh result
+            statusDotCache = { online, ts: Date.now() };
+            updateStatusDot(online);
+
+            if (online) {
+                setState(5);
+                await botReply(technoChatbot.transferredToSupport);
+                startLiveChatPolling();
+            } else {
+                setState(0);
+                await botReply(technoChatbot.offlineSupport);
+                showContactOptions();
+            }
+            return;
+        }
+
         await handleFaqReply(userMessage);
     };
 

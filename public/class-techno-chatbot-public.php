@@ -76,15 +76,25 @@ class Techno_Chatbot_Public {
 	public function enqueue_scripts() {
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-public.js', array(), $this->version, true );
+
+		$livechat_plan   = techno_chatbot_feature('live_chat');
+    	$livechat_enabled = $livechat_plan['allowed'] === true;
+
 		wp_localize_script(
 			$this->plugin_name, 'technoChatbot',
 			array(
 				'ajax_url' => admin_url('admin-ajax.php'),
 				'nonce' => wp_create_nonce('techno_chatbot_nonce'),
+				'liveChatEnabled' => $livechat_enabled,
 				'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
 				'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 				'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
-				'noAnswerFinal' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final'),
+				'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
+				'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
+				'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname'),
+				'noAnswerFinalContact' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_contact'),
+				'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default'),
+				'noAnswerFinalLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_livechat'),
 				'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish'),
 				'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit'),
 				'errorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_error'),
@@ -121,6 +131,8 @@ class Techno_Chatbot_Public {
 
 		$chaticon = get_option( 'techno_chatbot_icon' );
 		$chaticon = !empty($chaticon)? "<img src='$chaticon' alt='".__( 'Techno chatbot Icon', 'techno-chatbot' )."'/>" : '💬';
+		$livechat_plan = techno_chatbot_feature('live_chat');
+    	$livechat_enabled = $livechat_plan['allowed'] === true;
 		include plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-public-chatbot.php';
 	}
 
@@ -332,8 +344,74 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	public function check_support_online() {
+		$plan = techno_chatbot_feature('live_chat');
+		if ( $plan['allowed'] !== true ) {
+			wp_send_json_success(['online' => false]);
+			return;
+		}
+		$toggle = (bool) get_option('techno_chatbot_support_online', 0);
+		wp_send_json_success(['online' => $toggle]);
+	}
+
+	/**
+	 * Send Message: From Visitor
+	 *
+	 * @since    1.0.0
+	 */
+	public function livechat_visitor_send() {
 		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-		$online = (bool) get_option('techno_chatbot_support_online', 0);
-		wp_send_json_success(['online' => $online]);
+
+		$plan = techno_chatbot_feature('live_chat');
+		if ( $plan['allowed'] !== true ) {
+			wp_send_json_error(['message' => 'Not allowed']);
+			return;
+		}
+
+		global $wpdb;
+		$session = sanitize_text_field($_POST['session_id']);
+		$message = sanitize_textarea_field($_POST['message']);
+		if (empty($session) || empty($message)) wp_send_json_error();
+
+		$wpdb->insert(
+			$wpdb->prefix . 'techno_livechat_messages',
+			['session_id' => $session, 'sender' => 'visitor', 'message' => $message]
+		);
+
+		// Notify admin of new session (optional: update active sessions option)
+		$sessions = get_option('techno_active_livechat_sessions', []);
+		if (!in_array($session, $sessions)) {
+			$sessions[] = $session;
+			update_option('techno_active_livechat_sessions', $sessions);
+		}
+
+		wp_send_json_success();
+	}
+
+	/**
+	 * Polling: sends an HTTP request to the server every few seconds.
+	 *
+	 * @since    1.0.0
+	 */
+	public function livechat_poll() {
+		check_ajax_referer('techno_chatbot_nonce', 'nonce');
+
+		$plan = techno_chatbot_feature('live_chat');
+		if ( $plan['allowed'] !== true ) {
+			wp_send_json_error(['message' => 'Not allowed']);
+			return;
+		}
+		
+		global $wpdb;
+		$session  = sanitize_text_field($_POST['session_id']);
+		$after_id = intval($_POST['after_id'] ?? 0);
+		$table    = $wpdb->prefix . 'techno_livechat_messages';
+
+		$rows = $wpdb->get_results($wpdb->prepare(
+			"SELECT id, sender, message, created_at FROM $table
+			WHERE session_id = %s AND id > %d ORDER BY id ASC",
+			$session, $after_id
+		));
+
+		wp_send_json_success(['messages' => $rows]);
 	}
 }

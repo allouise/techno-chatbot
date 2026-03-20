@@ -135,13 +135,31 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Default message sent when the chatbot cannot find a proper answer.'
         ),
 
-        'techno_chatbot_no_answer_message_final' => array(
-            'label'       => 'Final No Answer Default',
+        'techno_chatbot_no_answer_message_final_contact' => array(
+            'label'       => 'Final No Answer Default (Contact Option)',
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
             'default'     => 'I do not have the specific information for your question, the best thing I can do is have one of our representative reach you, please provide the best way to contact you.',
-            'description' => 'Final message sent when the chatbot cannot find a proper answer then transfer to next option.'
+            'description' => 'Final message sent for Transfer/Next step: Call/Email when the chatbot cannot find a proper answer then transfer to next option.'
+        ),
+
+        'techno_chatbot_no_answer_message_final_default' => array(
+            'label'       => 'Final No Answer Default (Default)',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'I do not have the specific information for your question, please try asking different question.',
+            'description' => 'Final message sent for Transfer/Next step: Default reply when the chatbot cannot find a proper answer then transfer to next option.'
+        ),
+
+        'techno_chatbot_no_answer_message_final_livechat' => array(
+            'label'       => 'Final No Answer Default (Livechat)',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'I do not have the specific information for your question, the best thing I can do is have one of our representative talk to you.',
+            'description' => 'Final message sent for Transfer/Next step: Livechat when the chatbot cannot find a proper answer then transfer to next option.'
         ),
 
         'techno_chatbot_offline_agents_message' => array(
@@ -149,7 +167,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'Sorry all agents are busy right now — please leave your name, phone number and the best time to contact you.',
+            'default'     => 'Sorry all agents are busy right now — please provide the best way to contact you',
             'description' => 'Message shown when all agents are offline.'
         ),
 
@@ -168,6 +186,15 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'section'     => 'messages_section',
             'default'     => 'What is your Email Address?',
             'placeholder' => 'What is your Email Address?',
+            'description' => ''
+        ),
+
+        'techno_chatbot_getname' => array(
+            'label'       => 'Live Chat Get Name',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Can I get your name?',
+            'placeholder' => 'Can I get your name?',
             'description' => ''
         ),
 
