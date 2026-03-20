@@ -88,6 +88,15 @@ class Techno_Chatbot_Admin {
 			true
 		);
 
+		wp_localize_script(
+			'techno-admin-script',
+			'technoLivechat',
+			array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'nonce' => wp_create_nonce( 'techno_chatbot_nonce' ),
+			)
+		);
+
 	}
 
 	/**
@@ -126,20 +135,11 @@ class Techno_Chatbot_Admin {
 
 		add_submenu_page(
 			'techno-chatbot',
-			__( 'Live Chat', 'techno-chatbot' ),
-			__( 'Live Chat', 'techno-chatbot' ),
+			__( 'Chats', 'techno-chatbot' ),
+			__( 'Chats', 'techno-chatbot' ),
 			'manage_options',
 			'techno-chatbot-livechat',
-			array( $this, 'display_livechat_page' )
-		);
-		
-		add_submenu_page(
-			'techno-chatbot',
-			__( 'Chat History', 'techno-chatbot' ),
-			__( 'Chat History', 'techno-chatbot' ),
-			'manage_options',
-			'techno-chatbot-history',
-			array( $this, 'display_chathistory_page' )
+			array( $this, 'display_chats_page' )
 		);
 
 		add_submenu_page(
@@ -164,33 +164,6 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
-	 * Render the settings page.
-	 *
-	 * @since    1.0.0
-	 */
-	public function display_settings_page() {
-		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-settings.php';
-	}
-
-	/**
-	 * Render the Live Chat page.
-	 *
-	 * @since    1.0.0
-	 */
-	public function display_livechat_page() {
-		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-livechat.php';
-	}
-
-	/**
-	 * Render the AI knowledge page.
-	 *
-	 * @since    1.0.0
-	 */
-	public function display_knowledgebase_page() {
-		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-aiknowledgebase.php';
-	}
-
-	/**
 	 * Register the administration settings.
 	 *
 	 * @since    1.0.0
@@ -205,4 +178,56 @@ class Techno_Chatbot_Admin {
 
 	}
 
+	/**
+	 * Render the settings page.
+	 *
+	 * @since    1.0.0
+	 */
+	public function display_settings_page() {
+		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-settings.php';
+	}
+
+	/**
+	 * Render the Live Chat page.
+	 *
+	 * @since    1.0.0
+	 */
+	public function display_chats_page() {
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'livechat';
+		switch ($active_tab) {
+			case 'livechat':
+				$online = (int)get_option('techno_chatbot_support_online', 0);
+			break;
+		}
+		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-chats.php';
+	}
+
+	/**
+	 * Render the AI knowledge page.
+	 *
+	 * @since    1.0.0
+	 */
+	public function display_knowledgebase_page() {
+		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-aiknowledgebase.php';
+	}
+
+	/**
+	 * Toggle Support Online
+	 *
+	 * @since    1.0.0
+	 */
+	public function toggle_support_online() {
+		check_ajax_referer('techno_chatbot_nonce', 'nonce');
+		if (!current_user_can('manage_options')) wp_send_json_error();
+
+		$livechat_allowed = techno_chatbot_feature('live_chat');
+		$livechat_allowed = $livechat_allowed['allowed'] == true ? true : false;
+		$current = get_option('techno_chatbot_support_online', 0);
+		$onlinestatus = $current ? 0 : 1;
+		$onlinestatus = $livechat_allowed == true ? $onlinestatus : 0; 		
+		
+		update_option('techno_chatbot_support_online', $onlinestatus);
+		wp_send_json_success(['online' => (bool)$onlinestatus]);
+		
+	}
 }

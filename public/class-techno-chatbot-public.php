@@ -94,7 +94,6 @@ class Techno_Chatbot_Public {
 				'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 				'nextStep' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_transfer_next_step'),
 				'timeToCall' => get_option('techno_chatbot_timetocall'),
-				'faqSuggestion' => get_option('techno_chatbot_smartfaqsuggestion'),
 				'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 				'faq' => $this->get_faq_data()
 			)
@@ -325,5 +324,16 @@ class Techno_Chatbot_Public {
 		$free = techno_chatbot_check_plan('free');
 		if( $free === true ) return;
 		techno_chatbot_license()->validate_license( techno_chatbot_license()->get_license() );
+	}
+
+	/**
+	 * Check Support if Online
+	 *
+	 * @since    1.0.0
+	 */
+	public function check_support_online() {
+		check_ajax_referer('techno_chatbot_nonce', 'nonce');
+		$online = (bool) get_option('techno_chatbot_support_online', 0);
+		wp_send_json_success(['online' => $online]);
 	}
 }

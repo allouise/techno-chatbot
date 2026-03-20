@@ -212,22 +212,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if(answer === technoChatbot.noAnswer){
 
-            if( parseInt(technoChatbot.faqSuggestion) === 1 && failCount < failLimit ){
-                const suggestions = findFaqSuggestions(message);
-                if(suggestions.length > 0){
-                    await botReply(technoChatbot.noAnswer);
-                    showFaqSuggestions(suggestions);
-                    return;
-                }
-            }
-
             failCount++;
             localStorage.setItem(FAIL_COUNT_KEY, failCount);
             if(failCount >= failLimit){
                 await botReply(technoChatbot.noAnswerFinal);
                 const nextStep = parseInt(technoChatbot.nextStep);
-                if(nextStep === 0){
-                    showContactOptions();
+                if (nextStep === 0) {
+                    showContactOptions(); 
+                } else if (nextStep === 1) {
+                    /* do nothing — just show noAnswerFinal, no further action */
+                } else if (nextStep === 2) {
+                    await checkAndTransferToLiveChat();
                 }
                 localStorage.setItem(FAIL_COUNT_KEY, 0);
             } else {
@@ -240,47 +235,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function findFaqSuggestions(message){
-        const text = cleanText(message);
-        const suggestions = [];
-        technoChatbot.faq.forEach(faq => {
-            faq.questions.forEach(q => {
-                const similarity = stringSimilarity(text, q);
-                if(similarity > 0.45){
-                    suggestions.push({
-                        question: q,
-                        answer: faq.answer,
-                        score: similarity
-                    });
-                }
-            });
+    async function checkAndTransferToLiveChat() {
+        
+        const res = await fetch(technoChatbot.ajax_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                action: 'techno_check_support_online',
+                nonce: technoChatbot.nonce
+            })
         });
-        suggestions.sort((a,b)=> b.score - a.score);
-        return suggestions.slice(0,3);
-    }
+        const data = await res.json();
 
-    function showFaqSuggestions(list){
-        if(document.querySelector('.techno-chatbot-suggestions')) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'techno-chatbot-suggestions';
-        const title = document.createElement('div');
-        title.className = 'techno-chatbot-suggestion-title';
-        title.textContent = 'Did you mean:';
-        wrapper.appendChild(title);
-        list.forEach(item => {
-            const btn = document.createElement('button');
-            btn.textContent = item.question;
-            btn.onclick = async () => {
-                wrapper.remove();
-                addMessage(item.question, 'visitor');
-                await botReply(item.answer);
-                localStorage.setItem(FAIL_COUNT_KEY, 0);
-            };
-            wrapper.appendChild(btn);
-        });
-        el.messages.appendChild(wrapper);
-        scrollToBottom();
+        if (data.success && data.data.online) {
+            // Support is online — initiate live chat
+            setState(5); // new state: live chat mode
+            await botReply(technoChatbot.liveChatConnectingMsg);
+            startLiveChatPolling();
+        } else {
+            // Nobody online — fall back to contact options or message
+            await botReply(technoChatbot.liveChatOfflineMsg);
+            showContactOptions(); // or just leave it, your choice
+        }
     }
 
     function setState(state){

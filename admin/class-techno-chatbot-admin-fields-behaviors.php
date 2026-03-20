@@ -86,14 +86,6 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'features'	  => array('live_chat')
 		),
 
-		/* 'techno_chatbot_smartfaqsuggestion' => array(
-			'label'       => 'Smart FAQ suggestions',
-			'type'        => 'checkbox',
-			'section'     => 'behavior_section',
-			'default'     => '',
-			'description' => 'Enable smart FAQ suggestion for alternative answers.',
-		), */
-
 		'techno_chatbot_timetocall' => array(
 			'label'       => 'Best time to call',
 			'type'        => 'checkbox',

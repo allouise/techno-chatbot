@@ -6,3 +6,12 @@
 #techno-livechat-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:flex; flex-direction:column; height:500px; }
 #techno-admin-chat-window{ flex:1; overflow-y:auto; border-bottom:1px solid #ccc; padding-bottom:10px; }
 #techno-admin-chat-input{ flex:1; padding:5px; }
+#techno-admin-chat-input[disabled] { opacity: 0.6; pointer-events: none; }
+.techno-support-switch{ display: flex; gap: 5px; align-items: center; border-bottom: 1px solid #ddd; padding: 5px 10px 15px; }
+.techno-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+.techno-switch input { opacity: 0; width: 0; height: 0; }
+.techno-slider { position: absolute; cursor: pointer; inset: 0; background-color: #ccc; border-radius: 34px; transition: 0.3s; }
+.techno-slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.3s; }
+.techno-switch input:checked + .techno-slider { background-color: #4CAF50; } .techno-switch input:checked + .techno-slider:before { transform: translateX(24px); }
+#techno-toggle-label { font-weight: 600; }
+#techno-admin-chat-send[disabled] { opacity: 0.6; pointer-events: none; }
