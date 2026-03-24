@@ -372,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
         });
 
+        pollLiveChatMessages();
         liveChatPollTimer = setInterval(pollLiveChatMessages, 3000);
     }
 
@@ -515,6 +516,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* Load chat history */
     loadHistory();
+    /* Check Livechat Support Online status */
+    if (technoChatbot.liveChatEnabled) {
+        refreshStatusDot();
+    }
+    if (!el.window.classList.contains('techno-chatbot-hidden')) {
+        startStatusDotPolling();
+    }
 
     /* Chatbot interactions */
     el.icon.addEventListener('click', () => {

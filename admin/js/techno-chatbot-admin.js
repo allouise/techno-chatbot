@@ -91,23 +91,38 @@ function sendHeartbeat() {
 }
 
 /* Poll active visitor sessions */
-if (activeVisitors) {
-    setInterval(() => {
-        fetch(technoLivechat.ajax_url, { method:'POST', body: new URLSearchParams({
-            action: 'techno_livechat_get_sessions', nonce: technoLivechat.nonce
-        })})
-        .then(r => r.json())
-        .then(data => {
-            activeVisitors.innerHTML = '';
-            data.data.sessions.forEach(sess => {
-                const li = document.createElement('li');
-                li.textContent = sess;
-                li.onclick = () => openSession(sess);
-                if (sess === currentSession) li.classList.add('active');
-                activeVisitors.appendChild(li);
-            });
+function loadActiveVisitors() {
+    fetch(technoLivechat.ajax_url, {
+        method:'POST',
+        body: new URLSearchParams({
+            action: 'techno_livechat_get_sessions',
+            nonce: technoLivechat.nonce
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+
+        activeVisitors.innerHTML = '';
+
+        data.data.sessions.forEach(sess => {
+            const li = document.createElement('li');
+            li.textContent = sess;
+            li.onclick = () => openSession(sess);
+
+            if (sess === currentSession) {
+                li.classList.add('active');
+            }
+
+            activeVisitors.appendChild(li);
         });
-    }, 5000);
+    })
+    .catch(err => console.error('Visitor load error:', err));
+}
+
+if (activeVisitors) {
+    loadActiveVisitors();              // ✅ RUN IMMEDIATELY
+    setInterval(loadActiveVisitors, 5000); // 🔁 Continue polling
 }
 
 /* Support Online toggle */
