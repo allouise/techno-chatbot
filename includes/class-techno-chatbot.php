@@ -222,10 +222,6 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
 		
 		$this->loader->add_action( 'wp_ajax_techno_toggle_support_online', $plugin_admin, 'toggle_support_online' );
-		$this->loader->add_action( 'wp_ajax_techno_check_support_online', $plugin_admin, 'check_support_online' );
-		$this->loader->add_action( 'wp_ajax_techno_admin_heartbeat', $plugin_admin, 'admin_heartbeat' );
-		$this->loader->add_action( 'wp_ajax_techno_livechat_get_sessions', $plugin_admin, 'livechat_get_sessions' );
-		$this->loader->add_action( 'wp_ajax_techno_livechat_admin_send', $plugin_admin, 'livechat_admin_send' );
 
 	}
 
@@ -247,10 +243,6 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_ajax_send_history_admin', $plugin_public, 'send_history_admin' );
 		$this->loader->add_action( 'techno_chatbot_daily_license_check', $plugin_public, 'validate_license' );
 
-		$this->loader->add_action( 'wp_ajax_techno_livechat_visitor_send', $plugin_public, 'livechat_visitor_send' );
-		$this->loader->add_action( 'wp_ajax_nopriv_techno_livechat_visitor_send', $plugin_public, 'livechat_visitor_send' );
-		$this->loader->add_action( 'wp_ajax_techno_livechat_poll', $plugin_public, 'livechat_poll' );
-		$this->loader->add_action( 'wp_ajax_nopriv_techno_livechat_poll', $plugin_public, 'livechat_poll' );
 		$this->loader->add_action( 'wp_ajax_techno_check_support_online', $plugin_public, 'check_support_online' );
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_check_support_online', $plugin_public, 'check_support_online' );
 

@@ -84,15 +84,16 @@ class Techno_Chatbot_Admin {
 		);
 
 		$livechat_allowed = techno_chatbot_feature('live_chat');
-		$livechat_allowed = $livechat_allowed['allowed'] == true ? true : false;
+    	$livechat_allowed = $livechat_allowed['allowed'] === true;
 		if( $livechat_allowed ){
+			wp_enqueue_script( $this->plugin_name.'-socket-io', plugin_dir_url( __FILE__ ) . 'js/socket.io.min.js', array(), $this->version, true );
 			wp_localize_script(
 				'techno-admin-script',
 				'technoLivechat',
 				array(
-					'ajax_url' => admin_url( 'admin-ajax.php' ),
-					'nonce' => wp_create_nonce( 'techno_chatbot_nonce' ),
-					'heartbeathz' => 30000 /* Check every 30s */
+					'ajax_url' => admin_url('admin-ajax.php'),
+					'nonce' => wp_create_nonce('techno_chatbot_nonce'),
+					'ws_url' => 'http://localhost:3000'
 				)
 			);
 		}
@@ -222,21 +223,6 @@ class Techno_Chatbot_Admin {
 		update_option('techno_chatbot_support_online', $onlinestatus);
 		wp_send_json_success(['online' => (bool)$onlinestatus]);
 		
-	}
-	
-	/**
-	 * Check Support Online
-	 *
-	 * @since    1.0.0
-	 */
-	public function check_support_online() {
-		$plan = techno_chatbot_feature('live_chat');
-		if ( $plan['allowed'] !== true ) {
-			wp_send_json_success(['online' => false]);
-			return;
-		}
-		$toggle = (bool) get_option('techno_chatbot_support_online', 0);
-		wp_send_json_success(['online' => $toggle]);
 	}
 
 	/**

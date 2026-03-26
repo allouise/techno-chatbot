@@ -4,6 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    /* ---------- Elements ---------- */
     const el = {
         icon: document.getElementById('techno-chatbot-floating-icon'),
         window: document.getElementById('techno-chatbot-window'),
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!el.icon || !el.window) return;
 
+    /* ---------- Constants ---------- */
     const STORAGE_KEY = 'techno_chatbot_history';
     const FAIL_COUNT_KEY = 'techno_chatbot_fail_count';
     const CONTACT_STATE_KEY = 'techno_chatbot_contact_state';
@@ -25,18 +27,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const CHAT_START_KEY = 'techno_chatbot_start';
     const LIVECHAT_NAME_KEY = 'techno_livechat_visitor_name';
 
+    /* ---------- State ---------- */
+    let socket = null;
     let liveChatSessionId = null;
-    let liveChatLastId = 0;
-    let liveChatPollTimer = null;
     let liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY) || null;
     let statusDotCache = { online: false, ts: 0 };
-    let statusDotTimer = null;
 
     if(!localStorage.getItem(CHAT_START_KEY)){
         localStorage.setItem(CHAT_START_KEY, Date.now());
     }
 
-    /* Helpers */
+    /* ---------- Utilities ---------- */
     function scrollToBottom() {
         el.messages.scrollTop = el.messages.scrollHeight;
     }
@@ -57,10 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function cleanText(text){
-        return text
-            .toLowerCase()
-            .replace(/[^\w\s]/g,'')
-            .trim();
+        return text.toLowerCase().replace(/[^\w\s]/g,'').trim();
     }
 
     function showTyping() {
@@ -87,136 +85,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getTypingDelay(text) {
         const base = 500;
-        const perChar = 0;/* 30 */
+        const perChar = 0; /* optional per char delay */
         const max = 3000;
         return Math.min(base + text.length * perChar, max);
     }
 
-    function loadHistory() {
-        const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        history.forEach(msg => addMessage(msg.text, msg.sender, false));
-        const state = getState();
-
-        if(state === 1){
-            showContactOptions(true);
-        }
-        if(state === 2 || state === 3){
-            disableInput(false);
-        }
-        if(state === 5){
-            const savedSession = localStorage.getItem('techno_livechat_session');
-            if(savedSession){
-                liveChatSessionId = savedSession;
-                liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY);
-                startLiveChatPolling();
-            }
-        }
-        if(state === 6){
-            disableInput(false);
-        }
-        scrollToBottom();
-    }
-
-    function clearHistory() {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(CONTACT_STATE_KEY);
-        localStorage.removeItem(CONTACT_METHOD_KEY);
-        localStorage.removeItem(FAIL_COUNT_KEY);
-        localStorage.removeItem(CHAT_START_KEY);
-        localStorage.removeItem(LIVECHAT_NAME_KEY);    // add this
-        localStorage.removeItem('techno_livechat_session'); // add this too
-        liveChatSessionId = null;
-        liveChatVisitorName = null;
-        liveChatLastId = 0;
-        if(liveChatPollTimer) clearInterval(liveChatPollTimer);
-        el.messages.innerHTML = '';
-        botReply(technoChatbot.welcomeMessage);
-        disableInput(false);
-    }
-
     function disableInput(_switch = true){
-        if( _switch == false ){
-            el.input.disabled = false;
-            el.send.disabled = false;
-        }else{
-            el.input.disabled = true;
-            el.send.disabled = true;
-        }
+        el.input.disabled = _switch;
+        el.send.disabled = _switch;
     }
 
-    function findFaqAnswer(message){
-        const text = cleanText(message);
-        let bestMatch = null;
-        let bestScore = 0;
-
-        for (const faq of technoChatbot.faq){
-            let score = 0;
-            for (const keyword of faq.questions){
-                const cleanKeyword = cleanText(keyword);
-                if(text.includes(cleanKeyword)){
-                    score += 5;
-                }
-                const words = cleanKeyword.split(' ');
-                words.forEach(word => {
-                    /* ignore short/common words */
-                    if(word.length < 4) return;
-                    if(text.includes(word)){
-                        score += 2;
-                    }
-                });
-                const similarity = stringSimilarity(text, cleanKeyword);
-                if(similarity > 0.8){
-                    score += similarity * 5;
-                }
-            }
-            score += (faq.priority || 0);
-            if(score > bestScore){
-                bestScore = score;
-                bestMatch = faq;
-            }
-        }
-        /* Match threshold */
-        if(bestMatch && bestScore >= 6){
-            return bestMatch.answer;
-        }
-
-        return technoChatbot.noAnswer;
+    function setState(state){
+        localStorage.setItem(CONTACT_STATE_KEY, state);
     }
 
-    function stringSimilarity(str1, str2){
-        const longer = str1.length > str2.length ? str1 : str2;
-        const shorter = str1.length > str2.length ? str2 : str1;
-        const longerLength = longer.length;
-        if(longerLength === 0) return 1;
-
-        const distance = levenshteinDistance(longer, shorter);
-        return (longerLength - distance) / longerLength;
+    function getState(){
+        return parseInt(localStorage.getItem(CONTACT_STATE_KEY) || '0');
     }
 
-    function levenshteinDistance(a, b){
-        const matrix = [];
-        for(let i = 0; i <= b.length; i++){
-            matrix[i] = [i];
-        }
-        for(let j = 0; j <= a.length; j++){
-            matrix[0][j] = j;
-        }
-        for(let i = 1; i <= b.length; i++){
-            for(let j = 1; j <= a.length; j++){
+    function setContactMethod(method){
+        localStorage.setItem(CONTACT_METHOD_KEY, method);
+    }
 
-                if(b.charAt(i-1) === a.charAt(j-1)){
-                    matrix[i][j] = matrix[i-1][j-1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i-1][j-1] + 1,
-                        matrix[i][j-1] + 1,
-                        matrix[i-1][j] + 1
-                    );
-                }
-
-            }
-        }
-        return matrix[b.length][a.length];
+    function getContactMethod(){
+        return localStorage.getItem(CONTACT_METHOD_KEY);
     }
 
     function updateStatusDot(online) {
@@ -227,50 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
         dot.title = online ? 'Support Online' : 'Support Offline';
     }
 
-    async function refreshStatusDot() {
-        if (!technoChatbot.liveChatEnabled) return;
-
-        if (getState() === 5) return;
-
-        const now = Date.now();
-        if (now - statusDotCache.ts < 15000) {
-            updateStatusDot(statusDotCache.online);
-            return;
-        }
-
-        try {
-            const res = await fetch(technoChatbot.ajax_url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    action: 'techno_check_support_online',
-                    nonce: technoChatbot.nonce
-                })
-            });
-            const data = await res.json();
-            const online = data.success && data.data.online;
-            console.log(data);
-            statusDotCache = { online, ts: now };
-            updateStatusDot(online);
-        } catch(e) {
-            updateStatusDot(false);
-        }
-    }
-
-    function startStatusDotPolling() {
-        refreshStatusDot();
-        statusDotTimer = setInterval(refreshStatusDot, 15000);
-    }
-
-    function stopStatusDotPolling() {
-        if (statusDotTimer) {
-            clearInterval(statusDotTimer);
-            statusDotTimer = null;
-        }
-    }
-
+    /* ---------- FAQ Handling ---------- */
     async function handleFaqReply(message){
-
         const answer = findFaqAnswer(message);
         const failLimit = parseInt(technoChatbot.noAnswerTrigger) || 0;
         let failCount = parseInt(localStorage.getItem(FAIL_COUNT_KEY) || '0');
@@ -287,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if(answer === technoChatbot.noAnswer){
-
             failCount++;
             localStorage.setItem(FAIL_COUNT_KEY, failCount);
             if(failCount >= failLimit){
@@ -305,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(nextStep === 0){
                     showContactOptions();
                 } else if(nextStep === 1){
-                    /* just show message, no further action */
+                    /* just show message */
                 } else if(nextStep === 2){
                     await checkAndTransferToLiveChat();
                 }
@@ -313,119 +162,65 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 await botReply(answer);
             }
-
         } else {
             localStorage.setItem(FAIL_COUNT_KEY, 0);
             await botReply(answer);
         }
     }
 
-    async function checkAndTransferToLiveChat() {
+    function findFaqAnswer(message){
+        const text = cleanText(message);
+        let bestMatch = null;
+        let bestScore = 0;
 
-        if (!technoChatbot.liveChatEnabled) {
-            await botReply(technoChatbot.offlineSupport);
-            showContactOptions();
-            return;
+        for (const faq of technoChatbot.faq){
+            let score = 0;
+            for (const keyword of faq.questions){
+                const cleanKeyword = cleanText(keyword);
+                if(text.includes(cleanKeyword)) score += 5;
+                cleanKeyword.split(' ').forEach(word => {
+                    if(word.length >= 4 && text.includes(word)) score += 2;
+                });
+                const similarity = stringSimilarity(text, cleanKeyword);
+                if(similarity > 0.8) score += similarity * 5;
+            }
+            score += (faq.priority || 0);
+            if(score > bestScore){
+                bestScore = score;
+                bestMatch = faq;
+            }
         }
-        
-        const res = await fetch(technoChatbot.ajax_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action: 'techno_check_support_online',
-                nonce: technoChatbot.nonce
-            })
-        });
-        const data = await res.json();
-        const online = data.success && data.data.online;
 
-        statusDotCache = { online, ts: Date.now() };
-        updateStatusDot(online);
+        return (bestMatch && bestScore >= 6) ? bestMatch.answer : technoChatbot.noAnswer;
+    }
 
-        if (online) {
-            setState(6);
-            await botReply(technoChatbot.getName);
-            disableInput(false);
-        } else {
-            await botReply(technoChatbot.offlineSupport);
-            showContactOptions();
+    function stringSimilarity(str1, str2){
+        const longer = str1.length > str2.length ? str1 : str2;
+        const shorter = str1.length > str2.length ? str2 : str1;
+        if(longer.length === 0) return 1;
+
+        return (longer.length - levenshteinDistance(longer, shorter)) / longer.length;
+    }
+
+    function levenshteinDistance(a, b){
+        const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(0));
+        for(let i=0;i<=b.length;i++) matrix[i][0]=i;
+        for(let j=0;j<=a.length;j++) matrix[0][j]=j;
+
+        for(let i=1;i<=b.length;i++){
+            for(let j=1;j<=a.length;j++){
+                matrix[i][j] = b[i-1] === a[j-1]
+                    ? matrix[i-1][j-1]
+                    : Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
+            }
         }
+        return matrix[b.length][a.length];
     }
 
-    function startLiveChatPolling() {
-        liveChatSessionId = localStorage.getItem('techno_livechat_session')
-            || ('sess_' + Date.now() + '_' + Math.random().toString(36).slice(2));
-        localStorage.setItem('techno_livechat_session', liveChatSessionId);
-
-        updateStatusDot(true);
-        disableInput(false);
-
-        fetch(technoChatbot.ajax_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action: 'techno_livechat_visitor_send',
-                nonce: technoChatbot.nonce,
-                session_id: liveChatSessionId,
-                visitor_name: liveChatVisitorName || 'Visitor',
-                message: '--- Chat started by ' + (liveChatVisitorName || 'Visitor') + ' ---'
-            })
-        });
-
-        pollLiveChatMessages();
-        liveChatPollTimer = setInterval(pollLiveChatMessages, 3000);
-    }
-
-    async function pollLiveChatMessages() {
-        const res = await fetch(technoChatbot.ajax_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action: 'techno_livechat_poll',
-                nonce: technoChatbot.nonce,
-                session_id: liveChatSessionId,
-                after_id: liveChatLastId
-            })
-        });
-        const data = await res.json();
-        if (data.success && data.data.messages.length) {
-            data.data.messages.forEach(msg => {
-                if (msg.sender === 'admin') {
-                    addMessage(msg.message, 'admin');
-                }
-                liveChatLastId = Math.max(liveChatLastId, parseInt(msg.id));
-            });
-        }
-    }
-
-    function setState(state){
-        /* 
-         * 0 Normal FAQ mode 
-         * 1 Showing phone/email contact options
-         * 2 Waiting for phone/email value
-         * 3 Waiting for time-to-call
-         * 4 Contact flow finished
-         * 5 Live chat active
-         * 6 Waiting for visitor name
-         */
-        localStorage.setItem(CONTACT_STATE_KEY, state);
-    }
-
-    function getState(){
-        return parseInt(localStorage.getItem(CONTACT_STATE_KEY) || '0');
-    }
-
-    function setContactMethod(method){
-        localStorage.setItem(CONTACT_METHOD_KEY, method);
-    }
-
-    function getContactMethod(){
-        return localStorage.getItem(CONTACT_METHOD_KEY);
-    }
-
+    /* ---------- Contact Options ---------- */
     function showContactOptions(restored = false){
         if(document.querySelector('.techno-chatbot-contact-options')) return;
-        
+
         const wrapper = document.createElement('div');
         wrapper.className = 'techno-chatbot-contact-options';
 
@@ -442,9 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
         disableInput(true);
 
-        if(!restored){
-            setState(1);
-        }
+        if(!restored) setState(1);
 
         phoneBtn.onclick = () => chooseContact('phone');
         emailBtn.onclick = () => chooseContact('email');
@@ -458,27 +251,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if(options) options.remove();
 
         disableInput(false);
-        
-        let methodLabel = technoChatbot.cEmailLabel;
-        switch (method) {
-            case 'phone':
-                methodLabel = technoChatbot.cPhoneLabel;
-            break;
-        }
 
+        const methodLabel = method === 'phone' ? technoChatbot.cPhoneLabel : technoChatbot.cEmailLabel;
         addMessage(methodLabel, 'admin', true);
     }
 
-    function finishContact(){
+    async function finishContact(){
         setState(4);
-        botReply(technoChatbot.getContactThxMsg);
+        await botReply(technoChatbot.getContactThxMsg);
         sendChatToAdmin();
     }
 
     function sendChatToAdmin(){
         const started = parseInt(localStorage.getItem(CHAT_START_KEY));
         const duration = Date.now() - started;
-
         if(duration < 5000){
             botReply(technoChatbot.spamLimitMsg);
             return;
@@ -494,19 +280,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 nonce: technoChatbot.nonce
             })
         })
-        .then(async res => {
-            if (!res.ok) {
-                throw new Error(`Server error: ${res.status}`);
-            }
-            const data = await res.json();
-            return data;
-        })
+        .then(res => res.json())
         .then(data => {
-            if (data.success) {
-                clearHistory();
-            } else {
-                botReply(technoChatbot.cerrorMsg);
-            }
+            if(data.success) clearHistory();
+            else botReply(technoChatbot.cerrorMsg);
         })
         .catch(err => {
             console.error(err);
@@ -514,50 +291,112 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* Load chat history */
-    loadHistory();
-    /* Check Livechat Support Online status */
-    if (technoChatbot.liveChatEnabled) {
-        refreshStatusDot();
-    }
-    if (!el.window.classList.contains('techno-chatbot-hidden')) {
-        startStatusDotPolling();
+    function clearHistory() {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(CONTACT_STATE_KEY);
+        localStorage.removeItem(CONTACT_METHOD_KEY);
+        localStorage.removeItem(FAIL_COUNT_KEY);
+        localStorage.removeItem(CHAT_START_KEY);
+        localStorage.removeItem(LIVECHAT_NAME_KEY);
+        localStorage.removeItem('techno_livechat_session');
+        liveChatSessionId = null;
+        liveChatVisitorName = null;
+        el.messages.innerHTML = '';
+        botReply(technoChatbot.welcomeMessage);
+        disableInput(false);
     }
 
-    /* Chatbot interactions */
-    el.icon.addEventListener('click', () => {
-        el.window.classList.toggle('techno-chatbot-hidden');
-        const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        if (!history.length) {
-            botReply(technoChatbot.welcomeMessage);
+    /* ---------- WebSocket Live Chat ---------- */
+    function initSocket() {
+        if(!technoChatbot.ws_url) return;
+
+        socket = io(technoChatbot.ws_url, { transports: ['websocket'] });
+
+        socket.on("connect", () => {
+            console.log("WS connected:", socket.id);
+            if(liveChatSessionId) {
+                socket.emit("join", { session_id: liveChatSessionId });
+            }
+        });
+
+        socket.on("receive-message", (msg) => {
+            if(msg.session_id !== liveChatSessionId) return;
+            if(msg.sender === 'admin') addMessage(msg.message, 'admin');
+        });
+
+        socket.on("support-status", (data) => {
+            if(typeof data.online === 'boolean'){
+                updateStatusDot(data.online);
+            }
+        });
+
+        socket.on("disconnect", () => {
+            console.log("WS disconnected");
+            updateStatusDot(false);
+        });
+    }
+    async function startLiveChat() {
+        liveChatSessionId = localStorage.getItem('techno_livechat_session') || ('sess_' + Date.now());
+        localStorage.setItem('techno_livechat_session', liveChatSessionId);
+
+        updateStatusDot(true);
+        disableInput(false);
+        initSocket();
+
+        if(liveChatVisitorName) {
+            socket?.emit('join', { session_id: liveChatSessionId });
         }
 
-        if (!el.window.classList.contains('techno-chatbot-hidden')) {
-            scrollToBottom();
-            startStatusDotPolling();
-        } else {
-            stopStatusDotPolling();
-        }
-    });
-
-    el.close?.addEventListener('click', () => {
-        el.window.classList.add('techno-chatbot-hidden');
-        stopStatusDotPolling();
-    });
-
-    el.menubtn.addEventListener('click', () => {
-        el.menubtn.classList.toggle('active');
-    });
-
-    if( el.reset.length > 0 ){
-        el.reset.forEach(btn => {
-            btn.addEventListener('click', () => { clearHistory(); el.menubtn.classList.toggle('active'); });
+        socket?.emit('message', {
+            type: 'system',
+            session_id: liveChatSessionId,
+            visitor_name: liveChatVisitorName || 'Visitor',
+            message: '--- Chat started ---'
         });
     }
 
+    async function checkAndTransferToLiveChat() {
+        if (!technoChatbot.liveChatEnabled) {
+            await botReply(technoChatbot.offlineSupport);
+            showContactOptions();
+            return;
+        }
+
+        try {
+            const res = await fetch(technoChatbot.ajax_url, {
+                method:'POST',
+                headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action:'techno_check_support_online',
+                    nonce: technoChatbot.nonce
+                })
+            });
+            const data = await res.json();
+            const online = data.success && data.data.online;
+            statusDotCache = { online, ts: Date.now() };
+            updateStatusDot(online);
+
+            if(online){
+                setState(6);
+                await botReply(technoChatbot.getName);
+                disableInput(false);
+            } else {
+                setState(0);
+                await botReply(technoChatbot.offlineSupport);
+                showContactOptions();
+            }
+        } catch(e){
+            console.error(e);
+            setState(0);
+            await botReply(technoChatbot.offlineSupport);
+            showContactOptions();
+        }
+    }
+
+    /* ---------- Chat Send Handler ---------- */
     const handleSend = async () => {
         const userMessage = el.input.value.trim();
-        if (!userMessage) return;
+        if(!userMessage) return;
 
         addMessage(userMessage, 'visitor');
         el.input.value = '';
@@ -569,13 +408,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(parseInt(technoChatbot.timeToCall) === 1){
                     setState(3);
                     await botReply(technoChatbot.timeToCallTxt);
-                }else{
-                    finishContact();
+                } else {
+                    await finishContact();
                 }
             }
-
             if(method === 'email'){
-                finishContact();
+                await finishContact();
             }
             return;
         }
@@ -585,58 +423,57 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (state === 5) {
-            fetch(technoChatbot.ajax_url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    action: 'techno_livechat_visitor_send',
-                    nonce: technoChatbot.nonce,
-                    session_id: liveChatSessionId,
-                    visitor_name: liveChatVisitorName || 'Visitor',
-                    message: userMessage
-                })
+        if(state === 5 && socket && socket.connected){
+            socket.emit('message', {
+                type: 'message',
+                session_id: liveChatSessionId,
+                visitor_name: liveChatVisitorName || 'Visitor',
+                message: userMessage
             });
             return;
         }
 
-        if (state === 6) {
+        if(state === 6){
             liveChatVisitorName = userMessage;
             localStorage.setItem(LIVECHAT_NAME_KEY, liveChatVisitorName);
-
-            const res = await fetch(technoChatbot.ajax_url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    action: 'techno_check_support_online',
-                    nonce: technoChatbot.nonce
-                })
-            });
-            const data = await res.json();
-            const online = data.success && data.data.online;
-
-            // Bust cache with fresh result
-            statusDotCache = { online, ts: Date.now() };
-            updateStatusDot(online);
-
-            if (online) {
-                setState(5);
-                await botReply(technoChatbot.transferredToSupport);
-                startLiveChatPolling();
-            } else {
-                setState(0);
-                await botReply(technoChatbot.offlineSupport);
-                showContactOptions();
-            }
+            await checkAndTransferToLiveChat();
             return;
         }
 
         await handleFaqReply(userMessage);
     };
 
+    /* ---------- Event Listeners ---------- */
     el.send?.addEventListener('click', handleSend);
     el.input?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSend();
+        if(e.key === 'Enter') handleSend();
     });
 
+    el.icon.addEventListener('click', () => {
+        el.window.classList.toggle('techno-chatbot-hidden');
+        if(!el.window.classList.contains('techno-chatbot-hidden')){
+            scrollToBottom();
+            const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            if(!history.length) botReply(technoChatbot.welcomeMessage);
+        }
+    });
+    el.menubtn.addEventListener('click', () => el.menubtn.classList.toggle('active'));
+    if(el.reset.length > 0){
+        el.reset.forEach(btn => btn.addEventListener('click', () => { clearHistory(); el.menubtn.classList.remove('active'); }));
+    }
+
+    /* ---------- Load History ---------- */
+    function loadHistory(){
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        history.forEach(msg => addMessage(msg.text, msg.sender, false));
+
+        const state = getState();
+        if(state === 1) showContactOptions(true);
+        if(state === 2 || state === 3) disableInput(false);
+        if(state === 6) disableInput(false);
+
+        scrollToBottom();
+    }
+
+    loadHistory();
 });

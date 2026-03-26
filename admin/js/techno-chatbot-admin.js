@@ -23,162 +23,148 @@
 
 })( jQuery );
 
+/* ---------- Admin WebSocket Section ---------- */
 const livechatPage = document.getElementById('techno-livechat-admin');
 const toggleInput = document.getElementById('techno-admin-toggle-online');
 const toggleLabel = document.getElementById('techno-toggle-label');
 const chatInput = document.getElementById('techno-admin-chat-input');
 const sendBtn   = document.getElementById('techno-admin-chat-send');
 const activeVisitors = document.getElementById('techno-active-visitors');
+const chatWindow = document.getElementById('techno-admin-chat-window');
 
 let currentSession = null;
-let adminPollTimer = null;
 let adminLastId = 0;
+let socket = null;
 
+function initAdminSocket() {
+    socket = io(technoLivechat.ws_url, { transports: ['websocket'] });
+    socket.on("connect", () => {
+        console.log("Admin WS connected:", socket.id);
+        socket.emit("register-support");
+        loadActiveVisitors();
+    });
+    socket.on("receive-message", (msg) => {
+        if (msg.session_id !== currentSession) return;
+        addAdminMessage(msg);
+    });
+    socket.on("support-status", (data) => {
+        const online = !!data.online;
+        toggleInput.checked = online;
+        toggleLabel.textContent = online ? 'Online' : 'Offline';
+        updateChatState(online);
+    });
+    socket.on("active-sessions", (sessions) => {
+        renderActiveVisitors(sessions);
+    });
+}
+
+/* ---------- Helpers ---------- */
 function updateChatState(isOnline) {
     if (!chatInput || !sendBtn) return;
 
     chatInput.disabled = !isOnline;
     sendBtn.disabled   = !isOnline;
+    chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
+    sendBtn.textContent = isOnline ? 'Send' : 'Offline';
+}
 
-    // Optional UX improvement
-    chatInput.placeholder = isOnline 
-        ? 'Type a message...' 
-        : 'Support is offline...';
-
-    sendBtn.textContent = isOnline 
-        ? 'Send' 
-        : 'Offline';
+function updateSupportStatus() {
+    fetch(technoLivechat.ajax_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'techno_toggle_support_online',
+            nonce: technoLivechat.nonce
+        })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if(res.success) {
+            const online = res.data.online;
+            toggleInput.checked = online;
+            toggleLabel.textContent = online ? 'Online' : 'Offline';
+            updateChatState(online);
+        }
+    });
 }
 
 function openSession(sessionId) {
     currentSession = sessionId;
+    socket.emit("join-session", { session_id: sessionId }); 
     adminLastId = 0;
-    document.getElementById('techno-admin-chat-window').innerHTML = '';
-    clearInterval(adminPollTimer);
-    adminPollTimer = setInterval(adminPollMessages, 2000);
-    adminPollMessages(); // immediate first fetch
+    if(chatWindow) chatWindow.innerHTML = '';
 }
 
-function adminPollMessages() {
-    fetch(technoLivechat.ajax_url, { method:'POST', body: new URLSearchParams({
-        action: 'techno_livechat_poll',
-        nonce: technoLivechat.nonce,
-        session_id: currentSession,
-        after_id: adminLastId
-    })})
-    .then(r => r.json())
-    .then(data => {
-        const win = document.getElementById('techno-admin-chat-window');
-        data.data.messages.forEach(msg => {
-            const div = document.createElement('div');
-            div.className = `techno-livechat-msg ${msg.sender}`;
-            div.textContent = msg.message;
-            win.appendChild(div);
-            adminLastId = Math.max(adminLastId, msg.id);
-        });
-        win.scrollTop = win.scrollHeight;
+function addAdminMessage(msg) {
+    if(!chatWindow) return;
+    const div = document.createElement('div');
+    div.className = `techno-livechat-msg ${msg.sender}`;
+    div.textContent = msg.message;
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    adminLastId = Math.max(adminLastId, msg.id || 0);
+}
+
+/* ---------- Active visitors ---------- */
+function renderActiveVisitors(sessions) {
+    if(!activeVisitors) return;
+    activeVisitors.innerHTML = '';
+
+    sessions.forEach(sess => {
+        const li = document.createElement('li');
+        li.textContent = sess;
+        li.onclick = () => openSession(sess);
+
+        if (sess === currentSession) {
+            li.classList.add('active');
+        }
+
+        activeVisitors.appendChild(li);
     });
 }
 
-function sendHeartbeat() {
-    fetch(technoLivechat.ajax_url, {
-        method: 'POST',
-        body: new URLSearchParams({
-            action: 'techno_admin_heartbeat',
-            nonce: technoLivechat.nonce
-        })
-    });
-}
-
-/* Poll active visitor sessions */
 function loadActiveVisitors() {
-    fetch(technoLivechat.ajax_url, {
-        method:'POST',
-        body: new URLSearchParams({
-            action: 'techno_livechat_get_sessions',
-            nonce: technoLivechat.nonce
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data.success) return;
-
-        activeVisitors.innerHTML = '';
-
-        data.data.sessions.forEach(sess => {
-            const li = document.createElement('li');
-            li.textContent = sess;
-            li.onclick = () => openSession(sess);
-
-            if (sess === currentSession) {
-                li.classList.add('active');
-            }
-
-            activeVisitors.appendChild(li);
-        });
-    })
-    .catch(err => console.error('Visitor load error:', err));
+    if(!socket) return;
+    socket.emit("get-active-sessions");
 }
 
-if (activeVisitors) {
-    loadActiveVisitors();              // ✅ RUN IMMEDIATELY
-    setInterval(loadActiveVisitors, 5000); // 🔁 Continue polling
-}
-
-/* Support Online toggle */
-if (toggleInput) {
-    toggleInput.addEventListener('change', () => {
-
-        fetch(technoLivechat.ajax_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action: 'techno_toggle_support_online',
-                nonce: technoLivechat.nonce
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (!data.success) {
-                alert('Error');
-                toggleInput.checked = !toggleInput.checked;
-                return;
-            }
-            const isOnline = data.data.online;
-            toggleInput.checked = isOnline;
-            toggleLabel.textContent = isOnline ? 'Online' : 'Offline';
-            updateChatState(isOnline);
-        })
-        .catch(() => {
-            alert('Network error');
-            toggleInput.checked = !toggleInput.checked;
-        });
-
-    });
-}
-
-/* Heartbeat check support online status */
-if( livechatPage ){
-    sendHeartbeat();
-    setInterval(sendHeartbeat, technoLivechat.heartbeathz);
-}
-
-/* Send chat */
+/* ---------- Send chat ---------- */
 sendBtn?.addEventListener('click', () => {
     const msg = chatInput.value.trim();
-    if (!msg || !currentSession) return;
+    if (!msg || !currentSession || !socket) return;
     chatInput.value = '';
 
-    fetch(technoLivechat.ajax_url, { method:'POST', body: new URLSearchParams({
-        action: 'techno_livechat_admin_send',
-        nonce: technoLivechat.nonce,
+    socket.emit("send-message", {
         session_id: currentSession,
-        message: msg
-    })});
+        message: msg,
+        sender: "admin"
+    });
+
+    addAdminMessage({ sender: 'admin', message: msg });
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (toggleInput) {
-        updateChatState(toggleInput.checked);
+/* ---------- Support online toggle ---------- */
+if(toggleInput) {
+    toggleInput.addEventListener('change', () => {
+        if(!socket) return;
+        updateSupportStatus();
+        if(toggleInput.checked) {
+            socket.emit("register-support");
+        } else {
+            socket.emit("unregister-support");
+        }
+    });
+}
+
+/* ---------- Auto-offline if admin closes tab ---------- */
+window.addEventListener('beforeunload', () => {
+    if(socket) {
+        socket.emit("unregister-support");
     }
+});
+
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+    if(toggleInput) updateChatState(toggleInput.checked);
+    if(livechatPage) initAdminSocket();
 });
