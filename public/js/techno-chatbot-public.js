@@ -309,13 +309,13 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ---------- WebSocket Live Chat ---------- */
     function initSocket() {
         if(!technoChatbot.ws_url) return;
-
         socket = io(technoChatbot.ws_url, { transports: ['websocket'] });
-
         socket.on("connect", () => {
             console.log("WS connected:", socket.id);
-            if(liveChatSessionId) {
-                socket.emit("join", { session_id: liveChatSessionId });
+            socket.emit("get-active-sessions");
+            liveChatSessionId = localStorage.getItem('techno_livechat_session');
+            if(liveChatSessionId){
+                socket.emit("visitor-join", { session_id: liveChatSessionId });
             }
         });
 
@@ -327,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on("support-status", (data) => {
             if(typeof data.online === 'boolean'){
                 updateStatusDot(data.online);
+                console.log(data.online);
             }
         });
 
@@ -339,20 +340,16 @@ document.addEventListener('DOMContentLoaded', () => {
         liveChatSessionId = localStorage.getItem('techno_livechat_session') || ('sess_' + Date.now());
         localStorage.setItem('techno_livechat_session', liveChatSessionId);
 
-        updateStatusDot(true);
         disableInput(false);
         initSocket();
 
-        if(liveChatVisitorName) {
-            socket?.emit('join', { session_id: liveChatSessionId });
-        }
-
-        socket?.emit('message', {
-            type: 'system',
-            session_id: liveChatSessionId,
-            visitor_name: liveChatVisitorName || 'Visitor',
-            message: '--- Chat started ---'
+        socket.on("connect", () => {
+            socket.emit("visitor-join", { session_id: liveChatSessionId });
         });
+        
+        /* if(liveChatVisitorName) {
+            socket?.emit('visitor-join', { session_id: liveChatSessionId });
+        } */
     }
 
     async function checkAndTransferToLiveChat() {
@@ -424,11 +421,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if(state === 5 && socket && socket.connected){
-            socket.emit('message', {
-                type: 'message',
+            socket.emit("send-message", {
                 session_id: liveChatSessionId,
-                visitor_name: liveChatVisitorName || 'Visitor',
-                message: userMessage
+                message: userMessage,
+                sender: "visitor"
             });
             return;
         }
@@ -436,7 +432,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(state === 6){
             liveChatVisitorName = userMessage;
             localStorage.setItem(LIVECHAT_NAME_KEY, liveChatVisitorName);
-            await checkAndTransferToLiveChat();
+            setState(5);
+            await botReply(technoChatbot.transferredToSupport);
+            await startLiveChat();
             return;
         }
 
@@ -466,14 +464,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadHistory(){
         const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         history.forEach(msg => addMessage(msg.text, msg.sender, false));
-
         const state = getState();
         if(state === 1) showContactOptions(true);
         if(state === 2 || state === 3) disableInput(false);
+        if(state === 5){
+            initSocket();
+            setTimeout(() => {
+                if(socket && liveChatSessionId){
+                    socket.emit("visitor-join", { session_id: liveChatSessionId });
+                }
+            }, 500);
+        }
         if(state === 6) disableInput(false);
 
         scrollToBottom();
     }
 
+    initSocket(); 
     loadHistory();
 });

@@ -187,6 +187,15 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Render the AI knowledge page.
+	 *
+	 * @since    1.0.0
+	 */
+	public function display_knowledgebase_page() {
+		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-aiknowledgebase.php';
+	}
+
+	/**
 	 * Render the Live Chat page.
 	 *
 	 * @since    1.0.0
@@ -202,15 +211,6 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
-	 * Render the AI knowledge page.
-	 *
-	 * @since    1.0.0
-	 */
-	public function display_knowledgebase_page() {
-		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-aiknowledgebase.php';
-	}
-
-	/**
 	 * Toggle Support Online
 	 *
 	 * @since    1.0.0
@@ -223,31 +223,6 @@ class Techno_Chatbot_Admin {
 		update_option('techno_chatbot_support_online', $onlinestatus);
 		wp_send_json_success(['online' => (bool)$onlinestatus]);
 		
-	}
-
-	/**
-	 * Admin sends heartbeat:
-	 *
-	 * @since    1.0.0
-	 */
-	public function admin_heartbeat() {
-		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-		if (!current_user_can('manage_options')) wp_send_json_error();
-		set_transient('techno_support_heartbeat', 1, 60);
-		wp_send_json_success();
-	}
-	
-	/**
-	 * Admin fetches list of active sessions
-	 *
-	 * @since    1.0.0
-	 */
-	public function livechat_get_sessions() {
-		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-		if (!current_user_can('manage_options')) wp_send_json_error();
-
-		$sessions = get_option('techno_active_livechat_sessions', []);
-		wp_send_json_success(['sessions' => $sessions]);
 	}
 	
 	/**

@@ -31,29 +31,53 @@ const chatInput = document.getElementById('techno-admin-chat-input');
 const sendBtn   = document.getElementById('techno-admin-chat-send');
 const activeVisitors = document.getElementById('techno-active-visitors');
 const chatWindow = document.getElementById('techno-admin-chat-window');
+const chatToggle = document.getElementById('techno-support-switch');
 
 let currentSession = null;
 let adminLastId = 0;
 let socket = null;
+let previousSessions = [];
 
 function initAdminSocket() {
-    socket = io(technoLivechat.ws_url, { transports: ['websocket'] });
+    socket = io(technoLivechat.ws_url, { 
+        transports: ['websocket'], 
+        reconnection: false
+    });
+    
+    /* On Error */
+    socket.on("connect_error", () => {
+        console.log("WebSocket server is OFF");
+        if (toggleInput) {
+            toggleInput.checked = false;
+            toggleInput.disabled = true;
+        }
+        if (toggleLabel) {
+            toggleLabel.textContent = "Server Offline";
+        }
+        updateChatState(false);
+    });
+
+    /* On Connect */
     socket.on("connect", () => {
         console.log("Admin WS connected:", socket.id);
         socket.emit("register-support");
         loadActiveVisitors();
+        chatToggle?.classList.add('active');
     });
-    socket.on("receive-message", (msg) => {
-        if (msg.session_id !== currentSession) return;
-        addAdminMessage(msg);
+
+    socket.on("new-session", (sessionId) => {
+        console.log("🔥 New visitor:", sessionId);
     });
-    socket.on("support-status", (data) => {
-        const online = !!data.online;
-        toggleInput.checked = online;
-        toggleLabel.textContent = online ? 'Online' : 'Offline';
-        updateChatState(online);
-    });
+
     socket.on("active-sessions", (sessions) => {
+        const newSessions = sessions.filter(s => !previousSessions.includes(s));
+        if (newSessions.length > 0) {
+            console.log("New sessions:", newSessions);
+            newSessions.forEach(sess => {
+                notifyNewSession(sess);
+            });
+        }
+        previousSessions = sessions;
         renderActiveVisitors(sessions);
     });
 }
@@ -61,7 +85,6 @@ function initAdminSocket() {
 /* ---------- Helpers ---------- */
 function updateChatState(isOnline) {
     if (!chatInput || !sendBtn) return;
-
     chatInput.disabled = !isOnline;
     sendBtn.disabled   = !isOnline;
     chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
@@ -105,6 +128,16 @@ function addAdminMessage(msg) {
     adminLastId = Math.max(adminLastId, msg.id || 0);
 }
 
+function notifyNewSession(sessionId) {
+    const li = document.createElement('li');
+    li.textContent = sessionId + " (NEW)";
+    li.style.fontWeight = 'bold';
+    li.onclick = () => openSession(sessionId);
+    activeVisitors.prepend(li);
+    // Optional: sound
+    // new Audio('/path/notification.mp3').play();
+}
+
 /* ---------- Active visitors ---------- */
 function renderActiveVisitors(sessions) {
     if(!activeVisitors) return;
@@ -114,11 +147,9 @@ function renderActiveVisitors(sessions) {
         const li = document.createElement('li');
         li.textContent = sess;
         li.onclick = () => openSession(sess);
-
         if (sess === currentSession) {
             li.classList.add('active');
         }
-
         activeVisitors.appendChild(li);
     });
 }

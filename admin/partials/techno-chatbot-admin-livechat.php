@@ -2,7 +2,7 @@
             
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
-        <div class="techno-support-switch">
+        <div id="techno-support-switch">
             <span>Live Chat</span>
             <label class="techno-switch">
                 <input type="checkbox" id="techno-admin-toggle-online" <?php checked($online, 1); ?>>
