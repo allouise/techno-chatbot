@@ -41,7 +41,11 @@ let previousSessions = [];
 function initAdminSocket() {
     socket = io(technoLivechat.ws_url, { 
         transports: ['websocket'], 
-        reconnection: false
+        reconnection: false,
+        auth: {
+            site: technoLivechat.site_id,
+            token: technoLivechat.token
+        }
     });
     
     /* On Error */
@@ -55,6 +59,7 @@ function initAdminSocket() {
             toggleLabel.textContent = "Server Offline";
         }
         updateChatState(false);
+        updateSupportStatus(0);
     });
 
     /* On Connect */
@@ -91,21 +96,22 @@ function updateChatState(isOnline) {
     sendBtn.textContent = isOnline ? 'Send' : 'Offline';
 }
 
-function updateSupportStatus() {
+function updateSupportStatus(force = null) {
     fetch(technoLivechat.ajax_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
             action: 'techno_toggle_support_online',
-            nonce: technoLivechat.nonce
+            nonce: technoLivechat.nonce,
+            force_status: force 
         })
     })
     .then(res => res.json())
     .then(res => {
         if(res.success) {
             const online = res.data.online;
-            toggleInput.checked = online;
-            toggleLabel.textContent = online ? 'Online' : 'Offline';
+            if (toggleInput) toggleInput.checked = online;
+            if (toggleLabel) toggleLabel.textContent = online ? 'Online' : 'Offline';
             updateChatState(online);
         }
     });

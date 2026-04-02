@@ -90,11 +90,13 @@ class Techno_Chatbot_Admin {
 			wp_localize_script(
 				'techno-admin-script',
 				'technoLivechat',
-				array(
+				[
 					'ajax_url' => admin_url('admin-ajax.php'),
 					'nonce' => wp_create_nonce('techno_chatbot_nonce'),
-					'ws_url' => 'http://localhost:3000'
-				)
+					'ws_url' => 'http://localhost:3000',
+					'site_id' => get_site_url(),
+					'token' => hash_hmac('sha256', get_site_url(), 'nH3Vdn0bvVpuQ1QLhqnH75yMBTn2uXdK')
+				]
 			);
 		}
 
@@ -209,6 +211,22 @@ class Techno_Chatbot_Admin {
 		}
 		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-chats.php';
 	}
+	
+	/**
+	 * Check Websocket
+	 *
+	 * @since    1.0.0
+	 */
+	private function is_websocket_running($host = '127.0.0.1', $port = 3000) {
+		$connection = @fsockopen($host, $port, $errno, $errstr, 1);
+
+		if (is_resource($connection)) {
+			fclose($connection);
+			return true;
+		}
+
+		return false;
+	}
 
 	/**
 	 * Toggle Support Online
@@ -217,12 +235,25 @@ class Techno_Chatbot_Admin {
 	 */
 	public function toggle_support_online() {
 		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-		if (!current_user_can('manage_options')) wp_send_json_error();
+
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error();
+		}
+
+		// ✅ If force_status is provided → use it directly
+		if (isset($_POST['force_status'])) {
+			$status = intval($_POST['force_status']) === 1 ? 1 : 0;
+			update_option('techno_chatbot_support_online', $status);
+			wp_send_json_success(['online' => (bool)$status]);
+		}
+
+		// fallback toggle
 		$current = get_option('techno_chatbot_support_online', 0);
-		$onlinestatus = $current ? 0 : 1;		
+		$onlinestatus = $current ? 0 : 1;
+
 		update_option('techno_chatbot_support_online', $onlinestatus);
+
 		wp_send_json_success(['online' => (bool)$onlinestatus]);
-		
 	}
 	
 	/**
