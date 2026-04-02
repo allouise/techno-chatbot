@@ -111,7 +111,11 @@ function updateSupportStatus(force = null) {
         if(res.success) {
             const online = res.data.online;
             if (toggleInput) toggleInput.checked = online;
-            if (toggleLabel) toggleLabel.textContent = online ? 'Online' : 'Offline';
+            if (toggleLabel) {
+                toggleLabel.textContent = online 
+                    ? 'Online' 
+                    : (server_offline == 1 ? 'Server Offline' : 'Offline');
+            }
             updateChatState(online);
         }
     });

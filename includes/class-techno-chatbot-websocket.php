@@ -72,7 +72,7 @@ class Techno_Chatbot_Websocket {
     /**
      * Prevent unserialize
      */
-    private function __wakeup() {}
+    /* private function __wakeup() {} */
 
     /**
      * Class instance

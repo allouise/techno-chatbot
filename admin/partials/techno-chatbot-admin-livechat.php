@@ -1,5 +1,4 @@
 <div id="techno-livechat-admin" <?php echo ($online == 1)? 'class="online"' : ''; ?>>
-            
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
         <div id="techno-support-switch">
@@ -9,7 +8,14 @@
                 <span class="techno-slider"></span>
             </label>
             <span id="techno-toggle-label">
-                <?php echo ($online == 1) ? 'Online' : 'Offline'; ?>
+                <?php 
+                if( $server ){
+                    echo ($online == 1) ? 'Online' : 'Offline'; 
+                }else{
+                    echo 'Server Offline';
+                }
+                
+                ?>
             </span>
         </div>
         <h3>Active Visitors</h3>

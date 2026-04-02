@@ -207,25 +207,11 @@ class Techno_Chatbot_Admin {
 		switch ($active_tab) {
 			case 'livechat':
 				$online = (int)get_option('techno_chatbot_support_online', 0);
+				$server = techno_wss_check();
+				$online = $server? true : false;
 			break;
 		}
 		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-chats.php';
-	}
-	
-	/**
-	 * Check Websocket
-	 *
-	 * @since    1.0.0
-	 */
-	private function is_websocket_running($host = '127.0.0.1', $port = 3000) {
-		$connection = @fsockopen($host, $port, $errno, $errstr, 1);
-
-		if (is_resource($connection)) {
-			fclose($connection);
-			return true;
-		}
-
-		return false;
 	}
 
 	/**
@@ -240,17 +226,19 @@ class Techno_Chatbot_Admin {
 			wp_send_json_error();
 		}
 
-		// ✅ If force_status is provided → use it directly
+		if( !techno_wss_check() ){
+			update_option('techno_chatbot_support_online', 0);
+			wp_send_json_success(['online' => 0, 'server_offline' => 1]);
+		}
+
 		if (isset($_POST['force_status'])) {
 			$status = intval($_POST['force_status']) === 1 ? 1 : 0;
 			update_option('techno_chatbot_support_online', $status);
 			wp_send_json_success(['online' => (bool)$status]);
 		}
 
-		// fallback toggle
 		$current = get_option('techno_chatbot_support_online', 0);
 		$onlinestatus = $current ? 0 : 1;
-
 		update_option('techno_chatbot_support_online', $onlinestatus);
 
 		wp_send_json_success(['online' => (bool)$onlinestatus]);
