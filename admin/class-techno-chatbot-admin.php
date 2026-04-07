@@ -82,15 +82,18 @@ class Techno_Chatbot_Admin {
     	$livechat_allowed = $livechat_allowed['allowed'] === true;
 		if( $livechat_allowed ){
 			wp_enqueue_script( $this->plugin_name.'-socket-io', plugin_dir_url( __FILE__ ) . 'js/socket.io.min.js', array(), $this->version, true );
+
+			$ws = techno_chatbot_websocket();
+			$site = get_site_url();
 			wp_localize_script(
 				'techno-admin-script',
 				'technoLivechat',
 				[
 					'ajax_url' => admin_url('admin-ajax.php'),
 					'nonce' => wp_create_nonce('techno_chatbot_nonce'),
-					'ws_url' => 'http://localhost:3000',
-					'site_id' => get_site_url(),
-					'token' => hash_hmac('sha256', get_site_url(), 'nH3Vdn0bvVpuQ1QLhqnH75yMBTn2uXdK')
+					'ws_url'   => $ws->get_url(),
+					'site_id'  => $site,
+					'token'    => $ws->get_token($site),
 				]
 			);
 		}

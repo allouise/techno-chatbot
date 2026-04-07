@@ -39,7 +39,7 @@ $active_tab = isset($_GET['tab']) ? sanitize_key( $_GET['tab'] ) : 'general';
 
         <a href="?page=techno-chatbot&tab=license" 
            class="nav-tab <?php echo $active_tab == 'license' ? 'nav-tab-active' : ''; ?>">
-           License
+           License/API
         </a>
     </h2>
     <?php settings_errors(); ?>

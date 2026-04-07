@@ -107,6 +107,42 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Send button text.'
         ),
 
+        'techno_chatbot_menulivechat' => array(
+            'label'       => 'Menu livechat',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Transfer to live chat',
+            'placeholder' => 'Transfer to live chat',
+            'description' => 'Menu livechat button text.'
+        ),
+
+        'techno_chatbot_menucall' => array(
+            'label'       => 'Menu call',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Request for a call',
+            'placeholder' => 'Request for a call',
+            'description' => 'Menu call button text.'
+        ),
+
+        'techno_chatbot_menuemail' => array(
+            'label'       => 'Menu email',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Send me an email',
+            'placeholder' => 'Send me an email',
+            'description' => 'Menu email button text.'
+        ),
+
+        'techno_chatbot_menureset' => array(
+            'label'       => 'Menu reset',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Restart',
+            'placeholder' => 'Restart',
+            'description' => 'Menu reset button text.'
+        ),
+
         // Messages
         'techno_chatbot_disclaimermsg' => array(
             'label'       => 'Disclaimer message',
@@ -150,35 +186,17 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'I do not have the specific information for your question.',
+            'default'     => 'I do not have the specific information for your question, please try asking different question.',
             'description' => 'Default message sent when the chatbot cannot find a proper answer.'
         ),
 
-        'techno_chatbot_no_answer_message_final_contact' => array(
-            'label'       => 'Final No Answer Default (Contact Option)',
+        'techno_chatbot_no_answer_message_final_default' => array(
+            'label'       => 'Final No Answer Default',
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
             'default'     => 'I do not have the specific information for your question, the best thing I can do is have one of our representative reach you, please provide the best way to contact you.',
-            'description' => 'Final message sent for Transfer/Next step: Call/Email when the chatbot cannot find a proper answer then transfer to next option.'
-        ),
-
-        'techno_chatbot_no_answer_message_final_default' => array(
-            'label'       => 'Final No Answer Default (Default)',
-            'type'        => 'textarea',
-            'section'     => 'messages_section',
-            'rows'        => 4,
-            'default'     => 'I do not have the specific information for your question, please try asking different question.',
-            'description' => 'Final message sent for Transfer/Next step: Default reply when the chatbot cannot find a proper answer then transfer to next option.'
-        ),
-
-        'techno_chatbot_no_answer_message_final_livechat' => array(
-            'label'       => 'Final No Answer Default (Livechat)',
-            'type'        => 'textarea',
-            'section'     => 'messages_section',
-            'rows'        => 4,
-            'default'     => 'I do not have the specific information for your question, the best thing I can do is have one of our representative talk to you.',
-            'description' => 'Final message sent for Transfer/Next step: Livechat when the chatbot cannot find a proper answer then transfer to next option.'
+            'description' => 'Final message reply when the chatbot cannot find a proper answer then transfer to next option.'
         ),
 
         'techno_chatbot_offline_agents_message' => array(

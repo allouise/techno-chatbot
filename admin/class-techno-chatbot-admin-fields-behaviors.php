@@ -94,29 +94,6 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'description' => 'Show & require \'Best time to call?\' question when getting client\'s phone number.',
 		),
 
-		'techno_chatbot_transfer_next_step' => array(
-			'label'       => 'Transfer / Next Step',
-			'type'        => 'select',
-			'section'     => 'behavior_section',
-			'default'     => 0,
-			'description' => 'What should happen when no answer trigger is reached.',
-			'options'     => array(
-				array(
-					'label' => 'Call/Email',
-					'value' => 0,
-				),
-				array(
-					'label' => 'Default Reply',
-					'value' => 1,
-				),
-				array(
-					'label' => 'Livechat',
-					'value' => 2,
-					'features' => array('live_chat')
-				),
-			),
-		),
-
 	);
 
     /**

@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function botReply(text) {
         if(!text) return Promise.resolve();
+        disableInput(true);
         const typing = showTyping();
         const delay = getTypingDelay(text);
         return new Promise(resolve => {
@@ -81,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 typing.remove();
                 addMessage(text, 'admin');
                 resolve();
+                disableInput(false);
             }, delay);
         });
     }
@@ -142,24 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
             failCount++;
             localStorage.setItem(FAIL_COUNT_KEY, failCount);
             if(failCount >= failLimit){
-                const nextStep = parseInt(technoChatbot.nextStep);
-                let finalMsg;
-                if(nextStep === 0){
-                    finalMsg = technoChatbot.noAnswerFinalContact;
-                } else if(nextStep === 2){
-                    finalMsg = technoChatbot.noAnswerFinalLivechat;
-                } else {
-                    finalMsg = technoChatbot.noAnswerFinalDefault;
-                }
-
-                await botReply(finalMsg || technoChatbot.noAnswer || '...');
-                if(nextStep === 0){
-                    showContactOptions();
-                } else if(nextStep === 1){
-                    /* just show message */
-                } else if(nextStep === 2){
-                    await checkAndTransferToLiveChat();
-                }
+                await botReply(technoChatbot.noAnswerFinalDefault || technoChatbot.noAnswer || '...');
+                showNoAnswerOptions();
                 localStorage.setItem(FAIL_COUNT_KEY, 0);
             } else {
                 await botReply(answer);
@@ -220,29 +206,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* ---------- Contact Options ---------- */
-    function showContactOptions(restored = false){
+    function showNoAnswerOptions(restored = false){
         if(document.querySelector('.techno-chatbot-contact-options')) return;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'techno-chatbot-contact-options';
 
         const phoneBtn = document.createElement('button');
-        phoneBtn.textContent = 'Phone';
+        phoneBtn.textContent = technoChatbot.menuCall;
+        phoneBtn.onclick = () => chooseContact('phone');
 
         const emailBtn = document.createElement('button');
-        emailBtn.textContent = 'Email';
+        emailBtn.textContent = technoChatbot.menuEmail;
+        emailBtn.onclick = () => chooseContact('email');
 
         wrapper.appendChild(phoneBtn);
         wrapper.appendChild(emailBtn);
+
+        if(technoChatbot.liveChatEnabled){
+            const livechatBtn = document.createElement('button');
+            livechatBtn.textContent = technoChatbot.menuLivechat;
+            livechatBtn.onclick = () => {
+                wrapper.remove();
+                addMessage(technoChatbot.menuLivechat, 'visitor', true);
+                checkAndTransferToLiveChat();
+            };
+            wrapper.appendChild(livechatBtn);
+        }
+
+        const restartBtn = document.createElement('button');
+        restartBtn.textContent = technoChatbot.menuReset;
+        restartBtn.onclick = () => {
+            wrapper.remove();
+            clearHistory();
+        };
+        wrapper.appendChild(restartBtn);
 
         el.messages.appendChild(wrapper);
         scrollToBottom();
         disableInput(true);
 
         if(!restored) setState(1);
-
-        phoneBtn.onclick = () => chooseContact('phone');
-        emailBtn.onclick = () => chooseContact('email');
     }
 
     function chooseContact(method){
@@ -253,6 +257,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if(options) options.remove();
 
         disableInput(false);
+
+        const choiceLabel = method === 'phone' ? technoChatbot.menuCall : technoChatbot.menuEmail;
+        addMessage(choiceLabel, 'visitor', true);
 
         const methodLabel = method === 'phone' ? technoChatbot.cPhoneLabel : technoChatbot.cEmailLabel;
         addMessage(methodLabel, 'admin', true);
@@ -273,24 +280,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const history = localStorage.getItem(STORAGE_KEY);
-        fetch(technoChatbot.ajax_url, {
-            method:'POST',
-            headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action:'send_history_admin',
-                history: history,
-                nonce: technoChatbot.nonce
+        try {
+            fetch(technoChatbot.ajax_url, {
+                method:'POST',
+                headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action:'send_history_admin',
+                    history: history,
+                    nonce: technoChatbot.nonce
+                })
             })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) clearHistory();
-            else botReply(technoChatbot.cerrorMsg);
-        })
-        .catch(err => {
-            console.error(err);
-            botReply(technoChatbot.errorMsg);
-        });
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) clearHistory();
+                else botReply(technoChatbot.cerrorMsg + ': ' + data.data);
+            })
+            .catch(err => {
+                console.error(err);
+                botReply(technoChatbot.errorMsg + ': ' + data.data);
+            });
+        } catch(e){
+            console.error(e);
+            botReply(technoChatbot.cerrorMsg + ': ' + data.data);
+        }
+        
     }
 
     function clearHistory() {
@@ -355,16 +368,12 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on("connect", () => {
             socket.emit("visitor-join", { session_id: liveChatSessionId });
         });
-        
-        /* if(liveChatVisitorName) {
-            socket?.emit('visitor-join', { session_id: liveChatSessionId });
-        } */
     }
 
     async function checkAndTransferToLiveChat() {
         if (!technoChatbot.liveChatEnabled) {
             await botReply(technoChatbot.offlineSupport);
-            showContactOptions();
+            showNoAnswerOptions();
             return;
         }
 
@@ -389,13 +398,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 setState(0);
                 await botReply(technoChatbot.offlineSupport);
-                showContactOptions();
+                showNoAnswerOptions();
             }
         } catch(e){
             console.error(e);
             setState(0);
             await botReply(technoChatbot.offlineSupport);
-            showContactOptions();
+            showNoAnswerOptions();
         }
     }
 
@@ -487,10 +496,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         history.forEach(msg => addMessage(msg.text, msg.sender, false));
         const state = getState();
-        if(state === 1) showContactOptions(true);
+        if(state === 1) showNoAnswerOptions(true);
         if(state === 2 || state === 3) disableInput(false);
         if(state === 5){
-            initSocket();
+            /* initSocket(); */
             setTimeout(() => {
                 if(socket && liveChatSessionId){
                     socket.emit("visitor-join", { session_id: liveChatSessionId });

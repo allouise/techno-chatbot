@@ -85,24 +85,24 @@ class Techno_Chatbot_Public {
 			'liveChatEnabled' => $livechat_enabled,
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
 			'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
-			'disclaimerFullMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimerfullmsg'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
 			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
 			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
 			'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname'),
-			'noAnswerFinalContact' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_contact'),
 			'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default'),
-			'noAnswerFinalLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_livechat'),
 			'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish'),
 			'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit'),
 			'errorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_error'),
 			'cerrorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_criticalerror'),
 			'cPhoneLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cphoneLabel'),
 			'cEmailLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cemailLabel'),
+			'menuLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menulivechat'),
+			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall'),
+			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail'),
+			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
-			'nextStep' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_transfer_next_step'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 			'faq' => $this->get_faq_data()
@@ -111,7 +111,12 @@ class Techno_Chatbot_Public {
 		if( $livechat_enabled == true ){
 			wp_enqueue_script( $this->plugin_name.'-socket-io', plugin_dir_url( __FILE__ ) . 'js/socket.io.min.js', array(), $this->version, true
 			);
-			$script_array['ws_url'] = 'http://localhost:3000';
+
+			$ws = techno_chatbot_websocket();
+			$site = get_site_url();
+			$script_array['ws_url'] = $ws->get_url();
+			$script_array['site_id'] = $site;
+			$script_array['token'] = $ws->get_token($site);
 		}
 		
 		wp_localize_script(
@@ -299,12 +304,13 @@ class Techno_Chatbot_Public {
 		// Rate limit per IP
 		$ip = $_SERVER['REMOTE_ADDR'];
 		$transient_key = 'techno_chatbot_rate_' . md5($ip);
+		$count = (int) get_transient($transient_key);
 
-		if( get_transient($transient_key) ){
+		if( $count >= 10 ){
 			wp_send_json_error('Too many requests');
 		}
 
-		set_transient($transient_key, 1, 60); // 1 email per minute
+		set_transient($transient_key, $count + 1, 60);
 		if( empty($_POST['history']) ){
 			wp_send_json_error();
 		}

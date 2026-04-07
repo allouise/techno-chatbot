@@ -59,6 +59,9 @@ class Techno_Chatbot_Admin_Fields_License {
         'license_section' => array(
             'title' => 'License',
         ),
+		'api_section' => array(
+            'title' => 'API',
+        ),
     );
 
     /**
@@ -78,6 +81,15 @@ class Techno_Chatbot_Admin_Fields_License {
 			'description' => '',
 		),
 
+		// API
+		'techno_chatbot_secret' => array(
+			'label'       => 'Secret Key',
+			'type'        => 'password',
+			'section'     => 'api_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => '',
+		),
 	);
 
 
@@ -101,10 +113,13 @@ class Techno_Chatbot_Admin_Fields_License {
 				$option,
 				array(
 					'sanitize_callback' => $option === 'techno_chatbot_license'
-						? array( $this, 'validate_license' )
+					? array( $this, 'validate_license' )
+					: ( $option === 'techno_chatbot_secret'
+						? array( $this, 'sanitize_secret_key' )
 						: ( $data['type'] === 'checkbox'
 							? array( $this, 'sanitize_checkbox' )
-							: 'sanitize_text_field' ),
+							: 'sanitize_text_field' )
+					),
 					'default' => $data['default'],
 				)
 			);
@@ -154,10 +169,16 @@ class Techno_Chatbot_Admin_Fields_License {
 			}
 			echo '</label>';
 		} else {
+			$input_type = $type === 'password' ? 'password' : 'text';
+			if ( $type === 'password' && !empty($value) ) {
+				$display_value = str_repeat('*', 8);
+			} else {
+				$display_value = $value;
+			}
 			echo '<input '.$disabled.'
-					type="text"
+					type="' . esc_attr($input_type) . '"
 					name="' . esc_attr( $option ) . '"
-					value="' . esc_attr( $value ) . '"
+					value="' . esc_attr( $display_value ) . '"
 					class="regular-text"
 					style="width:100%;"
 					placeholder="' . esc_attr( $placeholder ) . '"
@@ -178,9 +199,7 @@ class Techno_Chatbot_Admin_Fields_License {
 		}
 
 		if ( ! empty( $description ) && $type !== 'checkbox' ) {
-			echo '<p class="description">'
-				. esc_html__( $description, 'techno-chatbot' ) .
-			'</p>';
+			echo '<p class="description">'. esc_html__( $description, 'techno-chatbot' ) . '</p>';
 		}
 
 	}
@@ -201,6 +220,22 @@ class Techno_Chatbot_Admin_Fields_License {
 	 */
 	public function sanitize_checkbox( $value ) {
 		return ( isset( $value ) && 1 == $value ) ? 1 : 0;
+	}
+
+	/**
+	 * Sanitize Secret Key
+	 *
+	 * Only update if a new value is entered.
+	 *
+	 * @since 1.0.0
+	 */
+	public function sanitize_secret_key( $value ) {
+		$current = get_option('techno_chatbot_secret', '');
+		// If user typed the placeholder (****), keep current
+		if ( $value === str_repeat('*', 8) || empty($value) ) {
+			return $current;
+		}
+		return sanitize_text_field( $value );
 	}
 
 }
