@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
         messages: document.getElementById('techno-chatbot-messages'),
         menubtn: document.getElementById('techno-chatbot-menu-trigger'),
         menulist: document.getElementById('techno-chatbot-menu-list'),
-        reset: document.querySelectorAll('.techno-chatbot-reset')
+        reset: document.querySelectorAll('.techno-chatbot-reset'),
+        disclaimer: document.getElementById('techno-chatbot-disclaimer'),
+        disclaimerModal: document.getElementById('techno-chatbot-disclaimer-modal'),
     };
 
     if (!el.icon || !el.window) return;
@@ -458,6 +460,13 @@ document.addEventListener('DOMContentLoaded', () => {
     el.menubtn.addEventListener('click', () => el.menubtn.classList.toggle('active'));
     if(el.reset.length > 0){
         el.reset.forEach(btn => btn.addEventListener('click', () => { clearHistory(); el.menubtn.classList.remove('active'); }));
+    }
+    if(el.disclaimer){
+        el.disclaimer.addEventListener('click', () => {
+            el.disclaimerModal.classList.add('active');
+            el.menubtn.classList.remove('active');
+        });
+        el.disclaimerModal.querySelector('.close-btn').onclick = () => el.disclaimerModal.classList.remove('active');
     }
 
     /* ---------- Load History ---------- */

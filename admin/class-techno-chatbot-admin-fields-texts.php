@@ -108,6 +108,25 @@ class Techno_Chatbot_Admin_Fields_Texts {
         ),
 
         // Messages
+        'techno_chatbot_disclaimermsg' => array(
+            'label'       => 'Disclaimer message',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Do not provide sensitive information.',
+            'placeholder' => 'Do not provide sensitive information.',
+            'description' => 'Disclaimer message that will display in chatbox before welcome message.'
+        ),
+
+        'techno_chatbot_disclaimerfullmsg' => array(
+            'label'       => 'Disclaimer popup message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => '<p><strong>Disclaimer:</strong></p>
+<p>This plugin is provided for general use only. Do not share or submit any sensitive or confidential information, including but not limited to credit card details, passwords, personal identification numbers (PINs), or private personal data. You are responsible for ensuring that any information you provide is safe and appropriate.</p>',
+            'description' => 'Disclaimer popup message'
+        ),
+
         'techno_chatbot_welcomemsg' => array(
             'label'       => 'Welcome message',
             'type'        => 'text',

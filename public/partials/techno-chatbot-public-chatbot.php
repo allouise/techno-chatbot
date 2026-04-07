@@ -34,7 +34,10 @@
 		<div class="techno-chatbot-menu">
 			<a id="techno-chatbot-menu-trigger">Menu</a>
 			<ul id="techno-chatbot-menu-list">
-				<li><a class="techno-chatbot-reset">Restart</a></li>
+				<li><a id="techno-chatbot-disclaimer">Disclaimer</a></li>
+				<?php if( $disclaimerEnabled ){ ?>
+					<li><a class="techno-chatbot-reset">Restart</a></li>
+				<?php } ?>
 			</ul>
 		</div>
 		<button type="button" id="techno-chatbot-close">×</button>
@@ -53,3 +56,14 @@
 
 	<div style="position: absolute;left: 0;font-size: 12px;color: var(--techno-admin-bubble-text);background: var(--techno-admin-bubble-bg);bottom: 35px;height: 15px;padding: 2px 5px;border-radius: 5px;"> Powered by <a href="#" target="_blank">Technodream</a> </div>
 </div>
+
+<?php if( $disclaimerEnabled && $disclaimerFullMsg != '' ){ ?>
+	<div id="techno-chatbot-disclaimer-modal">
+		<div class="techno-chatbot-disclaimer-container">
+			<div class="techno-chatbot-disclaimer-content">
+				<button class="close-btn">&times;</button>
+				<div class="content"><?php echo $disclaimerFullMsg; ?></div>
+			</div>
+		</div>
+	</div>
+<?php } ?>

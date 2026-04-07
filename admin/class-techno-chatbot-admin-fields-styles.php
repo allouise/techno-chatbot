@@ -151,6 +151,9 @@ class Techno_Chatbot_Admin_Fields_Styles {
 		'techno_optionbtn_txt'=>array('label'=>'Option Button Text','type'=>'color','section'=>'colors_section','default'=>'#000'),
 		'techno_sendbtn_bg'=>array('label'=>'Send Button BG','type'=>'color','section'=>'colors_section','default'=>'#0073aa'),
 		'techno_sendbtn_txt'=>array('label'=>'Send Button Text','type'=>'color','section'=>'colors_section','default'=>'#fff'),
+		'techno_disclaimerbg'=>array('label'=>'Disclaimer Popup BG','type'=>'color','section'=>'colors_section','default'=>'#fff'),
+		'techno_disclaimertxt'=>array('label'=>'Disclaimer Popup Text','type'=>'color','section'=>'colors_section','default'=>'#000'),
+		'techno_disclaimeroverlay'=>array('label'=>'Disclaimer Popup Overlay','type'=>'color','section'=>'colors_section','default'=>'rgba(0,0,0,0.7)'),
 
 	);
 
@@ -178,7 +181,7 @@ class Techno_Chatbot_Admin_Fields_Styles {
 			if ( $data['type'] === 'number' ) {
 				$sanitize = array( $this, 'sanitize_number' );
 			} elseif ( $data['type'] === 'color' ) {
-				$sanitize = 'sanitize_hex_color';
+				$sanitize = array( $this, 'sanitize_rgba_color' );
 			} elseif ( $data['type'] === 'icon' ) {
 				$sanitize = 'esc_url_raw';
 			}
@@ -262,6 +265,7 @@ class Techno_Chatbot_Admin_Fields_Styles {
 					name="' . esc_attr($option) . '"
 					value="' . esc_attr($value) . '"
 					class="techno-color-field"
+					data-alpha-enabled="true"
 				/>';
 
 		// ICON
@@ -308,4 +312,28 @@ class Techno_Chatbot_Admin_Fields_Styles {
         $value = get_option( $key, $default );
         return ($default && empty($value))? $default : $value;
     }
+
+	/**
+	 * Sanitize RGBA field
+	 *
+	 * @since    1.0.0
+	 */
+	public function sanitize_rgba_color( $color ) {
+
+		if ( empty( $color ) ) {
+			return '';
+		}
+
+		// HEX fallback
+		if ( false === strpos( $color, 'rgba' ) && false === strpos( $color, 'rgb' ) ) {
+			return sanitize_hex_color( $color );
+		}
+
+		// Match rgba or rgb
+		if ( preg_match( '/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0|1|0?\.\d+))?\s*\)/', $color, $matches ) ) {
+			return $matches[0];
+		}
+
+		return '';
+	}
 }

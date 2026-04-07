@@ -70,8 +70,8 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'label'       => 'No Answer Transfer Trigger',
 			'type'        => 'number',
 			'section'     => 'behavior_section',
-			'default'     => 2,
-			'min'         => 1,
+			'default'     => 0,
+			'min'         => 0,
 			'description' => 'Transfer to live chat / default message if no correct answer is provided for (x) times.',
 		),
 

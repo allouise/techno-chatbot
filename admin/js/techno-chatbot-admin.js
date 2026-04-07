@@ -1,7 +1,7 @@
 (function( $ ) {
 'use strict';
     /* Color Picker */
-    $('.techno-color-field').wpColorPicker();
+    $('.techno-color-field').wpColorPicker({ palettes: true });
 
     /* Media Uploader */
     $('.techno-upload-button').click(function (e) {
@@ -64,8 +64,8 @@ function initAdminSocket() {
 
     /* On Connect */
     socket.on("connect", () => {
-        console.log("Admin WS connected:", socket.id);
-        socket.emit("register-support");
+        /* console.log("Admin WS connected:", socket.id);
+        socket.emit("register-support"); */
         loadActiveVisitors();
         chatToggle?.classList.add('active');
     });
@@ -97,6 +97,7 @@ function updateChatState(isOnline) {
 }
 
 function updateSupportStatus(force = null) {
+    force = (force == 1)? 1 : 0;
     fetch(technoLivechat.ajax_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -109,12 +110,13 @@ function updateSupportStatus(force = null) {
     .then(res => res.json())
     .then(res => {
         if(res.success) {
+            console.log(res);
             const online = res.data.online;
             if (toggleInput) toggleInput.checked = online;
             if (toggleLabel) {
                 toggleLabel.textContent = online 
                     ? 'Online' 
-                    : (server_offline == 1 ? 'Server Offline' : 'Offline');
+                    : ( res.data.server_offline ? 'Server Offline' : 'Offline');
             }
             updateChatState(online);
         }
@@ -188,24 +190,26 @@ sendBtn?.addEventListener('click', () => {
 if(toggleInput) {
     toggleInput.addEventListener('change', () => {
         if(!socket) return;
-        updateSupportStatus();
+        
         if(toggleInput.checked) {
             socket.emit("register-support");
+            updateSupportStatus(1);
         } else {
             socket.emit("unregister-support");
+            updateSupportStatus(0);
         }
     });
 }
 
 /* ---------- Auto-offline if admin closes tab ---------- */
-window.addEventListener('beforeunload', () => {
+/* window.addEventListener('beforeunload', () => {
     if(socket) {
         socket.emit("unregister-support");
     }
-});
+}); */
 
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-    if(toggleInput) updateChatState(toggleInput.checked);
+    // if(toggleInput) updateChatState(toggleInput.checked);
     if(livechatPage) initAdminSocket();
 });

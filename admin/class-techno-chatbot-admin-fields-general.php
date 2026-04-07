@@ -82,6 +82,14 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'Display the chatbot on the website.',
 		),
 
+		'techno_chatbot_disclaimer' => array(
+			'label'       => 'Show Disclaimer',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 1,
+			'description' => 'Display the disclaimer in chatbot and menu',
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'Notification Emails',
 			'type'        => 'text',
