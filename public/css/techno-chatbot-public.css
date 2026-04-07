@@ -52,7 +52,7 @@
 /* Disclaimer modal */
 #techno-chatbot-disclaimer-modal { position: fixed; z-index: 99; left: 0; top: 0; width: 100%; height: 100%; display: flex ; align-items: center; justify-content: center; background: var(--techno-dsclaimer_overlay); display: none; }
 #techno-chatbot-disclaimer-modal.active { display: flex; }
-.techno-chatbot-disclaimer-container { border-radius: 5px; max-width: 500px; background: var(--techno-dsclaimer_bg); color: var(--techno-dsclaimer_txt); }
+.techno-chatbot-disclaimer-container { border-radius: 5px; width: 700px; background: var(--techno-dsclaimer_bg); color: var(--techno-dsclaimer_txt); max-width: 90%; max-height: 90%; overflow: auto; }
 .techno-chatbot-disclaimer-content { padding: 20px; position: relative; }
 #techno-chatbot-disclaimer-modal .close-btn { position: absolute; right: 0; top: 0; border-radius: 100px; box-shadow: none; border: none; font-size: 30px; background: transparent; cursor: pointer; }
 

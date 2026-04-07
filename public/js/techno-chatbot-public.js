@@ -304,7 +304,14 @@ document.addEventListener('DOMContentLoaded', () => {
         liveChatSessionId = null;
         liveChatVisitorName = null;
         el.messages.innerHTML = '';
-        botReply(technoChatbot.welcomeMessage);
+        
+        if (technoChatbot.disclaimerEnabled == 1 && technoChatbot.disclaimerMsg) {
+            botReply(technoChatbot.disclaimerMsg).then(() => {
+                botReply(technoChatbot.welcomeMessage);
+            });
+        } else {
+            botReply(technoChatbot.welcomeMessage);
+        }
         disableInput(false);
     }
 
@@ -454,7 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!el.window.classList.contains('techno-chatbot-hidden')){
             scrollToBottom();
             const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            if(!history.length) botReply(technoChatbot.welcomeMessage);
+            if (!history.length) {
+                console.log(technoChatbot.disclaimerEnabled, technoChatbot.disclaimerMsg);
+                if (technoChatbot.disclaimerEnabled == 1 && technoChatbot.disclaimerMsg) {
+                    botReply(technoChatbot.disclaimerMsg);
+                }
+                botReply(technoChatbot.welcomeMessage);
+            }
         }
     });
     el.menubtn.addEventListener('click', () => el.menubtn.classList.toggle('active'));
