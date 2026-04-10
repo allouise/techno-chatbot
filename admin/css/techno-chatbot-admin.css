@@ -1,10 +1,10 @@
 /**
  * Techno Chatbot Admin Styles
  */
-#techno-livechat-admin{ display:flex; gap:1rem; }
+#techno-livechat-admin{ display:flex; gap:1rem; align-items: flex-start; }
 #techno-livechat-admin-visitors{ flex:1; max-width:300px; background: #fafafa; border:1px solid #ddd; padding:10px; }
-#techno-livechat-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:flex; flex-direction:column; height:500px; }
-#techno-admin-chat-window{ flex:1; overflow-y:auto; border-bottom:1px solid #ccc; padding-bottom:10px; }
+#techno-livechat-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:flex; flex-direction:column; position: sticky; top: 30px; }
+#techno-admin-chat-window{ overflow-y:auto; border-bottom:1px solid #ccc; padding-bottom:10px; min-height: 500px; }
 #techno-admin-chat-input{ flex:1; padding:5px; }
 #techno-admin-chat-input[disabled] { opacity: 0.6; pointer-events: none; }
 #techno-support-switch{ display: flex; gap: 5px; align-items: center; border-bottom: 1px solid #ddd; padding: 5px 10px 15px; opacity: 0.5; cursor: not-allowed; pointer-events: none; }
@@ -16,3 +16,15 @@
 .techno-switch input:checked + .techno-slider { background-color: #4CAF50; } .techno-switch input:checked + .techno-slider:before { transform: translateX(24px); }
 #techno-toggle-label { font-weight: 600; }
 #techno-admin-chat-send[disabled] { opacity: 0.6; pointer-events: none; }
+#techno-active-visitors { margin: 0; display: flex ; flex-direction: column; }
+#techno-active-visitors [data-session] { background: #fafafa; cursor: pointer; color: #000; padding: 20px 15px; border-top: 1px solid #eaeaea; border-bottom: 1px solid #eaeaea; border-left: 15px solid #4caf50; border-right: 0px solid #4caf50; border-radius: 5px; transition: all 0.5s; max-width: calc(100% - 80px); position: relative; }
+#techno-active-visitors [data-session]:hover, #techno-active-visitors [data-session]:focus { border-right: 30px solid #4caf50; }
+#techno-active-visitors [data-session]:before { color: #fff; content: 'Online'; position: absolute; left: 5px; transform: rotateZ(-90deg); top: 0; bottom: 0; margin: auto; font-size: 0.8em; letter-spacing: 1px; }
+#techno-active-visitors [data-session]:after { text-transform: uppercase; content: 'Chat'; position: absolute; right: -30px; bottom: 0; top: 0; transform: rotateZ(270deg); color: #fff; font-weight: 500; line-height: 100%; height: 15px; margin: auto; transition: all 0.5s; opacity: 0; }
+#techno-active-visitors [data-session]:hover:after{ opacity: 1; }
+#techno-active-visitors [data-session].inactive { border-left: 15px solid #888; }
+#techno-active-visitors [data-session].inactive:before { content: 'Offline'; }
+#techno-active-visitors [data-session].open { background: #fff; border-right: 30px solid #4caf8f; box-shadow: 0 2px 25px #00000042; z-index: 2; position: sticky; top: 30px; }
+#techno-active-visitors [data-session].open:after { content: 'Opened'; opacity: 1; right: -38px; }
+#techno-active-visitors .techno-visitor-name { font-weight: 500; text-transform: capitalize; display: block; font-size: 1.2em; }
+#techno-active-visitors .techno-visitor-sid { text-overflow: ellipsis; max-width: 100px; display: inline-block; overflow: hidden; }
