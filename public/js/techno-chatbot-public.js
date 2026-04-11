@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function disableInput(_switch = true){
         el.input.disabled = _switch;
         el.send.disabled = _switch;
+        if (!_switch) el.input.focus();
     }
 
     function setState(state){
@@ -84,11 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHistory.push({ text, sender });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
     }
-    function clearHistory() {
+    function clearHistory(prependMsg = null) {
         if (socket) {
             if (liveChatSessionId) {
                 socket.emit("restarted-leave", { session_id: liveChatSessionId });
             }
+            socket.off("disconnect");
             socket.disconnect();
             socket = null;
         }
@@ -105,6 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHistory = [];
         el.messages.innerHTML = '';
 
+        if (prependMsg) {
+            const div = document.createElement('div');
+            div.className = 'techno-chatbot-message admin';
+            div.textContent = prependMsg;
+            el.messages.appendChild(div);
+        }
+
         if (technoChatbot.disclaimerEnabled == 1 && technoChatbot.disclaimerMsg) {
             botReply(technoChatbot.disclaimerMsg).then(() => {
                 botReply(technoChatbot.welcomeMessage);
@@ -113,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             botReply(technoChatbot.welcomeMessage);
         }
         disableInput(false);
+        initSocket();
     }
     function loadHistory(){
         chatHistory.forEach(msg => addMessage(msg.text, msg.sender, false));
@@ -248,11 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         socket.on("support-status", (data) => {
-            console.log(data);
             if(typeof data.online === 'boolean'){
                 updateStatusDot(data.online);
                 statusDotCache = { online: data.online, ts: Date.now() };
-                console.log(data.online);
             }
         });
 
@@ -399,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function botReply(text) {
         if(!text) return Promise.resolve();
         disableInput(true);
+        el.input.placeholder = 'Please wait...';
         const typing = showTyping();
         const delay = getTypingDelay(text);
         return new Promise(resolve => {
@@ -407,6 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addMessage(text, 'admin');
                 resolve();
                 disableInput(false);
+                el.input.placeholder = 'Type a message...';
             }, delay);
         });
     }
@@ -418,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const lastMsg = technoChatbot.getContactThxMsg;
         const history = localStorage.getItem(STORAGE_KEY);
         try {
             fetch(technoChatbot.ajax_url, {
@@ -431,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(res => res.json())
             .then(data => {
-                if(data.success) clearHistory();
+                if(data.success) clearHistory(lastMsg);
                 else botReply(technoChatbot.cerrorMsg);
             })
             .catch(err => {
@@ -483,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.messages.appendChild(wrapper);
         scrollToBottom();
         disableInput(true);
-
+        el.input.placeholder = 'Choose an option...';
         if(!restored) setState(1);
     }
     function chooseContact(method){
@@ -518,14 +529,15 @@ document.addEventListener('DOMContentLoaded', () => {
     el.input?.addEventListener('keypress', (e) => {
         if(e.key === 'Enter') handleSend();
     });
-
+    el.close?.addEventListener('click', () => {
+        el.window.classList.add('techno-chatbot-hidden');
+    });
     el.icon.addEventListener('click', () => {
         el.window.classList.toggle('techno-chatbot-hidden');
         if(!el.window.classList.contains('techno-chatbot-hidden')){
             scrollToBottom();
             const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
             if (!history.length) {
-                console.log(technoChatbot.disclaimerEnabled, technoChatbot.disclaimerMsg);
                 if (technoChatbot.disclaimerEnabled == 1 && technoChatbot.disclaimerMsg) {
                     botReply(technoChatbot.disclaimerMsg);
                 }

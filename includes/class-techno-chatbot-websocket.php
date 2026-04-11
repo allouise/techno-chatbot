@@ -94,7 +94,6 @@ class Techno_Chatbot_Websocket {
             : '';
         $scheme = is_ssl() ? 'https' : 'http';
         return "{$scheme}://{$this->host}:{$this->port}{$endpoint}";
-        //return "http://{$this->host}:{$this->port}{$endpoint}"; /* Use http for now for test when websocket is setup in cpanel we will require SSL */
     }
 
     /**
@@ -115,20 +114,15 @@ class Techno_Chatbot_Websocket {
      * @since    1.0.0
      */
     public function is_running(): bool {
-        $connection = @fsockopen($this->host, $this->port, $errno, $errstr, 1);
-        if (!is_resource($connection)) return false;
-        fclose($connection);
-
         $site  = get_site_url();
         $token = $this->get_token($site);
         $url = $this->get_url('status') . "?site=" . urlencode($site) . "&token=" . urlencode($token);
         $response = wp_remote_get($url, [
             'timeout' => 2,
+            'sslverify' => false, // ← needed for local self-signed/mkcert certs
         ]);
 
-        if (is_wp_error($response)) {
-            return false;
-        }
+        if (is_wp_error($response)) return false;
 
         $status_code = wp_remote_retrieve_response_code($response);
         $body = wp_remote_retrieve_body($response);

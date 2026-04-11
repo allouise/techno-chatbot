@@ -4,7 +4,7 @@
 #techno-chatbot-floating-icon img { object-fit: var(--techno-chatbot-iconsize); max-width: 100%; max-height: 100%; width: 100%; height: 100%; }
 
 /* Floating Text */ 
-#techno-chatbot-floating-text { position: fixed; font-size: var(--techno-chatbot-floatingtxtsize); background: var(--techno-floatingtxt-bg); color: var(--techno-floatingtxt-text); padding: 5px 10px; }
+#techno-chatbot-floating-text { position: fixed; font-size: var(--techno-chatbot-floatingtxtsize); background: var(--techno-floatingtxt-bg); color: var(--techno-floatingtxt-text); padding: 5px 10px;  z-index: var(--techno-chatbot-z-index); }
 
 /* Chat Window */ 
 #techno-chatbot-window { position: fixed; width: 320px; height: var(--techno-chatbot-height); max-height: 95%; background: var(--techno-chatbox-bg); border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; z-index: var(--techno-chatbot-z-index); } 
@@ -22,7 +22,7 @@
 
 /* Header */ 
 .techno-chatbot-header { background: var(--techno-header-bg); color: var(--techno-header-text); font-size: var(--techno-chatbot-headingsize); padding: 12px; display: flex; justify-content: space-between; align-items: center; } 
-.techno-chatbot-header button { background: none; border: none; color: var(--techno-header-text); font-size: 0.7em; cursor: pointer; } 
+.techno-chatbot-header button { background: none; border: none; color: var(--techno-header-text); font-size: 1em; cursor: pointer; } 
 
 /* Header Menu */
 .techno-chatbot-menu { display: inline-flex; margin-left: auto; margin-right: 5px; font-size: 0.7em; position: relative; }
@@ -50,7 +50,7 @@
 .techno-chatbot-message.admin { background: var(--techno-admin-bubble-bg); color: var(--techno-admin-bubble-text); margin-right: auto; }
 
 /* Disclaimer modal */
-#techno-chatbot-disclaimer-modal { position: fixed; z-index: 99; left: 0; top: 0; width: 100%; height: 100%; display: flex ; align-items: center; justify-content: center; background: var(--techno-dsclaimer_overlay); display: none; }
+#techno-chatbot-disclaimer-modal { position: fixed;  z-index: var(--techno-chatbot-z-index); left: 0; top: 0; width: 100%; height: 100%; display: flex ; align-items: center; justify-content: center; background: var(--techno-dsclaimer_overlay); display: none; }
 #techno-chatbot-disclaimer-modal.active { display: flex; }
 .techno-chatbot-disclaimer-container { border-radius: 5px; width: 700px; background: var(--techno-dsclaimer_bg); color: var(--techno-dsclaimer_txt); max-width: 90%; max-height: 90%; overflow: auto; }
 .techno-chatbot-disclaimer-content { padding: 20px; position: relative; }

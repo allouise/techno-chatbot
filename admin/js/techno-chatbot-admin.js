@@ -32,13 +32,17 @@ const sendBtn   = document.getElementById('techno-admin-chat-send');
 const activeVisitors = document.getElementById('techno-active-visitors');
 const chatWindow = document.getElementById('techno-admin-chat-window');
 const chatToggle = document.getElementById('techno-support-switch');
-const chatHeader = document.getElementById('techno-admin-chat-header'); //asd
+const chatHeader = document.getElementById('techno-admin-chat-header');
+const chatMessages = document.getElementById('techno-admin-chat-messages');
 
 let currentSession = null, 
     adminLastId = 0, 
     socket = null, 
     sessionMap = {}, 
-    sessionMapMeta = {};
+    sessionMapMeta = {},
+    audioUnlocked = false,
+    pendingNotification = false,
+    initialLoadDone = false;
 
 function initAdminSocket() {
     socket = io(technoLivechat.ws_url, { 
@@ -97,15 +101,18 @@ function initAdminSocket() {
             const sid  = typeof s === 'object' ? s.session_id : s;
             const name = typeof s === 'object' ? (s.visitor_name || sid) : sid;
             incoming[sid] = name;
-            incomingMeta[sid] = { active: s.active ?? true }; // ← store active flag
+            incomingMeta[sid] = { active: s.active ?? true };
         });
 
-        Object.entries(incoming).forEach(([sid, name]) => {
-            if (!sessionMap[sid]) notifyNewSession(sid, name);
-        });
+        if (initialLoadDone) {
+            Object.entries(incoming).forEach(([sid, name]) => {
+                if (!sessionMap[sid]) notifyNewSession(sid, name);
+            });
+        }
 
         sessionMap = incoming;
-        sessionMapMeta = incomingMeta; // ← update meta
+        sessionMapMeta = incomingMeta;
+        initialLoadDone = true; 
         renderActiveVisitors();
     });
 
@@ -115,19 +122,25 @@ function initAdminSocket() {
      */
     socket.on("receive-message", (msg) => {
         if (msg.session_id !== currentSession) return;
-        if (msg.sender === 'visitor') addAdminMessage({ sender: 'visitor', message: msg.message });
+        if (msg.sender === 'visitor') {
+            addAdminMessage({ sender: 'visitor', message: msg.message });
+        }
     });
 }
 
-/* 
- * Helpers
- */
 function updateChatState(isOnline) {
-    if (!chatInput || !sendBtn) return;
-    chatInput.disabled = !isOnline;
-    sendBtn.disabled   = !isOnline;
+    if (!chatInput || !sendBtn || !chatWindow || !chatMessages || !chatHeader) return;
     chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
     sendBtn.textContent = isOnline ? 'Send' : 'Offline';
+
+    const current_open = document.querySelector('#techno-active-visitors li.open');
+    if( isOnline == 1 && current_open.length > 0 ) isOnline = 0;
+    chatInput.disabled = !isOnline;
+    sendBtn.disabled = !isOnline;
+    chatWindow.classList.toggle('disabled', !isOnline);
+    if( !isOnline ){
+        chatMessages.innerHTML = "";
+    }
 }
 
 function updateSupportStatus(force = null) {
@@ -144,13 +157,10 @@ function updateSupportStatus(force = null) {
     .then(res => res.json())
     .then(res => {
         if(res.success) {
-            console.log(res);
             const online = res.data.online;
             if (toggleInput) toggleInput.checked = online;
             if (toggleLabel) {
-                toggleLabel.textContent = online 
-                    ? 'Online' 
-                    : ( res.data.server_offline ? 'Server Offline' : 'Offline');
+                toggleLabel.textContent = online ? 'Online' : ( res.data.server_offline ? 'Server Offline' : 'Offline');
             }
             updateChatState(online);
         }
@@ -167,10 +177,12 @@ function openSession(sessionId) {
     adminLastId = 0;
 
     /* Clear window & update header */
-    if (chatWindow) chatWindow.innerHTML = '';
+    if (chatMessages) chatMessages.innerHTML = '';
     if (chatHeader) {
         const name = sessionMap[sessionId] || sessionId;
-        chatHeader.textContent = 'Chat with: ' + name;
+        const safeName = document.createElement('span');
+        safeName.textContent = name;
+        chatHeader.innerHTML = 'Chatting with: <strong>' + safeName.innerHTML + '</strong>';
     }
 
     /* Highlight active list item */
@@ -180,24 +192,71 @@ function openSession(sessionId) {
 
     /* Enable input when a session is open and support is online */
     if (toggleInput?.checked) updateChatState(true);
+    else updateChatState(false); 
 }
 
 function addAdminMessage(msg) {
-    if(!chatWindow) return;
+    if(!chatMessages) return;
     const div = document.createElement('div');
     div.className = `techno-livechat-msg ${msg.sender}`;
     div.textContent = msg.message;
-    chatWindow.appendChild(div);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
     adminLastId = Math.max(adminLastId, msg.id || 0);
 }
 
-/*
- * notifyNewSession — log
- */
+/* Browser Notifications & sound */
+function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.log("Browser does not support notifications");
+        return;
+    }
+    if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+            console.log("Notification permission:", permission);
+        });
+    }/*  else {
+        console.log("Notification permission already:", Notification.permission);
+    } */
+}
+document.addEventListener('click', () => {
+    if (audioUnlocked) return;
+    const audio = new Audio(technoLivechat.notification_sound);
+    audio.volume = 0;
+    audio.play().then(() => {
+        audio.pause();
+        audioUnlocked = true;
+        audio.currentTime = 0;
+        if (pendingNotification) {
+            playNotification();
+            pendingNotification = false;
+        }
+    }).catch(() => {});
+},{ once: false });
+function playNotification() {
+    const audio = new Audio(technoLivechat.notification_sound);
+    audio.volume = 1; 
+    audio.play().catch(e => console.log("Audio error:", e));
+}
 function notifyNewSession(sessionId, visitorName) {
-    console.log("New visitor:", visitorName, "("+sessionId+")");
-    /* Optional: new Audio('/path/notification.mp3').play(); */
+    /* console.log("New visitor:", visitorName, "("+sessionId+")"); */
+    if (document.visibilityState === 'visible') { 
+        if (audioUnlocked) {
+            playNotification();
+        } else {
+            pendingNotification = true;
+        }
+    }
+    if ('Notification' in window && Notification.permission === 'granted') {
+        const notif = new Notification(technoLivechat.site_name + ' Live Chat Request', {
+            body: visitorName + ' has joined the live chat',
+        });
+        setTimeout(() => notif.close(), 5000);
+        notif.onclick = () => {
+            window.focus();
+            notif.close();
+        };
+    }
 }
 
 /* 
@@ -230,10 +289,11 @@ function renderActiveVisitors() {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'techno-visitor-name';
         nameSpan.textContent = name;
+        nameSpan.title = name;
 
         const idSpan = document.createElement('span');
         idSpan.className = 'techno-visitor-sid';
-        idSpan.textContent = sid;
+        idSpan.textContent = `ID: ${sid}`;
         idSpan.title = sid;
 
         li.appendChild(nameSpan);
@@ -276,6 +336,7 @@ if(toggleInput) {
         if(toggleInput.checked) {
             socket.emit("register-support");
             updateSupportStatus(1);
+            requestNotificationPermission();
         } else {
             socket.emit("unregister-support");
             updateSupportStatus(0);
@@ -292,5 +353,8 @@ if(toggleInput) {
 
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-    if(livechatPage) initAdminSocket();
+    if (livechatPage) {
+        initAdminSocket();
+        requestNotificationPermission();
+    }
 });

@@ -1,12 +1,17 @@
 /**
  * Techno Chatbot Admin Styles
  */
-#techno-livechat-admin{ display:flex; gap:1rem; align-items: flex-start; }
+#techno-livechat-admin{ display:flex; gap:1rem; align-items: flex-start; position: relative; }
 #techno-livechat-admin-visitors{ flex:1; max-width:300px; background: #fafafa; border:1px solid #ddd; padding:10px; }
 #techno-livechat-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:flex; flex-direction:column; position: sticky; top: 30px; }
-#techno-admin-chat-window{ overflow-y:auto; border-bottom:1px solid #ccc; padding-bottom:10px; min-height: 500px; }
-#techno-admin-chat-input{ flex:1; padding:5px; }
+#techno-admin-chat-window { display: flex; flex-direction: column; padding-bottom: 10px; }
+#techno-admin-chat-window.disabled { opacity: 0.2; pointer-events: none; }
+#techno-admin-chat-header { font-size: 1.3em; line-height: 100%; display: inline-flex ; align-self: flex-end; padding: 10px 15px; background: #f2f2f2; position: sticky; border: 1px solid #8c8f94; border-radius: 100px 30px 0 100px; top: 35px; margin: 0 0 -35px 0; }
+#techno-admin-chat-header strong { color: #198b66; text-transform: capitalize; margin-left: 5px; }
+#techno-admin-chat-messages { background: #fff; border: 1px solid #8c8f94; border-radius: 5px; min-height: 500px; overflow-y: auto; }
+#techno-admin-chat-input { flex: 1; font-size: 18px; padding: 5px 15px; }
 #techno-admin-chat-input[disabled] { opacity: 0.6; pointer-events: none; }
+#techno-admin-chat-send { text-transform: uppercase; background: #4caf8f; color: #fff; border: none; border-radius: 5px; font-size: 18px; display: inline-block; padding: 15px 30px; font-weight: bold; letter-spacing: 1px; }
 #techno-support-switch{ display: flex; gap: 5px; align-items: center; border-bottom: 1px solid #ddd; padding: 5px 10px 15px; opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 #techno-support-switch.active { pointer-events: auto; opacity: 1; cursor: auto; }
 .techno-switch { position: relative; display: inline-block; width: 50px; height: 26px; }
@@ -26,5 +31,12 @@
 #techno-active-visitors [data-session].inactive:before { content: 'Offline'; }
 #techno-active-visitors [data-session].open { background: #fff; border-right: 30px solid #4caf8f; box-shadow: 0 2px 25px #00000042; z-index: 2; position: sticky; top: 30px; }
 #techno-active-visitors [data-session].open:after { content: 'Opened'; opacity: 1; right: -38px; }
-#techno-active-visitors .techno-visitor-name { font-weight: 500; text-transform: capitalize; display: block; font-size: 1.2em; }
-#techno-active-visitors .techno-visitor-sid { text-overflow: ellipsis; max-width: 100px; display: inline-block; overflow: hidden; }
+#techno-active-visitors .techno-visitor-name { font-weight: 500; text-transform: capitalize; display: block; font-size: 1.2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#techno-active-visitors .techno-visitor-sid { text-overflow: ellipsis; max-width: 100px; display: inline-block; overflow: hidden; white-space: nowrap; }
+#notifHowTo { cursor: pointer; position: absolute; right: 10px; top: -40px; z-index: 1; font-size: 1em; background: #fbfbfb; padding: 10px 25px; border: 1px solid #ccc; }
+#techno-livechat-notifs { position: absolute; top: -40px; background: #fff; right: 370px; width: calc(60% - 370px); padding: 10px 25px; border: 1px solid #ccc; }
+
+.tehcno-chat-marquee { white-space: nowrap; overflow: hidden; display: flex; }
+.tehcno-chat-marquee-inner { display: inline-flex; gap: 20px; padding-right: 40px; flex-shrink: 0; animation: marquee 15s linear infinite; } 
+.tehcno-chat-marquee span + span::before { content: ' · '; } 
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }

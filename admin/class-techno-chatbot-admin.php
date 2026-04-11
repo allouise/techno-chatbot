@@ -94,6 +94,8 @@ class Techno_Chatbot_Admin {
 					'ws_url'   => $ws->get_url(),
 					'site_id'  => $site,
 					'token'    => $ws->get_token($site),
+					'site_name' => get_bloginfo('name'),
+					'notification_sound' => TECHNO_CHATBOT_FOLDER_URL . '/notification.mp3',
 				]
 			);
 		}
