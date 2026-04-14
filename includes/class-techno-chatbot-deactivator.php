@@ -23,9 +23,7 @@
 class Techno_Chatbot_Deactivator {
 
 	/**
-	 * Short Description. (use period)
-	 *
-	 * Long Description.
+	 * Plugin deactivate functions
 	 *
 	 * @since    1.0.0
 	 */

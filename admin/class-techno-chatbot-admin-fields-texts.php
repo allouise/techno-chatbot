@@ -107,7 +107,62 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Send button text.'
         ),
 
+        'techno_chatbot_menulivechat' => array(
+            'label'       => 'Menu livechat',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Transfer to live chat',
+            'placeholder' => 'Transfer to live chat',
+            'description' => 'Menu livechat button text.'
+        ),
+
+        'techno_chatbot_menucall' => array(
+            'label'       => 'Menu call',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Request for a call',
+            'placeholder' => 'Request for a call',
+            'description' => 'Menu call button text.'
+        ),
+
+        'techno_chatbot_menuemail' => array(
+            'label'       => 'Menu email',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Send me an email',
+            'placeholder' => 'Send me an email',
+            'description' => 'Menu email button text.'
+        ),
+
+        'techno_chatbot_menureset' => array(
+            'label'       => 'Menu reset',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Restart',
+            'placeholder' => 'Restart',
+            'description' => 'Menu reset button text.'
+        ),
+
         // Messages
+        'techno_chatbot_disclaimermsg' => array(
+            'label'       => 'Disclaimer message',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Do not provide sensitive information.',
+            'placeholder' => 'Do not provide sensitive information.',
+            'description' => 'Disclaimer message that will display in chatbox before welcome message.'
+        ),
+
+        'techno_chatbot_disclaimerfullmsg' => array(
+            'label'       => 'Disclaimer popup message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => '<p><strong>Disclaimer:</strong></p>
+<p>This plugin is provided for general use only. Do not share or submit any sensitive or confidential information, including but not limited to credit card details, passwords, personal identification numbers (PINs), or private personal data. You are responsible for ensuring that any information you provide is safe and appropriate.</p>',
+            'description' => 'Disclaimer popup message'
+        ),
+
         'techno_chatbot_welcomemsg' => array(
             'label'       => 'Welcome message',
             'type'        => 'text',
@@ -131,17 +186,17 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'I do not have the specific information for your question.',
+            'default'     => 'I do not have the specific information for your question, please try asking different question.',
             'description' => 'Default message sent when the chatbot cannot find a proper answer.'
         ),
 
-        'techno_chatbot_no_answer_message_final' => array(
+        'techno_chatbot_no_answer_message_final_default' => array(
             'label'       => 'Final No Answer Default',
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
             'default'     => 'I do not have the specific information for your question, the best thing I can do is have one of our representative reach you, please provide the best way to contact you.',
-            'description' => 'Final message sent when the chatbot cannot find a proper answer then transfer to next option.'
+            'description' => 'Final message reply when the chatbot cannot find a proper answer then transfer to next option.'
         ),
 
         'techno_chatbot_offline_agents_message' => array(
@@ -149,7 +204,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'Sorry all agents are busy right now — please leave your name, phone number and the best time to contact you.',
+            'default'     => 'Sorry all agents are busy right now — please provide the best way to contact you',
             'description' => 'Message shown when all agents are offline.'
         ),
 
@@ -168,6 +223,15 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'section'     => 'messages_section',
             'default'     => 'What is your Email Address?',
             'placeholder' => 'What is your Email Address?',
+            'description' => ''
+        ),
+
+        'techno_chatbot_getname' => array(
+            'label'       => 'Live Chat Get Name',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Can I get your name?',
+            'placeholder' => 'Can I get your name?',
             'description' => ''
         ),
 
@@ -277,9 +341,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
         $description = $args['description'];
         $placeholder = $args['placeholder'];
         $rows        = $args['rows'];
-
         $value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+        $value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 
         if ( $type === 'textarea' ) {
 
@@ -322,9 +385,9 @@ class Techno_Chatbot_Admin_Fields_Texts {
 	 * @since    1.0.0
 	 */
     public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
+		$default = self::$fields[$key]['default'] ?? '';
         $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
+		return ( $default !== '' && $value === '' ) ? $default : $value;
     }
     
 }

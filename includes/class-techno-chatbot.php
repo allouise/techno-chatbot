@@ -1,10 +1,7 @@
 <?php
 
 /**
- * The file that defines the core plugin class
- *
- * A class definition that includes attributes and functions used across both the
- * public-facing side of the site and the admin area.
+ * Core plugin class
  *
  * @link       https://technodreamwebdesign.com/
  * @since      1.0.0
@@ -15,12 +12,6 @@
 
 /**
  * The core plugin class.
- *
- * This is used to define internationalization, admin-specific hooks, and
- * public-facing site hooks.
- *
- * Also maintains the unique identifier of this plugin as well as the current
- * version of the plugin.
  *
  * @since      1.0.0
  * @package    Techno_Chatbot
@@ -71,16 +62,21 @@ class Techno_Chatbot {
 	 *
 	 * @since 1.0.0
 	 * @access protected
-	 * @var Techno_Chatbot_License_Manager $post_types Handles custom post types.
+	 * @var Techno_Chatbot_License_Manager $license Handles license.
 	 */
 	protected $license;
 
 	/**
-	 * Define the core functionality of the plugin.
+	 * Websocket
 	 *
-	 * Set the plugin name and the plugin version that can be used throughout the plugin.
-	 * Load the dependencies, define the locale, and set the hooks for the admin area and
-	 * the public-facing side of the site.
+	 * @since 1.0.0
+	 * @access protected
+	 * @var Techno_Chatbot_Websocket $websocket Handles websocket.
+	 */
+	protected $websocket;
+
+	/**
+	 * Define the core functionality of the plugin.
 	 *
 	 * @since    1.0.0
 	 */
@@ -95,6 +91,7 @@ class Techno_Chatbot {
 		$this->load_dependencies();
 		$this->post_types = new Techno_Chatbot_Post_Types();
 		$this->license = new Techno_Chatbot_License_Manager();
+		$this->websocket = new Techno_Chatbot_Websocket();
 		$this->set_locale();
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
@@ -102,16 +99,6 @@ class Techno_Chatbot {
 
 	/**
 	 * Load the required dependencies for this plugin.
-	 *
-	 * Include the following files that make up the plugin:
-	 *
-	 * - Techno_Chatbot_Loader. Orchestrates the hooks of the plugin.
-	 * - Techno_Chatbot_i18n. Defines internationalization functionality.
-	 * - Techno_Chatbot_Admin. Defines all hooks for the admin area.
-	 * - Techno_Chatbot_Public. Defines all hooks for the public side of the site.
-	 *
-	 * Create an instance of the loader which will be used to register the hooks
-	 * with WordPress.
 	 *
 	 * @since    1.0.0
 	 * @access   private
@@ -171,10 +158,14 @@ class Techno_Chatbot {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-license.php';
 
 		/**
-		 * The class responsible for defining all actions that occur in the public-facing
-		 * side of the site.
+		 * The class responsible for defining all actions that occur in the public-facing side of the site.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'public/class-techno-chatbot-public.php';
+
+		/**
+		 * The class responsible for websocket.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-techno-chatbot-websocket.php';
 
 		$this->loader = new Techno_Chatbot_Loader();
 
@@ -190,16 +181,12 @@ class Techno_Chatbot {
 	 * @access   private
 	 */
 	private function set_locale() {
-
 		$plugin_i18n = new Techno_Chatbot_i18n();
-
 		$this->loader->add_action( 'plugins_loaded', $plugin_i18n, 'load_plugin_textdomain' );
-
 	}
 
 	/**
-	 * Register all of the hooks related to the admin area functionality
-	 * of the plugin.
+	 * Register all of the hooks related to the admin area functionality of the plugin.
 	 *
 	 * @since    1.0.0
 	 * @access   private
@@ -207,6 +194,9 @@ class Techno_Chatbot {
 	private function define_admin_hooks() {
 
 		$plugin_admin = new Techno_Chatbot_Admin( $this->get_plugin_name(), $this->get_version() );
+
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		
 		$post_types = new Techno_Chatbot_Post_Types();
     	$this->loader->add_action( 'init', $post_types, 'register_faq_post_type' ); 
@@ -215,17 +205,16 @@ class Techno_Chatbot {
     	$this->loader->add_action( 'save_post_techno_chatbot_faq', $this->post_types, 'save_faq_meta' );
 
 		$this->loader->add_filter( 'plugin_action_links_' . TECHNO_CHATBOT_FILEBASE, $plugin_admin, 'add_settings_link' );
-
-		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
-		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_plugin_admin_menu' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
+		
+		$this->loader->add_action( 'wp_ajax_techno_toggle_support_online', $plugin_admin, 'toggle_support_online' );
+		$this->loader->add_action( 'wp_ajax_techno_get_chat_history', $plugin_admin, 'techno_get_chat_history_ajxfunction' );
 
 	}
 
 	/**
-	 * Register all of the hooks related to the public-facing functionality
-	 * of the plugin.
+	 * Register all of the hooks related to the public-facing functionality of the plugin.
 	 *
 	 * @since    1.0.0
 	 * @access   private
@@ -241,6 +230,12 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_ajax_send_history_admin', $plugin_public, 'send_history_admin' );
 		$this->loader->add_action( 'techno_chatbot_daily_license_check', $plugin_public, 'validate_license' );
 
+		$this->loader->add_action( 'wp_ajax_techno_check_support_online', $plugin_public, 'check_support_online' );
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_check_support_online', $plugin_public, 'check_support_online' );
+
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_save_chat_message', $plugin_public, 'save_chat_message' );
+		$this->loader->add_action( 'wp_ajax_techno_save_chat_message', $plugin_public, 'save_chat_message' );
+
 	}
 
 	/**
@@ -253,8 +248,7 @@ class Techno_Chatbot {
 	}
 
 	/**
-	 * The name of the plugin used to uniquely identify it within the context of
-	 * WordPress and to define internationalization functionality.
+	 * The name of the plugin used to uniquely identify it within the context of WordPress and to define internationalization functionality.
 	 *
 	 * @since     1.0.0
 	 * @return    string    The name of the plugin.

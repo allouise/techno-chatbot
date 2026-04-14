@@ -48,16 +48,13 @@ class Techno_Chatbot_Admin {
 	 * @param      string    $version    The version of this plugin.
 	 */
 	public function __construct( $plugin_name, $version ) {
-
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
-
 		$this->general_fields = new Techno_Chatbot_Admin_Fields_General( $plugin_name, $version );
 		$this->behaviors_fields = new Techno_Chatbot_Admin_Fields_Behaviors( $plugin_name, $version );
 		$this->texts_fields = new Techno_Chatbot_Admin_Fields_Texts( $plugin_name, $version );
     	$this->styles_fields  = new Techno_Chatbot_Admin_Fields_Styles( $plugin_name, $version );
 		$this->license_fields  = new Techno_Chatbot_Admin_Fields_License( $plugin_name, $version );
-
 	}
 
 	/**
@@ -66,9 +63,7 @@ class Techno_Chatbot_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_styles() {
-
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/techno-chatbot-admin.css', array(), $this->version, 'all' );
-
 	}
 
 	/**
@@ -80,13 +75,31 @@ class Techno_Chatbot_Admin {
 
 		wp_enqueue_media();
 		wp_enqueue_style( 'wp-color-picker' );
-		wp_enqueue_script(
-			'techno-admin-script',
-			plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-admin.js',
-			array( 'wp-color-picker', 'jquery' ),
-			$this->version,
-			true
-		);
+		wp_enqueue_script( 'wp-color-picker-alpha', plugin_dir_url( __FILE__ ) . 'js/wp-color-picker-alpha.min.js', array( 'wp-color-picker' ), $this->version, true );
+		wp_enqueue_script( 'techno-admin-jquery', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-jquery.js', array( 'wp-color-picker', 'wp-color-picker-alpha', 'jquery' ), $this->version, true );
+		wp_enqueue_script( 'techno-admin-script', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-admin.js', [], $this->version, true );
+
+		$livechat_allowed = techno_chatbot_feature('live_chat');
+    	$livechat_allowed = $livechat_allowed['allowed'] === true;
+		if( $livechat_allowed ){
+			wp_enqueue_script( $this->plugin_name.'-socket-io', plugin_dir_url( __FILE__ ) . 'js/socket.io.min.js', array(), $this->version, true );
+
+			$ws = techno_chatbot_websocket();
+			$site = get_site_url();
+			wp_localize_script(
+				'techno-admin-script',
+				'technoLivechat',
+				[
+					'ajax_url' => admin_url('admin-ajax.php'),
+					'nonce' => wp_create_nonce('techno_chatbot_nonce'),
+					'ws_url'   => $ws->get_url(),
+					'site_id'  => $site,
+					'token'    => $ws->get_token($site),
+					'site_name' => get_bloginfo('name'),
+					'notification_sound' => TECHNO_CHATBOT_FOLDER_URL . '/notification.mp3',
+				]
+			);
+		}
 
 	}
 
@@ -126,20 +139,11 @@ class Techno_Chatbot_Admin {
 
 		add_submenu_page(
 			'techno-chatbot',
-			__( 'Live Chat', 'techno-chatbot' ),
-			__( 'Live Chat', 'techno-chatbot' ),
+			__( 'Chats', 'techno-chatbot' ),
+			__( 'Chats', 'techno-chatbot' ),
 			'manage_options',
 			'techno-chatbot-livechat',
-			array( $this, 'display_livechat_page' )
-		);
-		
-		add_submenu_page(
-			'techno-chatbot',
-			__( 'Chat History', 'techno-chatbot' ),
-			__( 'Chat History', 'techno-chatbot' ),
-			'manage_options',
-			'techno-chatbot-history',
-			array( $this, 'display_chathistory_page' )
+			array( $this, 'display_chats_page' )
 		);
 
 		add_submenu_page(
@@ -164,21 +168,25 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Register the administration settings.
+	 *
+	 * @since    1.0.0
+	 */
+	public function register_settings() {
+		$this->general_fields->register( 'techno-chatbot-general' );
+		$this->behaviors_fields->register( 'techno-chatbot-behaviors' );
+		$this->texts_fields->register( 'techno-chatbot-texts' );
+		$this->styles_fields->register( 'techno-chatbot-styles' );
+		$this->license_fields->register( 'techno-chatbot-license' );
+	}
+
+	/**
 	 * Render the settings page.
 	 *
 	 * @since    1.0.0
 	 */
 	public function display_settings_page() {
 		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-settings.php';
-	}
-
-	/**
-	 * Render the Live Chat page.
-	 *
-	 * @since    1.0.0
-	 */
-	public function display_livechat_page() {
-		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-livechat.php';
 	}
 
 	/**
@@ -191,18 +199,135 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
-	 * Register the administration settings.
+	 * Render the Live Chat page.
 	 *
 	 * @since    1.0.0
 	 */
-	public function register_settings() {
-
-		$this->general_fields->register( 'techno-chatbot-general' );
-		$this->behaviors_fields->register( 'techno-chatbot-behaviors' );
-		$this->texts_fields->register( 'techno-chatbot-texts' );
-		$this->styles_fields->register( 'techno-chatbot-styles' );
-		$this->license_fields->register( 'techno-chatbot-license' );
-
+	public function display_chats_page() {
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'livechat';
+		switch ($active_tab) {
+			case 'livechat':
+				$online = (int)get_option('techno_chatbot_support_online', 0);
+				$server = techno_wss_check();
+				$online = !$server? false : $online;
+			break;
+		}
+		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-chats.php';
 	}
 
+	/**
+	 * Toggle Support Online
+	 *
+	 * @since    1.0.0
+	 */
+	public function toggle_support_online() {
+		check_ajax_referer('techno_chatbot_nonce', 'nonce');
+
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error();
+		}
+		
+		$status = get_transient('techno_wss_status');
+		if ($status === false) {
+			$status = techno_wss_check() ? 1 : 0;
+			set_transient('techno_wss_status', $status, 5);
+		}
+
+		if( !$status ){
+			update_option('techno_chatbot_support_online', 0);
+			wp_send_json_success(['online' => 0, 'server_offline' => 1]);
+		}
+		
+		$force = isset($_POST['force_status']) && $_POST['force_status'] == 1 ? 1 : 0;
+		if ( $force ) {
+			update_option('techno_chatbot_support_online', $force);
+			wp_send_json_success(['online' => (bool)$force, 'forced' => 1]);
+		}
+
+		$current = get_option('techno_chatbot_support_online', 0);
+		$onlinestatus = $current ? 0 : 1;
+		update_option('techno_chatbot_support_online', $onlinestatus);
+
+		wp_send_json_success(['online' => (bool)$onlinestatus, 'before' => $current]);
+	}
+	
+	/**
+	 * Send Message: From Admin
+	 *
+	 * @since    1.0.0
+	 */
+	public function livechat_admin_send() {
+		check_ajax_referer('techno_chatbot_nonce', 'nonce');
+		if (!current_user_can('manage_options')) wp_send_json_error();
+
+		global $wpdb;
+
+		$session = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+		$message = isset($_POST['message']) ? sanitize_textarea_field($_POST['message']) : '';
+
+		if (empty($session) || empty($message)) {
+			wp_send_json_error(['message' => 'Missing data']);
+		}
+		if (!preg_match('/^[a-zA-Z0-9\-_]+$/', $session)) {
+			wp_send_json_error(['message' => 'Invalid session format']);
+		}
+
+		$exists = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}techno_livechat_messages WHERE session_id = %s",
+				$session
+			)
+		);
+
+		if (!$exists) {
+			wp_send_json_error(['message' => 'Invalid session']);
+		}
+
+		$wpdb->insert(
+			$wpdb->prefix . 'techno_livechat_messages',
+			[
+				'session_id' => $session,
+				'sender' => 'admin',
+				'message' => $message
+			]
+		);
+
+		wp_send_json_success();
+	}
+
+	/**
+	 * Return Chat History
+	 *
+	 * @since    1.0.0
+	 */
+	public function techno_get_chat_history_ajxfunction() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+ 
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
+		}
+ 
+		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
+		if ( ! $session_id ) {
+			wp_send_json_error( [ 'message' => 'Missing session_id' ], 400 );
+		}
+ 
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid session format' ], 400 );
+		}
+ 
+		global $wpdb;
+		$messages = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sender, message
+				 FROM {$wpdb->prefix}techno_livechat_messages
+				 WHERE session_id = %s
+				 ORDER BY id ASC",
+				$session_id
+			),
+			ARRAY_A
+		);
+ 
+		wp_send_json_success( $messages ?: [] );
+	}
 }

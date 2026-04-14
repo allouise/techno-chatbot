@@ -82,6 +82,14 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'Display the chatbot on the website.',
 		),
 
+		'techno_chatbot_disclaimer' => array(
+			'label'       => 'Show Disclaimer',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 1,
+			'description' => 'Display the disclaimer in chatbot and menu',
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'Notification Emails',
 			'type'        => 'text',
@@ -181,7 +189,7 @@ class Techno_Chatbot_Admin_Fields_General {
 		$features	 = $args['features'];
 		$placeholder = $args['placeholder'];
 		$value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+        $value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
 		$disabledmsg = '';
 		
@@ -242,9 +250,9 @@ class Techno_Chatbot_Admin_Fields_General {
 	 * @since    1.0.0
 	 */
 	public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
+		$default = self::$fields[$key]['default'] ?? '';
         $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
+		return ( $default !== '' && $value === '' ) ? $default : $value;
     }
 
 }

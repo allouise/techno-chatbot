@@ -70,8 +70,8 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'label'       => 'No Answer Transfer Trigger',
 			'type'        => 'number',
 			'section'     => 'behavior_section',
-			'default'     => 2,
-			'min'         => 1,
+			'default'     => 0,
+			'min'         => 0,
 			'description' => 'Transfer to live chat / default message if no correct answer is provided for (x) times.',
 		),
 
@@ -86,14 +86,6 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'features'	  => array('live_chat')
 		),
 
-		/* 'techno_chatbot_smartfaqsuggestion' => array(
-			'label'       => 'Smart FAQ suggestions',
-			'type'        => 'checkbox',
-			'section'     => 'behavior_section',
-			'default'     => '',
-			'description' => 'Enable smart FAQ suggestion for alternative answers.',
-		), */
-
 		'techno_chatbot_timetocall' => array(
 			'label'       => 'Best time to call',
 			'type'        => 'checkbox',
@@ -102,27 +94,12 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'description' => 'Show & require \'Best time to call?\' question when getting client\'s phone number.',
 		),
 
-		'techno_chatbot_transfer_next_step' => array(
-			'label'       => 'Transfer / Next Step',
-			'type'        => 'select',
+		'techno_chatbot_livechatgetname' => array(
+			'label'       => 'Live chat get name',
+			'type'        => 'checkbox',
 			'section'     => 'behavior_section',
-			'default'     => 0,
-			'description' => 'What should happen when no answer trigger is reached.',
-			'options'     => array(
-				array(
-					'label' => 'Call/Email',
-					'value' => 0,
-				),
-				array(
-					'label' => 'Default Reply',
-					'value' => 1,
-				),
-				array(
-					'label' => 'Livechat',
-					'value' => 2,
-					'features' => array('live_chat')
-				),
-			),
+			'default'     => 1,
+			'description' => 'Require name before transferring client to live chat.',
 		),
 
 	);
@@ -154,7 +131,7 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 					'sanitize_callback' => $data['type'] === 'checkbox'
 						? array( $this, 'sanitize_checkbox' )
 						: 'sanitize_text_field',
-					'default'           => $data['default'],
+					'default' => $data['default'],
 				)
 			);
 
@@ -199,7 +176,7 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 		$min         = $args['min'];
 		$unit        = $args['unit'];
 		$value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+		$value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
 		$disabledmsg = '';
 
@@ -292,9 +269,9 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 	 * @since    1.0.0
 	 */
 	public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
+		$default = self::$fields[$key]['default'] ?? '';
         $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
+		return ( $default !== '' && $value === '' ) ? $default : $value;
     }
 
 }

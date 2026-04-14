@@ -37,3 +37,14 @@ function techno_chatbot_msgformat($msg, $type = 'error'){
         break;
     }
 }
+
+/**
+ * Websocket Helper
+ */
+function techno_chatbot_websocket() {
+    return Techno_Chatbot_Websocket::instance();
+}
+
+function techno_wss_check(){
+    return techno_chatbot_websocket()->is_running();
+}
