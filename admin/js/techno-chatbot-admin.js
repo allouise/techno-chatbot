@@ -1,28 +1,3 @@
-(function( $ ) {
-'use strict';
-    /* Color Picker */
-    $('.techno-color-field').wpColorPicker({ palettes: true });
-
-    /* Media Uploader */
-    $('.techno-upload-button').click(function (e) {
-        e.preventDefault();
-        var button = $(this);
-        var input = button.prev('input');
-        var mediaUploader = wp.media({
-            title: 'Select Chatbot Icon',
-            button: { text: 'Use this icon' },
-            multiple: false
-        });
-
-        mediaUploader.on('select', function () {
-            var attachment = mediaUploader.state().get('selection').first().toJSON();
-            input.val(attachment.url);
-        });
-        mediaUploader.open();
-    });
-
-})( jQuery );
-
 /* ---------- Admin WebSocket Section ---------- */
 const livechatPage = document.getElementById('techno-livechat-admin');
 const toggleInput = document.getElementById('techno-admin-toggle-online');
@@ -34,6 +9,7 @@ const chatWindow = document.getElementById('techno-admin-chat-window');
 const chatToggle = document.getElementById('techno-support-switch');
 const chatHeader = document.getElementById('techno-admin-chat-header');
 const chatMessages = document.getElementById('techno-admin-chat-messages');
+const sessionMessages = {};
 
 let currentSession = null, 
     adminLastId = 0, 
@@ -120,10 +96,16 @@ function initAdminSocket() {
      * receive-message: incoming message for the open session.
      * Show visitor messages in real time on the admin side.
      */
-    socket.on("receive-message", (msg) => {
-        if (msg.session_id !== currentSession) return;
-        if (msg.sender === 'visitor') {
-            addAdminMessage({ sender: 'visitor', message: msg.message });
+    socket.on('receive-message', (msg) => {
+        if (msg.sender !== 'visitor') return;
+
+        /* Cache for every session regardless of which is open */
+        if (!sessionMessages[msg.session_id]) sessionMessages[msg.session_id] = [];
+        sessionMessages[msg.session_id].push({ sender: 'visitor', message: msg.message });
+
+        /* Render only if this is the currently open session */
+        if (msg.session_id === currentSession) {
+            renderMessage({ sender: 'visitor', message: msg.message });
         }
     });
 }
@@ -167,19 +149,14 @@ function updateSupportStatus(force = null) {
     });
 }
 
-/*
- * openSession — join the session room, clear the chat window,
- * update the header with the visitor's name, highlight the list item.
- */
 function openSession(sessionId) {
     currentSession = sessionId;
-    socket.emit("join-session", { session_id: sessionId }); 
+    socket.emit('join-session', { session_id: sessionId });
     adminLastId = 0;
 
-    /* Clear window & update header */
-    if (chatMessages) chatMessages.innerHTML = '';
+    /* Update header with visitor's display name */
     if (chatHeader) {
-        const name = sessionMap[sessionId] || sessionId;
+        const name    = sessionMap[sessionId] || sessionId;
         const safeName = document.createElement('span');
         safeName.textContent = name;
         chatHeader.innerHTML = 'Chatting with: <strong>' + safeName.innerHTML + '</strong>';
@@ -190,22 +167,17 @@ function openSession(sessionId) {
         li.classList.toggle('open', li.dataset.session === sessionId);
     });
 
-    /* Enable input when a session is open and support is online */
+    /* Load history (cache-first, then AJAX) */
+    loadSessionHistory(sessionId);
+
+    /* Enable / disable input based on online state */
     if (toggleInput?.checked) updateChatState(true);
-    else updateChatState(false); 
+    else updateChatState(false);
 }
 
-function addAdminMessage(msg) {
-    if(!chatMessages) return;
-    const div = document.createElement('div');
-    div.className = `techno-livechat-msg ${msg.sender}`;
-    div.textContent = msg.message;
-    chatMessages.appendChild(div);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    adminLastId = Math.max(adminLastId, msg.id || 0);
-}
-
-/* Browser Notifications & sound */
+/* 
+ * Browser Notifications & sound 
+ */
 function requestNotificationPermission() {
     if (!('Notification' in window)) {
         console.log("Browser does not support notifications");
@@ -301,7 +273,6 @@ function renderActiveVisitors() {
         activeVisitors.appendChild(li);
     });
 }
-
 function loadActiveVisitors() {
     if(!socket) return;
     socket.emit("get-active-sessions");
@@ -314,7 +285,11 @@ sendBtn?.addEventListener('click', sendAdminMessage);
 chatInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendAdminMessage();
 });
-
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
 function sendAdminMessage() {
     const msg = chatInput.value.trim();
     if (!msg || !currentSession || !socket) return;
@@ -327,6 +302,110 @@ function sendAdminMessage() {
     });
     addAdminMessage({ sender: 'admin', message: msg });
 }
+function addAdminMessage(msg) {
+    if (!chatMessages) return;
+
+    /* Cache first so a tab-switch immediately after will show it */
+    if (currentSession) {
+        if (!sessionMessages[currentSession]) sessionMessages[currentSession] = [];
+        sessionMessages[currentSession].push({ sender: msg.sender, message: msg.message });
+    }
+
+    renderMessage(msg);
+}
+function renderMessage(msg) {
+    if (!chatMessages) return;
+    const div = document.createElement('div');
+    div.className = `techno-livechat-msg ${escapeHtml(msg.sender)}`;
+    div.textContent = msg.message;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    adminLastId = Math.max(adminLastId, msg.id || 0);
+}
+function renderMessageBatch(messages) {
+    if (!chatMessages || !messages.length) return;
+    const frag = document.createDocumentFragment();
+    messages.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = `techno-livechat-msg ${escapeHtml(msg.sender)}`;
+        div.textContent = msg.message;
+        frag.appendChild(div);
+        adminLastId = Math.max(adminLastId, msg.id || 0);
+    });
+    chatMessages.appendChild(frag);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/* 
+ * History
+ */
+function loadSessionHistory(sessionId) {
+    if (!chatMessages) return;
+
+    chatMessages.innerHTML = '';
+    adminLastId = 0;
+
+    if (sessionMessages[sessionId] && sessionMessages[sessionId].length) {
+        renderMessageBatch(sessionMessages[sessionId]);
+        return;
+    }
+
+    showHistoryLoading(true);
+    fetch(technoLivechat.ajax_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'techno_get_chat_history',
+            nonce:  technoLivechat.nonce,
+            session_id: sessionId
+        })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    })
+    .then(data => {
+        showHistoryLoading(false);
+        if (!data.success || !Array.isArray(data.data)) return;
+        const messages = data.data.map(row => ({
+            sender:  row.sender  || 'visitor',
+            message: row.message || row.text || ''
+        })).filter(m => m.message);
+
+        sessionMessages[sessionId] = messages.slice();
+        if (chatMessages && currentSession === sessionId) {
+            renderMessageBatch(messages);
+        }
+    })
+    .catch(err => {
+        console.error('[Techno Chatbot] Failed to load history:', err);
+        showHistoryLoading(false);
+        showHistoryError();
+    });
+}
+function showHistoryLoading(visible) {
+    if (!chatMessages) return;
+    const existing = chatMessages.querySelector('.techno-history-loading');
+
+    if (visible && !existing) {
+        const el = document.createElement('div');
+        el.className = 'techno-history-loading';
+        el.textContent = 'Loading history…';
+        el.style.cssText = 'text-align:center;padding:8px 0;opacity:.5;font-size:12px;';
+        chatMessages.prepend(el);
+    } else if (!visible && existing) {
+        existing.remove();
+    }
+}
+function showHistoryError() {
+    if (!chatMessages) return;
+    const el = document.createElement('div');
+    el.className = 'techno-history-error';
+    el.textContent = 'Could not load previous messages.';
+    el.style.cssText = 'text-align:center;padding:8px 0;opacity:.5;font-size:12px;color:var(--wp-admin-theme-color-darker-20,#d63638);';
+    chatMessages.prepend(el);
+}
+
 
 /* ---------- Support online toggle ---------- */
 if(toggleInput) {

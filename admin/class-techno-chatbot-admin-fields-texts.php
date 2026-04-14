@@ -341,9 +341,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
         $description = $args['description'];
         $placeholder = $args['placeholder'];
         $rows        = $args['rows'];
-
         $value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+        $value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 
         if ( $type === 'textarea' ) {
 
@@ -386,9 +385,9 @@ class Techno_Chatbot_Admin_Fields_Texts {
 	 * @since    1.0.0
 	 */
     public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
+		$default = self::$fields[$key]['default'] ?? '';
         $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
+		return ( $default !== '' && $value === '' ) ? $default : $value;
     }
     
 }

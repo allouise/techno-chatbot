@@ -227,7 +227,7 @@ class Techno_Chatbot_Admin_Fields_Styles {
 		$type        = $args['type'];
         $default     = $args['default'];
 		$value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+        $value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 		$description = $args['description'];
 		$placeholder = $args['placeholder'];
 		$min         = $args['min'];
@@ -302,17 +302,6 @@ class Techno_Chatbot_Admin_Fields_Styles {
 		return is_numeric( $value ) ? $value : 0;
 	}
 
-    /**
-	 * Get field values for other class
-	 *
-	 * @since    1.0.0
-	 */
-    public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
-        $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
-    }
-
 	/**
 	 * Sanitize RGBA field
 	 *
@@ -336,4 +325,15 @@ class Techno_Chatbot_Admin_Fields_Styles {
 
 		return '';
 	}
+
+	/**
+	 * Get field values for other class
+	 *
+	 * @since    1.0.0
+	 */
+    public static function get_value( $key ) {
+		$default = self::$fields[$key]['default'] ?? '';
+        $value = get_option( $key, $default );
+		return ( $default !== '' && $value === '' ) ? $default : $value;
+    }
 }

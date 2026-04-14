@@ -55,7 +55,7 @@ class Techno_Chatbot_Activator {
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
 			id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			session_id   VARCHAR(64)     NOT NULL,
-			sender       ENUM('visitor','admin') NOT NULL,
+			sender       ENUM('visitor','admin','bot') NOT NULL,
 			message      TEXT            NOT NULL,
 			visitor_name VARCHAR(100)    DEFAULT NULL,
 			created_at   DATETIME        DEFAULT CURRENT_TIMESTAMP,

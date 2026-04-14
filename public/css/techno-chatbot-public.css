@@ -45,9 +45,9 @@
 #techno-chatbot-input[disabled] { pointer-events: none; cursor: not-allowed; }
 #techno-chatbot-send { background: var(--techno-sendbtn-bg); color: var(--techno-sendbtn-txt); border: none; padding: 0 15px; cursor: pointer; font-size: var(--techno-chatbot-sendbtnsize); } 
 #techno-chatbot-send[disabled] { pointer-events: none; cursor: not-allowed; }
-.techno-chatbot-message { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px; max-width: 80%; word-wrap: break-word; } 
+.techno-chatbot-message { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px 15px 0px; max-width: 80%; word-wrap: break-word; } 
 .techno-chatbot-message.visitor { background: var(--techno-visitor-bubble-bg); color: var(--techno-visitor-bubble-text); margin-left: auto; text-align: right; } 
-.techno-chatbot-message.admin { background: var(--techno-admin-bubble-bg); color: var(--techno-admin-bubble-text); margin-right: auto; }
+.techno-chatbot-message.admin { background: var(--techno-admin-bubble-bg); border-radius: 15px 15px 15px 0px; color: var(--techno-admin-bubble-text); margin-right: auto; }
 
 /* Disclaimer modal */
 #techno-chatbot-disclaimer-modal { position: fixed;  z-index: var(--techno-chatbot-z-index); left: 0; top: 0; width: 100%; height: 100%; display: flex ; align-items: center; justify-content: center; background: var(--techno-dsclaimer_overlay); display: none; }

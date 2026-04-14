@@ -91,6 +91,7 @@ class Techno_Chatbot_Public {
 			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
 			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
 			'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname'),
+			'liveChatGetName' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_livechatgetname'),
 			'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default'),
 			'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish'),
 			'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit'),
@@ -379,37 +380,70 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Send Message: From Visitor
+	 * Save chat message
 	 *
 	 * @since    1.0.0
 	 */
-	public function livechat_visitor_send() {
-		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-
-		$plan = techno_chatbot_feature('live_chat');
-		if ( $plan['allowed'] !== true ) {
-			wp_send_json_error(['message' => 'Not allowed']);
-			return;
-		}
-
-		global $wpdb;
-		$session = sanitize_text_field($_POST['session_id']);
-		$message = sanitize_textarea_field($_POST['message']);
-		if (empty($session) || empty($message)) wp_send_json_error();
-
-		$wpdb->insert(
-			$wpdb->prefix . 'techno_livechat_messages',
-			['session_id' => $session, 'sender' => 'visitor', 'message' => $message]
-		);
-
-		// Notify admin of new session (optional: update active sessions option)
-		$sessions = get_option('techno_active_livechat_sessions', []);
-		if (!in_array($session, $sessions)) {
-			$sessions[] = $session;
-			update_option('techno_active_livechat_sessions', $sessions);
-		}
-
-		wp_send_json_success();
-	}
-
+	public function save_chat_message() {
+        check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+ 
+        /* ---- rate limit: max 60 saves per minute per IP ---- */
+        $ip            = $_SERVER['REMOTE_ADDR'] ?? '';
+        $rate_key      = 'techno_chat_save_' . md5( $ip );
+        $rate_count    = (int) get_transient( $rate_key );
+        if ( $rate_count >= 60 ) {
+            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+        }
+        set_transient( $rate_key, $rate_count + 1, 60 );
+ 
+        /* ---- validate inputs ---- */
+        $session_id   = isset( $_POST['session_id'] )   ? sanitize_text_field( $_POST['session_id'] )   : '';
+        $sender       = isset( $_POST['sender'] )        ? sanitize_text_field( $_POST['sender'] )        : '';
+        $message      = isset( $_POST['message'] )       ? sanitize_textarea_field( $_POST['message'] )   : '';
+        $visitor_name = isset( $_POST['visitor_name'] )  ? sanitize_text_field( $_POST['visitor_name'] )  : null;
+ 
+        if ( ! $session_id || ! $sender || ! $message ) {
+            wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
+        }
+ 
+        /* session_id must be alphanumeric + dash/underscore only */
+        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
+        }
+ 
+        /* sender must be one of the allowed enum values */
+        $allowed_senders = [ 'visitor', 'bot' ];
+        if ( ! in_array( $sender, $allowed_senders, true ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid sender' ], 400 );
+        }
+ 
+        /* message length guard */
+        if ( mb_strlen( $message ) > 2000 ) {
+            wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
+        }
+ 
+        global $wpdb;
+        $table = $wpdb->prefix . 'techno_livechat_messages';
+ 
+        $data = [
+            'session_id' => $session_id,
+            'sender'     => $sender,
+            'message'    => $message,
+        ];
+        $format = [ '%s', '%s', '%s' ];
+ 
+        /* attach visitor_name when provided (visitor messages only) */
+        if ( $visitor_name !== null && $sender === 'visitor' ) {
+            $data['visitor_name'] = $visitor_name;
+            $format[]             = '%s';
+        }
+ 
+        $result = $wpdb->insert( $table, $data, $format );
+ 
+        if ( $result === false ) {
+            wp_send_json_error( [ 'message' => 'DB error' ], 500 );
+        }
+ 
+        wp_send_json_success( [ 'id' => $wpdb->insert_id ] );
+    }
 }

@@ -94,6 +94,14 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'description' => 'Show & require \'Best time to call?\' question when getting client\'s phone number.',
 		),
 
+		'techno_chatbot_livechatgetname' => array(
+			'label'       => 'Live chat get name',
+			'type'        => 'checkbox',
+			'section'     => 'behavior_section',
+			'default'     => 1,
+			'description' => 'Require name before transferring client to live chat.',
+		),
+
 	);
 
     /**
@@ -123,7 +131,7 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 					'sanitize_callback' => $data['type'] === 'checkbox'
 						? array( $this, 'sanitize_checkbox' )
 						: 'sanitize_text_field',
-					'default'           => $data['default'],
+					'default' => $data['default'],
 				)
 			);
 
@@ -168,7 +176,7 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 		$min         = $args['min'];
 		$unit        = $args['unit'];
 		$value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+		$value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
 		$disabledmsg = '';
 
@@ -261,9 +269,9 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 	 * @since    1.0.0
 	 */
 	public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
+		$default = self::$fields[$key]['default'] ?? '';
         $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
+		return ( $default !== '' && $value === '' ) ? $default : $value;
     }
 
 }

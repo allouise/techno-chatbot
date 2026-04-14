@@ -154,7 +154,8 @@ class Techno_Chatbot_Admin_Fields_License {
 		$default     = $args['default'];
 		$description = $args['description'];
 		$placeholder = $args['placeholder'];
-		$value = get_option( $option, $default );
+		$value		 = get_option( $option, $default );
+		$value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 
 		// Checkbox
 		if ( $type === 'checkbox' ) {

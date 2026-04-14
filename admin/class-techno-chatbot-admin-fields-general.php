@@ -189,7 +189,7 @@ class Techno_Chatbot_Admin_Fields_General {
 		$features	 = $args['features'];
 		$placeholder = $args['placeholder'];
 		$value       = get_option( $option, $default );
-        $value       = ($default && empty($value))? $default : $value;
+        $value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
 		$disabledmsg = '';
 		
@@ -250,9 +250,9 @@ class Techno_Chatbot_Admin_Fields_General {
 	 * @since    1.0.0
 	 */
 	public static function get_value( $key ) {
-        $default = self::$fields[$key]['default'] ?? '';
+		$default = self::$fields[$key]['default'] ?? '';
         $value = get_option( $key, $default );
-        return ($default && empty($value))? $default : $value;
+		return ( $default !== '' && $value === '' ) ? $default : $value;
     }
 
 }

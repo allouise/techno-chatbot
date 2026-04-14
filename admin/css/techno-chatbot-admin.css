@@ -8,7 +8,11 @@
 #techno-admin-chat-window.disabled { opacity: 0.2; pointer-events: none; }
 #techno-admin-chat-header { font-size: 1.3em; line-height: 100%; display: inline-flex ; align-self: flex-end; padding: 10px 15px; background: #f2f2f2; position: sticky; border: 1px solid #8c8f94; border-radius: 100px 30px 0 100px; top: 35px; margin: 0 0 -35px 0; }
 #techno-admin-chat-header strong { color: #198b66; text-transform: capitalize; margin-left: 5px; }
-#techno-admin-chat-messages { background: #fff; border: 1px solid #8c8f94; border-radius: 5px; min-height: 500px; overflow-y: auto; }
+#techno-admin-chat-messages { background: #fff; border: 1px solid #8c8f94; border-radius: 5px; min-height: 500px; overflow-y: auto; display: flex ; flex: 1; flex-direction: column; padding: 45px 10px 25px 10px; }
+.techno-livechat-msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px 15px 0; max-width: 80%; word-wrap: break-word; font-size: 1.5em; line-height: 100%; }
+.techno-livechat-msg.admin { background: #4caf50; color: #fff; margin-left: auto; text-align: right; } 
+.techno-livechat-msg.visitor { background: #f1f1f1; border-radius: 15px 15px 15px 0; color: #333; margin-right: auto; }
+
 #techno-admin-chat-input { flex: 1; font-size: 18px; padding: 5px 15px; }
 #techno-admin-chat-input[disabled] { opacity: 0.6; pointer-events: none; }
 #techno-admin-chat-send { text-transform: uppercase; background: #4caf8f; color: #fff; border: none; border-radius: 5px; font-size: 18px; display: inline-block; padding: 15px 30px; font-weight: bold; letter-spacing: 1px; }

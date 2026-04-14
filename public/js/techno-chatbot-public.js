@@ -136,7 +136,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 500);
         }
-        if(state === 6) disableInput(false);
+        if (state === 6) {
+            if (parseInt(technoChatbot.liveChatGetName) === 1) {
+                disableInput(false);
+            } else {
+                setState(0);
+                disableInput(false);
+            }
+        }
 
         scrollToBottom();
     }
@@ -278,9 +285,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     async function handleOnlineStatus(online) {
         if (online) {
-            setState(6);
-            await botReply(technoChatbot.getName);
-            disableInput(false);
+            if (parseInt(technoChatbot.liveChatGetName) === 1) {
+                setState(6);
+                await botReply(technoChatbot.getName);
+                disableInput(false);
+            } else {
+                setState(5);
+                await botReply(technoChatbot.transferredToSupport);
+                await startLiveChat();
+            }
         } else {
             setState(0);
             await botReply(technoChatbot.offlineSupport);
@@ -459,7 +472,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if(document.querySelector('.techno-chatbot-contact-options')) return;
 
         const wrapper = document.createElement('div');
+        const cacheAge = Date.now() - statusDotCache.ts;
+        const supportOnline = statusDotCache.ts > 0 && cacheAge < CACHE_TTL && statusDotCache.online;
         wrapper.className = 'techno-chatbot-contact-options';
+
+        if(technoChatbot.liveChatEnabled && supportOnline){
+            const livechatBtn = document.createElement('button');
+            livechatBtn.textContent = technoChatbot.menuLivechat;
+            livechatBtn.onclick = () => {
+                wrapper.remove();
+                addMessage(technoChatbot.menuLivechat, 'visitor', true);
+                checkAndTransferToLiveChat();
+            };
+            wrapper.appendChild(livechatBtn);
+        }
 
         const phoneBtn = document.createElement('button');
         phoneBtn.textContent = technoChatbot.menuCall;
@@ -471,17 +497,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         wrapper.appendChild(phoneBtn);
         wrapper.appendChild(emailBtn);
-
-        if(technoChatbot.liveChatEnabled){
-            const livechatBtn = document.createElement('button');
-            livechatBtn.textContent = technoChatbot.menuLivechat;
-            livechatBtn.onclick = () => {
-                wrapper.remove();
-                addMessage(technoChatbot.menuLivechat, 'visitor', true);
-                checkAndTransferToLiveChat();
-            };
-            wrapper.appendChild(livechatBtn);
-        }
 
         const restartBtn = document.createElement('button');
         restartBtn.textContent = technoChatbot.menuReset;

@@ -76,7 +76,8 @@ class Techno_Chatbot_Admin {
 		wp_enqueue_media();
 		wp_enqueue_style( 'wp-color-picker' );
 		wp_enqueue_script( 'wp-color-picker-alpha', plugin_dir_url( __FILE__ ) . 'js/wp-color-picker-alpha.min.js', array( 'wp-color-picker' ), $this->version, true );
-		wp_enqueue_script( 'techno-admin-script', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-admin.js', array( 'wp-color-picker', 'wp-color-picker-alpha', 'jquery' ), $this->version, true );
+		wp_enqueue_script( 'techno-admin-jquery', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-jquery.js', array( 'wp-color-picker', 'wp-color-picker-alpha', 'jquery' ), $this->version, true );
+		wp_enqueue_script( 'techno-admin-script', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-admin.js', [], $this->version, true );
 
 		$livechat_allowed = techno_chatbot_feature('live_chat');
     	$livechat_allowed = $livechat_allowed['allowed'] === true;
@@ -292,5 +293,41 @@ class Techno_Chatbot_Admin {
 		);
 
 		wp_send_json_success();
+	}
+
+	/**
+	 * Return Chat History
+	 *
+	 * @since    1.0.0
+	 */
+	public function techno_get_chat_history_ajxfunction() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+ 
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
+		}
+ 
+		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
+		if ( ! $session_id ) {
+			wp_send_json_error( [ 'message' => 'Missing session_id' ], 400 );
+		}
+ 
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid session format' ], 400 );
+		}
+ 
+		global $wpdb;
+		$messages = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sender, message
+				 FROM {$wpdb->prefix}techno_livechat_messages
+				 WHERE session_id = %s
+				 ORDER BY id ASC",
+				$session_id
+			),
+			ARRAY_A
+		);
+ 
+		wp_send_json_success( $messages ?: [] );
 	}
 }
