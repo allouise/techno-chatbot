@@ -250,50 +250,6 @@ class Techno_Chatbot_Admin {
 
 		wp_send_json_success(['online' => (bool)$onlinestatus, 'before' => $current]);
 	}
-	
-	/**
-	 * Send Message: From Admin
-	 *
-	 * @since    1.0.0
-	 */
-	public function livechat_admin_send() {
-		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-		if (!current_user_can('manage_options')) wp_send_json_error();
-
-		global $wpdb;
-
-		$session = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
-		$message = isset($_POST['message']) ? sanitize_textarea_field($_POST['message']) : '';
-
-		if (empty($session) || empty($message)) {
-			wp_send_json_error(['message' => 'Missing data']);
-		}
-		if (!preg_match('/^[a-zA-Z0-9\-_]+$/', $session)) {
-			wp_send_json_error(['message' => 'Invalid session format']);
-		}
-
-		$exists = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}techno_livechat_messages WHERE session_id = %s",
-				$session
-			)
-		);
-
-		if (!$exists) {
-			wp_send_json_error(['message' => 'Invalid session']);
-		}
-
-		$wpdb->insert(
-			$wpdb->prefix . 'techno_livechat_messages',
-			[
-				'session_id' => $session,
-				'sender' => 'admin',
-				'message' => $message
-			]
-		);
-
-		wp_send_json_success();
-	}
 
 	/**
 	 * Return Chat History

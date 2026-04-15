@@ -1,4 +1,4 @@
-<div id="techno-livechat-admin" <?php echo $online == 1 ? 'class="' . esc_attr('online') . '"' : ''; ?>>
+<div id="techno-livechat-admin" class="<?php echo $online == 1 ? esc_attr('online') : ''; ?>">
     <a id="notifHowTo"><span>ℹ️</span> How to enable <strong>Desktop & Browser Notification</strong></a>
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
@@ -35,4 +35,5 @@
         </div>
     </div>
 
+    <div class="techno-chat-admin-loader">Loading...</div>
 </div>

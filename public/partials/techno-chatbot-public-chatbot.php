@@ -46,9 +46,7 @@
 	<div id="techno-chatbot-messages"></div>
 
 	<div class="techno-chatbot-input-wrapper">
-		<input type="text"
-			   id="techno-chatbot-input"
-			   placeholder="<?php echo $inputtxt; ?>" />
+		<input type="text" id="techno-chatbot-input" placeholder="<?php echo $inputtxt; ?>" max-length="250" />
 		<button type="button" id="techno-chatbot-send">
 			<?php echo $sendbtn; ?>
 		</button>

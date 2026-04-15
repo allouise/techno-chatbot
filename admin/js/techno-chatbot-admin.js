@@ -114,9 +114,8 @@ function updateChatState(isOnline) {
     if (!chatInput || !sendBtn || !chatWindow || !chatMessages || !chatHeader) return;
     chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
     sendBtn.textContent = isOnline ? 'Send' : 'Offline';
-
-    const current_open = document.querySelector('#techno-active-visitors li.open');
-    if( isOnline == 1 && current_open.length > 0 ) isOnline = 0;
+    const opened = activeVisitors.querySelector('.open');
+    if( isOnline && !opened ) isOnline = false;
     chatInput.disabled = !isOnline;
     sendBtn.disabled = !isOnline;
     chatWindow.classList.toggle('disabled', !isOnline);
@@ -127,6 +126,11 @@ function updateChatState(isOnline) {
 
 function updateSupportStatus(force = null) {
     force = (force == 1)? 1 : 0;
+    const opened = activeVisitors.querySelector('.open');
+    if( opened ){ 
+        opened.classList.remove('open');
+        updateChatState(false);
+    }
     fetch(technoLivechat.ajax_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -163,7 +167,7 @@ function openSession(sessionId) {
     }
 
     /* Highlight active list item */
-    document.querySelectorAll('#techno-active-visitors li').forEach(li => {
+    activeVisitors.querySelectorAll('li').forEach(li => {
         li.classList.toggle('open', li.dataset.session === sessionId);
     });
 
@@ -349,8 +353,7 @@ function loadSessionHistory(sessionId) {
         renderMessageBatch(sessionMessages[sessionId]);
         return;
     }
-
-    showHistoryLoading(true);
+    livechatPage.classList.add('loading');
     fetch(technoLivechat.ajax_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -365,7 +368,7 @@ function loadSessionHistory(sessionId) {
         return res.json();
     })
     .then(data => {
-        showHistoryLoading(false);
+        livechatPage.classList.remove('loading');
         if (!data.success || !Array.isArray(data.data)) return;
         const messages = data.data.map(row => ({
             sender:  row.sender  || 'visitor',
@@ -379,31 +382,8 @@ function loadSessionHistory(sessionId) {
     })
     .catch(err => {
         console.error('[Techno Chatbot] Failed to load history:', err);
-        showHistoryLoading(false);
-        showHistoryError();
+        livechatPage.classList.remove('loading');
     });
-}
-function showHistoryLoading(visible) {
-    if (!chatMessages) return;
-    const existing = chatMessages.querySelector('.techno-history-loading');
-
-    if (visible && !existing) {
-        const el = document.createElement('div');
-        el.className = 'techno-history-loading';
-        el.textContent = 'Loading history…';
-        el.style.cssText = 'text-align:center;padding:8px 0;opacity:.5;font-size:12px;';
-        chatMessages.prepend(el);
-    } else if (!visible && existing) {
-        existing.remove();
-    }
-}
-function showHistoryError() {
-    if (!chatMessages) return;
-    const el = document.createElement('div');
-    el.className = 'techno-history-error';
-    el.textContent = 'Could not load previous messages.';
-    el.style.cssText = 'text-align:center;padding:8px 0;opacity:.5;font-size:12px;color:var(--wp-admin-theme-color-darker-20,#d63638);';
-    chatMessages.prepend(el);
 }
 
 
