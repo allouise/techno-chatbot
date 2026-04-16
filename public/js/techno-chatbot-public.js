@@ -465,6 +465,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function saveMessageToDB(sessionId, sender, message) {
+        //ALF TEST
+        return;
+
         if (!sessionId || !sender || !message) return;
         const body = new URLSearchParams({
             action:       'techno_save_chat_message',

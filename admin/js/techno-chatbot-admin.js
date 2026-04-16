@@ -37,6 +37,7 @@ function initAdminSocket() {
             toggleInput.checked = false;
             toggleInput.disabled = true;
         }
+        if (chatToggle) chatToggle.classList.remove('active');
         if (toggleLabel) toggleLabel.textContent = "Server Offline";
 
         updateChatState(false);
@@ -49,6 +50,9 @@ function initAdminSocket() {
         chatToggle?.classList.add('active');
         if (toggleInput?.checked) {
             socket.emit("register-support");
+        }
+        if (toggleLabel){
+            toggleLabel.textContent = (toggleInput?.checked)? "Online" : "Offline";
         }
     });
 
