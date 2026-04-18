@@ -57,7 +57,7 @@ class Techno_Chatbot_Activator {
 			session_id   VARCHAR(64)     NOT NULL,
 			sender       ENUM('visitor','admin','bot') NOT NULL,
 			message      TEXT            NOT NULL,
-			visitor_name VARCHAR(100)    DEFAULT NULL,
+			name		 VARCHAR(100)    DEFAULT NULL,
 			created_at   DATETIME        DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			INDEX idx_session (session_id),

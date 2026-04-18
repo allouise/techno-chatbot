@@ -103,6 +103,7 @@ class Techno_Chatbot_Public {
 			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall'),
 			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail'),
 			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
+			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
@@ -399,12 +400,16 @@ class Techno_Chatbot_Public {
         /* ---- validate inputs ---- */
         $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
         $sender = isset( $_POST['sender'] ) ? sanitize_text_field( $_POST['sender'] ) : '';
-        $message = isset( $_POST['message'] ) ? sanitize_textarea_field( $_POST['message'] ) : '';
+        $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
         $visitor_name = isset( $_POST['visitor_name'] ) ? sanitize_text_field( $_POST['visitor_name'] ) : null;
  
         if ( ! $session_id || ! $sender || ! $message ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
         }
+
+		if (strlen($message) < 1) {
+			wp_send_json_error(['message' => 'Empty message'], 400);
+		}
  
         /* session_id must be alphanumeric + dash/underscore only */
         if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
@@ -412,7 +417,7 @@ class Techno_Chatbot_Public {
         }
  
         /* sender must be one of the allowed enum values */
-        $allowed_senders = [ 'visitor', 'bot', 'admin' ];
+        $allowed_senders = [ 'visitor', 'bot' ];
         if ( ! in_array( $sender, $allowed_senders, true ) ) {
             wp_send_json_error( [ 'message' => 'Invalid sender' ], 400 );
         }
@@ -427,15 +432,15 @@ class Techno_Chatbot_Public {
  
         $data = [
             'session_id' => $session_id,
-            'sender'     => $sender,
-            'message'    => $message,
+            'sender' => $sender,
+            'message' => $message,
         ];
         $format = [ '%s', '%s', '%s' ];
  
         /* attach visitor_name when provided (visitor messages only) */
         if ( $visitor_name !== null && $sender === 'visitor' ) {
-            $data['visitor_name'] = $visitor_name;
-            $format[]             = '%s';
+            $data['name'] = $visitor_name;
+            $format[] = '%s';
         }
  
         $result = $wpdb->insert( $table, $data, $format );

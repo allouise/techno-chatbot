@@ -46,7 +46,7 @@
 #techno-chatbot-send { background: var(--techno-sendbtn-bg); color: var(--techno-sendbtn-txt); border: none; padding: 0 15px; cursor: pointer; font-size: var(--techno-chatbot-sendbtnsize); } 
 #techno-chatbot-send[disabled] { pointer-events: none; cursor: not-allowed; }
 .techno-chatbot-message { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px 15px 0px; max-width: 80%; word-wrap: break-word; } 
-.techno-chatbot-message.visitor { background: var(--techno-visitor-bubble-bg); color: var(--techno-visitor-bubble-text); margin-left: auto; text-align: right; } 
+.techno-chatbot-message.visitor { background: var(--techno-visitor-bubble-bg); color: var(--techno-visitor-bubble-text); margin-left: auto; text-align: left; } 
 .techno-chatbot-message.admin, .techno-chatbot-message.bot { background: var(--techno-admin-bubble-bg); border-radius: 15px 15px 15px 0px; color: var(--techno-admin-bubble-text); margin-right: auto; }
 
 /* Disclaimer modal */

@@ -48,6 +48,7 @@ function initAdminSocket() {
     socket.on("connect", () => {
         loadActiveVisitors();
         chatToggle?.classList.add('active');
+        toggleInput.disabled = false;
         if (toggleInput?.checked) {
             socket.emit("register-support");
         }
@@ -318,6 +319,24 @@ function addAdminMessage(msg) {
         if (!sessionMessages[currentSession]) sessionMessages[currentSession] = [];
         sessionMessages[currentSession].push({ sender: msg.sender, message: msg.message });
     }
+
+    /* Save TO DB */
+    const body = new URLSearchParams({
+        action: 'techno_save_admin_chat_message',
+        nonce: technoLivechat.nonce,
+        session_id: currentSession,
+        sender: msg.sender,
+        message: msg.message
+    });
+
+    fetch(technoLivechat.ajax_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body,
+        keepalive: true,
+    }).catch(err =>
+        console.error('[Techno Chatbot] DB save failed:', err)
+    );
 
     renderMessage(msg);
 }

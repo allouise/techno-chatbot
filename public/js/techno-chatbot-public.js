@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
 
         const state = getState();
-        if (state === 5 && liveChatSessionId){
+        if (state === 5 && liveChatSessionId && sender != 'admin'){
             saveMessageToDB(liveChatSessionId, sender, text);
         }
     }
@@ -293,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on("receive-message", (msg) => {
             if(msg.session_id !== liveChatSessionId) return;
             if(msg.sender === 'admin') addMessage(msg.message, 'admin');
+            console.log(msg.message);
         });
 
         socket.on("support-status", (data) => {
@@ -460,13 +461,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 addMessage(text, 'bot');
                 resolve();
                 disableInput(false);
-                el.input.placeholder = 'Type a message...';
+                el.input.placeholder = technoChatbot.inputtxt;
             }, delay);
         });
     }
     function saveMessageToDB(sessionId, sender, message) {
         //ALF TEST
-        return;
+        // return;
 
         if (!sessionId || !sender || !message) return;
         const body = new URLSearchParams({
@@ -624,6 +625,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         el.disclaimerModal.querySelector('.close-btn').onclick = () => el.disclaimerModal.classList.remove('active');
     }
+    /* TO FIX THIS SHOULD ONLY RUN ON LIVECHAT */
+    /* window.addEventListener("storage", (e) => {
+        if (e.key === STORAGE_KEY) {
+            chatHistory = JSON.parse(e.newValue || '[]');
+            el.messages.innerHTML = '';
+            loadHistory();
+        }
+    }); */
 
     if (!socket){ initSocket(); } 
     loadHistory();
