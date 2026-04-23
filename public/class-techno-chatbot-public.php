@@ -89,6 +89,7 @@ class Techno_Chatbot_Public {
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
 			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
+			'idleSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_agents_message'),
 			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
 			'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname'),
 			'liveChatGetName' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_livechatgetname'),
@@ -105,6 +106,7 @@ class Techno_Chatbot_Public {
 			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
 			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
+			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 			'faq' => $this->get_faq_data()
