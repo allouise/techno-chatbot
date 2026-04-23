@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const CHAT_START_KEY = 'techno_chatbot_start';
     const LIVECHAT_NAME_KEY = 'techno_livechat_visitor_name';
     const LIVECHAT_SESSION = 'techno_livechat_session';
+    const LIVECHAT_IDLE = 'techno_livechat_idled';
 
     /* ---------- State ---------- */
     let socket = null;
@@ -43,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY) || null;
     let chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     let supportOnline = false;
-    let idleDisconnectTimer = null;
+    let idleDisconnectTimer = localStorage.getItem(LIVECHAT_IDLE) || null;;
 
     if (!localStorage.getItem(CHAT_START_KEY)) {
         localStorage.setItem(CHAT_START_KEY, Date.now());
@@ -93,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (idleDisconnectTimer) {
             clearTimeout(idleDisconnectTimer);
             idleDisconnectTimer = null;
+            localStorage.removeItem(LIVECHAT_IDLE);
         }
     }
     function startIdleDisconnectTimer() {
@@ -142,6 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(CHAT_START_KEY);
         localStorage.removeItem(LIVECHAT_NAME_KEY);
         localStorage.removeItem(LIVECHAT_SESSION);
+        localStorage.removeItem(LIVECHAT_IDLE);
+        idleDisconnectTimer = null;
         liveChatSessionId = null;
         liveChatVisitorName = null;
         chatHistory = [];
