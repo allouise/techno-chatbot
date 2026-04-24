@@ -119,8 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveHistory(text, sender) {
         text = sanitizeText(text);
         if (!text) return;
-        chatHistory.push({ text, sender });
+        chatHistory.push({ text, sender, created_at: new Date().toISOString() });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
+        console.log(chatHistory);
 
         const state = getState();
         if ( (state === 5 || idleDisconnectTimer ) && liveChatSessionId && sender != 'admin' ){
@@ -484,6 +485,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sender === 'visitor') cssClass = 'visitor';
         message.className = `techno-chatbot-message ${cssClass}`;
         message.textContent = text;
+
+        /* Time */
+        const time = document.createElement('div');
+        time.className = 'techno-chatbot-time';
+        time.textContent = new Date().toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        message.appendChild(time);
+
         el.messages.appendChild(message);
         scrollToBottom();
         if (save) saveHistory(text, sender);

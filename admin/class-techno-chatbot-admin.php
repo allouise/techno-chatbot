@@ -275,6 +275,7 @@ class Techno_Chatbot_Admin {
         /* ---- validate inputs ---- */
         $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
         $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
+		$message_type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
 			
         if ( ! $session_id || ! $message ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
@@ -293,19 +294,43 @@ class Techno_Chatbot_Admin {
         if ( mb_strlen( $message ) > 2000 ) {
             wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
         }
- 
+
+		/* validate message_type */
+		$allowed_types = ['text','image','file','system'];
+		if ( ! in_array($message_type, $allowed_types, true) ) {
+			$message_type = 'text';
+		}
+
+		/* get admin info */
 		$current_user = wp_get_current_user();
-		$admin_name = $current_user->display_name;
+		$admin_name   = $current_user->display_name;
+
+		/* capture metadata */
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
 
         global $wpdb;
-        $result = $wpdb->insert( $wpdb->prefix . 'techno_livechat_messages', 
+        $result = $wpdb->insert(
+			$wpdb->prefix . 'techno_livechat_messages',
 			[
-				'session_id' => $session_id,
-				'sender' => 'admin',
-				'message' => $message,
-				'name' => $admin_name
-        	], 
-		[ '%s', '%s', '%s', '%s' ] );
+				'session_id'   => $session_id,
+				'sender'       => 'admin',
+				'message'      => $message,
+				'name'         => $admin_name,
+				'message_type' => $message_type,
+				'user_agent'   => $user_agent,
+				'ip_address'   => $ip_address,
+			],
+			[
+				'%s', // session_id
+				'%s', // sender
+				'%s', // message
+				'%s', // name
+				'%s', // message_type
+				'%s', // user_agent
+				'%s', // ip_address
+			]
+		);
  
         if ( $result === false ) {
             wp_send_json_error( [ 'message' => 'DB error' ], 500 );
@@ -337,7 +362,7 @@ class Techno_Chatbot_Admin {
 		global $wpdb;
 		$messages = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT sender, message
+				"SELECT sender, message, name, created_at
 				 FROM {$wpdb->prefix}techno_livechat_messages
 				 WHERE session_id = %s
 				 ORDER BY id ASC",

@@ -4,6 +4,7 @@ const toggleInput = document.getElementById('techno-admin-toggle-online');
 const toggleLabel = document.getElementById('techno-toggle-label');
 const chatInput = document.getElementById('techno-admin-chat-input');
 const sendBtn   = document.getElementById('techno-admin-chat-send');
+const endBtn   = document.getElementById('techno-admin-chat-end');
 const activeVisitors = document.getElementById('techno-active-visitors');
 const chatWindow = document.getElementById('techno-admin-chat-window');
 const chatToggle = document.getElementById('techno-support-switch');
@@ -117,13 +118,14 @@ function initAdminSocket() {
 }
 
 function updateChatState(isOnline) {
-    if (!chatInput || !sendBtn || !chatWindow || !chatMessages || !chatHeader) return;
+    if (!chatInput || !sendBtn || !endBtn  || !chatWindow || !chatMessages || !chatHeader) return;
     chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
     sendBtn.textContent = isOnline ? 'Send' : 'Offline';
     const opened = activeVisitors.querySelector('.open');
     if( isOnline && !opened ) isOnline = false;
     chatInput.disabled = !isOnline;
     sendBtn.disabled = !isOnline;
+    endBtn.disabled = !isOnline;
     chatWindow.classList.toggle('disabled', !isOnline);
     if( !isOnline ){
         chatMessages.innerHTML = "";
@@ -380,6 +382,21 @@ function renderMessageBatch(messages) {
         const div = document.createElement('div');
         div.className = `techno-livechat-msg ${escapeHtml(msg.sender)}`;
         div.textContent = msg.message;
+
+        /* Time */
+        if( msg.created_at ){
+            const time = document.createElement('div');
+            time.className = 'techno-chatbot-time';
+            const date = new Date(msg.created_at.replace(' ', 'T'));
+            time.textContent = date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+            div.appendChild(time);
+        }
         frag.appendChild(div);
         adminLastId = Math.max(adminLastId, msg.id || 0);
     });
@@ -419,7 +436,8 @@ function loadSessionHistory(sessionId) {
         if (!data.success || !Array.isArray(data.data)) return;
         const messages = data.data.map(row => ({
             sender:  row.sender  || 'visitor',
-            message: row.message || row.text || ''
+            message: row.message || '',
+            created_at: row.created_at || ''
         })).filter(m => m.message);
 
         sessionMessages[sessionId] = messages.slice();

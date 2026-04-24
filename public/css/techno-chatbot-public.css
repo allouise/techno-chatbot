@@ -38,6 +38,7 @@
 
 /* Messages */ 
 #techno-chatbot-messages { display: flex; flex: 1; flex-direction: column; padding: 10px 10px 25px 10px; overflow-y: auto; font-size: var(--techno-chatbot-chatmsgsize); } 
+.techno-chatbot-time { font-size: 0.8em; display: block; text-align: right; margin: 10px 0 0; opacity: 0.7; }
 
 /* Input */ 
 .techno-chatbot-input-wrapper { background: var(--techno-input-bg); color: var(--techno-input-txt); display: flex; border-top: 1px solid rgba(44, 42, 42, 0.15); } 

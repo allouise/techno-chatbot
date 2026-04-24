@@ -400,10 +400,11 @@ class Techno_Chatbot_Public {
         set_transient( $rate_key, $rate_count + 1, 60 );
  
         /* ---- validate inputs ---- */
-        $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
-        $sender = isset( $_POST['sender'] ) ? sanitize_text_field( $_POST['sender'] ) : '';
-        $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
-        $visitor_name = isset( $_POST['visitor_name'] ) ? sanitize_text_field( $_POST['visitor_name'] ) : null;
+        $session_id = isset($_POST['session_id'])? sanitize_text_field($_POST['session_id']) : '';
+		$sender = isset($_POST['sender'])? sanitize_text_field($_POST['sender']) : '';
+		$message = isset($_POST['message'])? trim( sanitize_textarea_field($_POST['message']) ) : '';
+		$visitor_name = isset($_POST['visitor_name'])? sanitize_text_field($_POST['visitor_name']) : null;
+		$message_type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
  
         if ( ! $session_id || ! $sender || ! $message ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
@@ -428,23 +429,41 @@ class Techno_Chatbot_Public {
         if ( mb_strlen( $message ) > 2000 ) {
             wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
         }
+
+		/* message type validation */
+		$allowed_types = ['text','image','file','system'];
+		if ( ! in_array($message_type, $allowed_types, true) ) {
+			$message_type = 'text';
+		}
+
+		/* metadata */
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
  
         global $wpdb;
         $table = $wpdb->prefix . 'techno_livechat_messages';
- 
         $data = [
-            'session_id' => $session_id,
-            'sender' => $sender,
-            'message' => $message,
-        ];
-        $format = [ '%s', '%s', '%s' ];
+			'session_id'   => $session_id,
+			'sender'       => $sender,
+			'message'      => $message,
+			'message_type' => $message_type,
+			'user_agent'   => $user_agent,
+			'ip_address'   => $ip_address,
+		];
+		$format = [
+			'%s', // session_id
+			'%s', // sender
+			'%s', // message
+			'%s', // message_type
+			'%s', // user_agent
+			'%s', // ip_address
+		];
  
         /* attach visitor_name when provided (visitor messages only) */
         if ( $visitor_name !== null && $sender === 'visitor' ) {
             $data['name'] = $visitor_name;
             $format[] = '%s';
         }
- 
         $result = $wpdb->insert( $table, $data, $format );
  
         if ( $result === false ) {
@@ -481,19 +500,27 @@ class Techno_Chatbot_Public {
 			wp_send_json_error();
 		}
 
+		/* metadata */
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip = $_SERVER['HTTP_CF_CONNECTING_IP']?? $_SERVER['HTTP_X_FORWARDED_FOR']?? $_SERVER['REMOTE_ADDR']?? '';
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
+
 		foreach ($messages as $msg){
-			$sender = sanitize_text_field($msg['sender'] ?? '');
-			$text   = sanitize_textarea_field($msg['text'] ?? '');
+			$sender = isset($msg['sender']) ? sanitize_text_field($msg['sender']) : '';
+			$text = isset($msg['text']) ? sanitize_textarea_field($msg['text']) : '';
+			$created_at = isset($msg['created_at']) ? sanitize_textarea_field($msg['created_at']) : '';
 			if (!$text) continue;
 			$result = $wpdb->insert(
 				$table,
 				[
-					'session_id' => $session_id,
-					'sender'     => $sender,
-					'message'    => $text,
-					'created_at' => current_time('mysql')
+					'session_id'	=> $session_id,
+					'sender'		=> $sender,
+					'message'		=> $text,
+					'user_agent'	=> $user_agent,
+					'ip_address'	=> $ip_address,
+					'created_at'	=> $created_at
 				],
-				['%s','%s','%s','%s']
+				['%s','%s','%s','%s','%s','%s']
 			);
 			if ($result === false) {
 				wp_send_json_error();

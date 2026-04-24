@@ -44,6 +44,7 @@
         <div style="display:flex; margin-top:10px; gap: 10px;">
             <input type="text" id="techno-admin-chat-input" disabled/>
             <button id="techno-admin-chat-send" disabled>Offline</button>
+            <button id="techno-admin-chat-end" disabled>End Chat</button>
         </div>
     </div>
 
