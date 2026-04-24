@@ -34,10 +34,10 @@
 		<div class="techno-chatbot-menu">
 			<a id="techno-chatbot-menu-trigger">Menu</a>
 			<ul id="techno-chatbot-menu-list">
-				<li><a id="techno-chatbot-disclaimer">Disclaimer</a></li>
 				<?php if( $disclaimerEnabled ){ ?>
-					<li><a class="techno-chatbot-reset">Restart</a></li>
+					<li><a id="techno-chatbot-disclaimer">Disclaimer</a></li>
 				<?php } ?>
+				<li><a class="techno-chatbot-reset">Restart</a></li>
 			</ul>
 		</div>
 		<button type="button" id="techno-chatbot-close">×</button>
@@ -46,9 +46,7 @@
 	<div id="techno-chatbot-messages"></div>
 
 	<div class="techno-chatbot-input-wrapper">
-		<input type="text"
-			   id="techno-chatbot-input"
-			   placeholder="<?php echo $inputtxt; ?>" />
+		<input type="text" id="techno-chatbot-input" placeholder="<?php echo $inputtxt; ?>" max-length="250" />
 		<button type="button" id="techno-chatbot-send">
 			<?php echo $sendbtn; ?>
 		</button>

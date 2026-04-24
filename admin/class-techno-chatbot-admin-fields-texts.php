@@ -204,8 +204,17 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'Sorry all agents are busy right now — please provide the best way to contact you',
+            'default'     => 'Sorry all agents are busy right now — please provide the best way to contact you.',
             'description' => 'Message shown when all agents are offline.'
+        ),
+
+        'techno_chatbot_idle_agents_message' => array(
+            'label'       => 'Agents Gets Idle',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'It appears that our agent got disconnected — please provide the best way to contact you.',
+            'description' => 'Message shown when agents gets disconnected while on live chat'
         ),
 
         'techno_chatbot_cphoneLabel' => array(

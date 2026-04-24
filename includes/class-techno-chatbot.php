@@ -209,6 +209,7 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
 		
 		$this->loader->add_action( 'wp_ajax_techno_toggle_support_online', $plugin_admin, 'toggle_support_online' );
+		$this->loader->add_action( 'wp_ajax_techno_save_admin_chat_message', $plugin_admin, 'save_admin_chat_message' );
 		$this->loader->add_action( 'wp_ajax_techno_get_chat_history', $plugin_admin, 'techno_get_chat_history_ajxfunction' );
 
 	}
@@ -235,6 +236,9 @@ class Techno_Chatbot {
 
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_save_chat_message', $plugin_public, 'save_chat_message' );
 		$this->loader->add_action( 'wp_ajax_techno_save_chat_message', $plugin_public, 'save_chat_message' );
+
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_bot_to_live', $plugin_public, 'techno_bot_to_live' );
+		$this->loader->add_action( 'wp_ajax_techno_bot_to_live', $plugin_public, 'techno_bot_to_live' );
 
 	}
 

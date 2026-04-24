@@ -89,6 +89,7 @@ class Techno_Chatbot_Public {
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
 			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
+			'idleSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_agents_message'),
 			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
 			'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname'),
 			'liveChatGetName' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_livechatgetname'),
@@ -103,7 +104,9 @@ class Techno_Chatbot_Public {
 			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall'),
 			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail'),
 			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
+			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
+			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 			'faq' => $this->get_faq_data()
@@ -388,23 +391,27 @@ class Techno_Chatbot_Public {
         check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
  
         /* ---- rate limit: max 60 saves per minute per IP ---- */
-        $ip            = $_SERVER['REMOTE_ADDR'] ?? '';
-        $rate_key      = 'techno_chat_save_' . md5( $ip );
-        $rate_count    = (int) get_transient( $rate_key );
+        $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+        $rate_key = 'techno_chat_save_' . md5( $ip );
+        $rate_count = (int) get_transient( $rate_key );
         if ( $rate_count >= 60 ) {
             wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
         }
         set_transient( $rate_key, $rate_count + 1, 60 );
  
         /* ---- validate inputs ---- */
-        $session_id   = isset( $_POST['session_id'] )   ? sanitize_text_field( $_POST['session_id'] )   : '';
-        $sender       = isset( $_POST['sender'] )        ? sanitize_text_field( $_POST['sender'] )        : '';
-        $message      = isset( $_POST['message'] )       ? sanitize_textarea_field( $_POST['message'] )   : '';
-        $visitor_name = isset( $_POST['visitor_name'] )  ? sanitize_text_field( $_POST['visitor_name'] )  : null;
+        $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
+        $sender = isset( $_POST['sender'] ) ? sanitize_text_field( $_POST['sender'] ) : '';
+        $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
+        $visitor_name = isset( $_POST['visitor_name'] ) ? sanitize_text_field( $_POST['visitor_name'] ) : null;
  
         if ( ! $session_id || ! $sender || ! $message ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
         }
+
+		if (strlen($message) < 1) {
+			wp_send_json_error(['message' => 'Empty message'], 400);
+		}
  
         /* session_id must be alphanumeric + dash/underscore only */
         if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
@@ -427,15 +434,15 @@ class Techno_Chatbot_Public {
  
         $data = [
             'session_id' => $session_id,
-            'sender'     => $sender,
-            'message'    => $message,
+            'sender' => $sender,
+            'message' => $message,
         ];
         $format = [ '%s', '%s', '%s' ];
  
         /* attach visitor_name when provided (visitor messages only) */
         if ( $visitor_name !== null && $sender === 'visitor' ) {
-            $data['visitor_name'] = $visitor_name;
-            $format[]             = '%s';
+            $data['name'] = $visitor_name;
+            $format[] = '%s';
         }
  
         $result = $wpdb->insert( $table, $data, $format );
@@ -446,4 +453,55 @@ class Techno_Chatbot_Public {
  
         wp_send_json_success( [ 'id' => $wpdb->insert_id ] );
     }
+
+	/**
+	 * Save chat message
+	 *
+	 * @since    1.0.0
+	 */
+	public function techno_bot_to_live(){
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
+		$livechat_plan   = techno_chatbot_feature('live_chat');
+    	$livechat_enabled = $livechat_plan['allowed'] === true;
+		if( $livechat_enabled != true ){
+			wp_send_json_error();
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_livechat_messages';
+		$session_id = sanitize_text_field( $_POST['session_id'] ?? '' );
+		$history = wp_unslash( $_POST['history'] ?? '' );
+		if (!$session_id || !$history){
+			wp_send_json_error();
+		}
+
+		$messages = json_decode( $history, true );
+		if (!is_array($messages)){
+			wp_send_json_error();
+		}
+
+		foreach ($messages as $msg){
+			$sender = sanitize_text_field($msg['sender'] ?? '');
+			$text   = sanitize_textarea_field($msg['text'] ?? '');
+			if (!$text) continue;
+			$result = $wpdb->insert(
+				$table,
+				[
+					'session_id' => $session_id,
+					'sender'     => $sender,
+					'message'    => $text,
+					'created_at' => current_time('mysql')
+				],
+				['%s','%s','%s','%s']
+			);
+			if ($result === false) {
+				wp_send_json_error();
+				error_log('DB INSERT FAILED: ' . $wpdb->last_error);
+				error_log(print_r($wpdb->last_query, true));
+				return;
+			}
+		}
+		wp_send_json_success();
+	}
 }

@@ -250,50 +250,68 @@ class Techno_Chatbot_Admin {
 
 		wp_send_json_success(['online' => (bool)$onlinestatus, 'before' => $current]);
 	}
-	
+
 	/**
-	 * Send Message: From Admin
+	 * Save admin chat message
 	 *
 	 * @since    1.0.0
 	 */
-	public function livechat_admin_send() {
-		check_ajax_referer('techno_chatbot_nonce', 'nonce');
-		if (!current_user_can('manage_options')) wp_send_json_error();
+	public function save_admin_chat_message() {
+        check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
-		global $wpdb;
-
-		$session = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
-		$message = isset($_POST['message']) ? sanitize_textarea_field($_POST['message']) : '';
-
-		if (empty($session) || empty($message)) {
-			wp_send_json_error(['message' => 'Missing data']);
+		if (!current_user_can('manage_options')) {
+			wp_send_json_error();
 		}
-		if (!preg_match('/^[a-zA-Z0-9\-_]+$/', $session)) {
-			wp_send_json_error(['message' => 'Invalid session format']);
+ 
+        /* ---- rate limit: max 60 saves per minute per IP ---- */
+        $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+        $rate_key = 'techno_admin_chat_save_' . md5( $ip );
+        $rate_count = (int) get_transient( $rate_key );
+        if ( $rate_count >= 60 ) {
+            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+        }
+        set_transient( $rate_key, $rate_count + 1, 60 );
+ 
+        /* ---- validate inputs ---- */
+        $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
+        $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
+			
+        if ( ! $session_id || ! $message ) {
+            wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
+        }
+
+		if (strlen($message) < 1) {
+			wp_send_json_error(['message' => 'Empty message'], 400);
 		}
+ 
+        /* session_id must be alphanumeric + dash/underscore only */
+        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
+        }
+ 
+        /* message length guard */
+        if ( mb_strlen( $message ) > 2000 ) {
+            wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
+        }
+ 
+		$current_user = wp_get_current_user();
+		$admin_name = $current_user->display_name;
 
-		$exists = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}techno_livechat_messages WHERE session_id = %s",
-				$session
-			)
-		);
-
-		if (!$exists) {
-			wp_send_json_error(['message' => 'Invalid session']);
-		}
-
-		$wpdb->insert(
-			$wpdb->prefix . 'techno_livechat_messages',
+        global $wpdb;
+        $result = $wpdb->insert( $wpdb->prefix . 'techno_livechat_messages', 
 			[
-				'session_id' => $session,
+				'session_id' => $session_id,
 				'sender' => 'admin',
-				'message' => $message
-			]
-		);
-
-		wp_send_json_success();
-	}
+				'message' => $message,
+				'name' => $admin_name
+        	], 
+		[ '%s', '%s', '%s', '%s' ] );
+ 
+        if ( $result === false ) {
+            wp_send_json_error( [ 'message' => 'DB error' ], 500 );
+        }
+        wp_send_json_success( [ 'id' => $wpdb->insert_id ] );
+    }
 
 	/**
 	 * Return Chat History
