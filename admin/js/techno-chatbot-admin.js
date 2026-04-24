@@ -7,6 +7,7 @@ const sendBtn   = document.getElementById('techno-admin-chat-send');
 const activeVisitors = document.getElementById('techno-active-visitors');
 const chatWindow = document.getElementById('techno-admin-chat-window');
 const chatToggle = document.getElementById('techno-support-switch');
+const notifToggle = document.getElementById('techno-notification-toggle');
 const chatHeader = document.getElementById('techno-admin-chat-header');
 const chatMessages = document.getElementById('techno-admin-chat-messages');
 const sessionMessages = {};
@@ -187,20 +188,21 @@ function openSession(sessionId) {
 /* 
  * Browser Notifications & sound 
  */
+document.addEventListener('click', unlockAudio, { once: true });
 function requestNotificationPermission() {
     if (!('Notification' in window)) {
         console.log("Browser does not support notifications");
         return;
     }
     if (Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
+        Notification.requestPermission()
+        .then(permission => {
             console.log("Notification permission:", permission);
+            syncNotificationCheckbox();
         });
-    }/*  else {
-        console.log("Notification permission already:", Notification.permission);
-    } */
+    }
 }
-document.addEventListener('click', () => {
+function unlockAudio() {
     if (audioUnlocked) return;
     const audio = new Audio(technoLivechat.notification_sound);
     audio.volume = 0;
@@ -213,7 +215,7 @@ document.addEventListener('click', () => {
             pendingNotification = false;
         }
     }).catch(() => {});
-},{ once: false });
+}
 function playNotification() {
     const audio = new Audio(technoLivechat.notification_sound);
     audio.volume = 1; 
@@ -239,6 +241,28 @@ function notifyNewSession(sessionId, visitorName) {
         };
     }
 }
+function syncNotificationCheckbox() {
+    if (!('Notification' in window)) {
+        notifToggle.disabled = true;
+        return;
+    }
+    notifToggle.checked = Notification.permission === 'granted';
+}
+notifToggle.addEventListener('change', () => {
+    unlockAudio();
+    if (notifToggle.checked) {
+        requestNotificationPermission();
+        setTimeout(() => {
+            syncNotificationCheckbox();
+        }, 300);
+    } else {
+        alert(
+            "To disable notifications, change your browser settings."
+        );
+        syncNotificationCheckbox();
+    }
+});
+
 
 /* 
  * Render visitor list
@@ -279,7 +303,7 @@ function renderActiveVisitors() {
 
         li.appendChild(nameSpan);
         li.appendChild(idSpan);
-        activeVisitors.appendChild(li);
+        activeVisitors.prepend(li);
     });
 }
 function loadActiveVisitors() {
@@ -438,5 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (livechatPage) {
         initAdminSocket();
         requestNotificationPermission();
+        syncNotificationCheckbox();
     }
 });

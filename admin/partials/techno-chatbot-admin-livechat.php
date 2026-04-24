@@ -2,13 +2,25 @@
     <a id="notifHowTo"><span>ℹ️</span> How to enable <strong>Desktop & Browser Notification</strong></a>
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
-        <div id="techno-support-switch">
+
+        <div class="techno-switch-con active">
+            <span>Browser Notification</span>
+            <label class="techno-switch">
+                <input type="checkbox" id="techno-notification-toggle">
+                <span class="techno-slider"></span>
+            </label>
+            <span class="techno-switch-label">
+                Disabled
+            </span>
+        </div>
+
+        <div id="techno-support-switch" class="techno-switch-con">
             <span>Live Chat</span>
             <label class="techno-switch">
                 <input type="checkbox" id="techno-admin-toggle-online" <?php checked($online, 1); ?>>
                 <span class="techno-slider"></span>
             </label>
-            <span id="techno-toggle-label">
+            <span id="techno-toggle-label" class="techno-switch-label">
                 <?php 
                 if( $server ){
                     echo esc_html($online == 1 ? 'Online' : 'Offline');
