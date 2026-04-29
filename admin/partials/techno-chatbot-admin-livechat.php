@@ -41,10 +41,15 @@
             <div id="techno-admin-chat-header">Chatting with: N/A</div>
             <div id="techno-admin-chat-messages"></div>
         </div>
-        <div style="display:flex; margin-top:10px; gap: 10px;">
+        <div class="chat-controls">
             <input type="text" id="techno-admin-chat-input" disabled/>
-            <button id="techno-admin-chat-send" disabled>Offline</button>
-            <button id="techno-admin-chat-end" disabled>End Chat</button>
+            <button id="techno-admin-chat-send" type="button" disabled>Offline</button>
+            <div id="chat-options">
+                <button class="options-btn">&#8942;</button>
+                <div class="options-menu">
+                    <button class="menu-item" id="techno-admin-chat-end" type="button">End Chat</button>
+                </div>
+            </div>
         </div>
     </div>
 

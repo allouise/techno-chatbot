@@ -143,6 +143,24 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Menu reset button text.'
         ),
 
+        'techno_chatbot_menuhistorysend' => array(
+            'label'       => 'Menu send history',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Send me our conversation',
+            'placeholder' => 'Send me our conversation',
+            'description' => 'Menu send history button text.'
+        ),
+
+        'techno_chatbot_menuleave' => array(
+            'label'       => 'Menu end',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'End Conversation',
+            'placeholder' => 'End Conversation',
+            'description' => 'Menu end button text.'
+        ),
+
         // Messages
         'techno_chatbot_disclaimermsg' => array(
             'label'       => 'Disclaimer message',
@@ -262,12 +280,64 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Message shown after successful getting of contact information.'
         ),
 
+        'techno_chatbot_endchat' => array(
+            'label'       => 'End Chat Message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'Thank you for chatting with us today! 😊, Would you like a copy of this conversation sent to your email?',
+            'description' => 'Message sent to guests when you end the chat'
+        ),
+
+        'techno_chatbot_askemail' => array(
+            'label'       => 'Ask Email for History',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 2,
+            'default'     => 'Please enter your email to receive chat history.',
+            'description' => 'Message sent to guests asking for email when you ended the chat'
+        ),
+
+        'techno_chatbot_historysent' => array(
+            'label'       => 'History Sent Prompt',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 2,
+            'default'     => 'Chat history sent successfully. Thank you for chatting with us!',
+            'description' => 'Message shown after successful sending history to guest.'
+        ),
+
+        'techno_chatbot_endchatmsg' => array(
+            'label'       => 'End Chat Message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 2,
+            'default'     => 'Thank you for chatting with us. Have a great day!',
+            'description' => 'Message shown after ending live chat'
+        ),
+
         'techno_chatbot_submissionspam_limit' => array(
             'label'       => 'Spam limitation warning',
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 2,
             'default'     => 'Please wait a moment before submitting.',
+            'description' => ''
+        ),
+
+        'techno_chatbot_invalid_email' => array(
+            'label'       => 'Invalid Email',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Please enter a valid email address.',
+            'description' => ''
+        ),
+
+        'techno_chatbot_invalid_phone' => array(
+            'label'       => 'Invalid Phone',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Please enter a valid phone number.',
             'description' => ''
         ),
 

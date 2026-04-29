@@ -240,6 +240,9 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_bot_to_live', $plugin_public, 'techno_bot_to_live' );
 		$this->loader->add_action( 'wp_ajax_techno_bot_to_live', $plugin_public, 'techno_bot_to_live' );
 
+		$this->loader->add_action( 'wp_ajax_nopriv_end_live_chat', $plugin_public, 'end_live_chat' );
+		$this->loader->add_action( 'wp_ajax_end_live_chat', $plugin_public, 'end_live_chat' );
+
 	}
 
 	/**

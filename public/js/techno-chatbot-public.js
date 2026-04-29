@@ -8,6 +8,8 @@
  * 4 - Contact Finished/Handoff complete
  * 5 - Livechat Active
  * 6 - Ask Visitor name before live chat
+ * 7 - End Chat By Admin show options
+ * 8 - Ask Email For Chat History
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,6 +55,15 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ---------- Utilities ---------- */
     function scrollToBottom() {
         el.messages.scrollTop = el.messages.scrollHeight;
+    }
+    function validateEmail(email){
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    }
+    function validatePhone(phone){
+        const cleaned = phone.replace(/[\s\-()+]/g,'');
+        if (!/^\d{7,15}$/.test(cleaned)) return false;
+        return true;
     }
     function cleanText(text){
         return text.toLowerCase().replace(/[^\w\s]/g,'').trim();
@@ -121,10 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!text) return;
         chatHistory.push({ text, sender, created_at: new Date().toISOString() });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
-        console.log(chatHistory);
-
         const state = getState();
-        if ( (state === 5 || idleDisconnectTimer ) && liveChatSessionId && sender != 'admin' ){
+        if ( (state >= 5 || idleDisconnectTimer ) && liveChatSessionId && sender != 'admin' ){
             saveMessageToDB(liveChatSessionId, sender, text);
         }
     }
@@ -189,6 +198,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 disableInput(false);
             }
         }
+        if(state === 7) showEndChatOptions(true);
+        if(state === 8) disableInput(false);
         scrollToBottom();
     }
     function botHistoryToLive(){
@@ -327,9 +338,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        socket.on("receive-message", (msg) => {
-            if(msg.session_id !== liveChatSessionId) return;
-            if(msg.sender === 'admin') addMessage(msg.message, 'admin');
+        socket.on("receive-message", async (msg) => {
+            if (msg.session_id !== liveChatSessionId) return;
+
+            if (msg.sender === 'admin') {
+                if (msg.message.trim() === '/endchat') {
+                    await handleEndChatCommand();
+                    return;
+                }
+                addMessage(msg.message, 'admin');
+            }
         });
 
         socket.on("support-status", (data) => {
@@ -341,6 +359,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     clearIdleDisconnectTimer();
                 }
             }
+        });
+
+        socket.on("unregister-support", () => {
+            updateStatusDot(false);
+            startIdleDisconnectTimer();
         });
 
         socket.on("disconnect", () => {
@@ -416,6 +439,99 @@ document.addEventListener('DOMContentLoaded', () => {
             showNoAnswerOptions();
         }
     }
+    async function handleEndChatCommand(){
+        if (socket && liveChatSessionId) {
+            socket.emit("visitor-leave", {
+                session_id: liveChatSessionId
+            });
+        }
+        setState(7);
+        await botReply(technoChatbot.end_msg);
+        showEndChatOptions();
+    }
+    function showEndChatOptions(restored = false){
+        if (document.querySelector('.techno-chatbot-end-options')) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'techno-chatbot-end-options';
+
+        /* YES BUTTON */
+        const yesBtn = document.createElement('button');
+        yesBtn.textContent = technoChatbot.menuHistorySend;
+        yesBtn.onclick = () => {
+            wrapper.remove();
+            addMessage( technoChatbot.menuHistorySend, 'visitor', true );
+            askEmailForHistory();
+        };
+
+        /* NO BUTTON */
+        const noBtn = document.createElement('button');
+        noBtn.textContent = technoChatbot.menuLeave;
+        noBtn.onclick = () => {
+            wrapper.remove();
+            addMessage( technoChatbot.menuLeave, 'visitor', true );
+            finishLiveChat();
+        };
+
+        wrapper.appendChild(yesBtn);
+        wrapper.appendChild(noBtn);
+        el.messages.appendChild(wrapper);
+        scrollToBottom();
+        disableInput(true);
+        el.input.placeholder = 'Choose an option...';
+        if(!restored) setState(7);
+    }
+    async function askEmailForHistory(){
+        setState(8);
+        disableInput(false);
+        await botReply( technoChatbot.askEmail );
+    }
+    function finishLiveChat(email = null){
+        const history = localStorage.getItem(STORAGE_KEY);
+        if (!history) return;
+        fetch(technoChatbot.ajax_url, {
+            method:'POST',
+            headers:{
+                'Content-Type':
+                'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                action: 'end_live_chat',
+                history: history,
+                email: email || '',
+                nonce: technoChatbot.nonce
+            })
+        })
+        .then(res => res.json())
+        .then(async data => {
+            if (data.success) {
+                if( email ){
+                    await botReply( technoChatbot.historySent );
+                }else{
+                    await botReply( technoChatbot.endChatMsg );
+                }
+            } else {
+                await botReply( technoChatbot.errorMsg );
+            }
+            endLiveChatCleanup();
+        })
+        .catch(async () => {
+            await botReply(
+                technoChatbot.errorMsg
+            );
+            endLiveChatCleanup();
+        });
+    }
+    function endLiveChatCleanup(){
+        setState(0);
+        if (socket && liveChatSessionId) {
+            socket.emit( "visitor-leave", { session_id: liveChatSessionId } );
+            /* socket.disconnect();
+            socket = null; */
+            chatHistory = [];
+        }
+        clearIdleDisconnectTimer();
+    }
 
     /* ---------- Chatbot Send Handler ---------- */
     let isProcessing = false;
@@ -434,18 +550,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if(state === 2){
             const method = getContactMethod();
             if(method === 'phone'){
+                const phone = userMessage;
+                if (!validatePhone(phone)) {
+                    await botReply( technoChatbot.phoneError );
+                    isProcessing = false;
+                    return;
+                }
                 if(parseInt(technoChatbot.timeToCall) === 1){
                     setState(3);
-                    await botReply(technoChatbot.timeToCallTxt);
+                    await botReply( technoChatbot.timeToCallTxt );
                 } else {
                     await finishContact();
                 }
+                isProcessing = false;
+                return;
             }
             if(method === 'email'){
+                const email = userMessage;
+                if (!validateEmail(email)) {
+                    await botReply( technoChatbot.emailError );
+                    isProcessing = false;
+                    return;
+                }
                 await finishContact();
+                isProcessing = false;
+                return;
             }
-            isProcessing = false;
-            return;
         }
 
         if(state === 3){
@@ -470,6 +600,18 @@ document.addEventListener('DOMContentLoaded', () => {
             setState(5);
             await botReply(technoChatbot.transferredToSupport);
             await startLiveChat();
+            isProcessing = false;
+            return;
+        }
+
+        if(state === 8){
+            const email = userMessage;
+            if (!validateEmail(email)) {
+                await botReply('Please enter a valid email address.');
+                isProcessing = false;
+                return;
+            }
+            await finishLiveChat(email);
             isProcessing = false;
             return;
         }

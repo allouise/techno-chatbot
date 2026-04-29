@@ -84,6 +84,7 @@ class Techno_Chatbot_Admin {
 		if( $livechat_allowed ){
 			wp_enqueue_script( $this->plugin_name.'-socket-io', plugin_dir_url( __FILE__ ) . 'js/socket.io.min.js', array(), $this->version, true );
 
+			$end_msg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat');
 			$ws = techno_chatbot_websocket();
 			$site = get_site_url();
 			wp_localize_script(
@@ -97,6 +98,7 @@ class Techno_Chatbot_Admin {
 					'token'    => $ws->get_token($site),
 					'site_name' => get_bloginfo('name'),
 					'notification_sound' => TECHNO_CHATBOT_FOLDER_URL . '/notification.mp3',
+					'end_message' => $end_msg
 				]
 			);
 		}

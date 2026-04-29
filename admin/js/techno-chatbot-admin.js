@@ -3,8 +3,9 @@ const livechatPage = document.getElementById('techno-livechat-admin');
 const toggleInput = document.getElementById('techno-admin-toggle-online');
 const toggleLabel = document.getElementById('techno-toggle-label');
 const chatInput = document.getElementById('techno-admin-chat-input');
-const sendBtn   = document.getElementById('techno-admin-chat-send');
-const endBtn   = document.getElementById('techno-admin-chat-end');
+const sendBtn = document.getElementById('techno-admin-chat-send');
+const endBtn = document.getElementById('techno-admin-chat-end');
+const chatOptions = document.getElementById('chat-options');
 const activeVisitors = document.getElementById('techno-active-visitors');
 const chatWindow = document.getElementById('techno-admin-chat-window');
 const chatToggle = document.getElementById('techno-support-switch');
@@ -87,6 +88,14 @@ function initAdminSocket() {
             incomingMeta[sid] = { active: s.active ?? true };
         });
 
+        /* detect removed sessions */
+        Object.keys(sessionMap).forEach(oldSid => {
+            if (!incoming[oldSid]) {
+                console.log( "Visitor left:", oldSid );
+                handleVisitorLeft(oldSid);
+            }
+        });
+
         if (initialLoadDone) {
             Object.entries(incoming).forEach(([sid, name]) => {
                 if (!sessionMap[sid]) notifyNewSession(sid, name);
@@ -115,6 +124,7 @@ function initAdminSocket() {
             renderMessage({ sender: 'visitor', message: msg.message });
         }
     });
+
 }
 
 function updateChatState(isOnline) {
@@ -181,10 +191,28 @@ function openSession(sessionId) {
 
     /* Load history (cache-first, then AJAX) */
     loadSessionHistory(sessionId);
-
+    
     /* Enable / disable input based on online state */
     if (toggleInput?.checked) updateChatState(true);
     else updateChatState(false);
+}
+
+function scrollToBottom() {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function handleVisitorLeft(sessionId){
+    delete sessionMessages[sessionId];
+    /* if admin currently viewing */
+    if (currentSession === sessionId){
+        currentSession = null;
+        updateChatState(false);
+        if (!chatMessages) return;
+        const div = document.createElement('div');
+        div.className = `techno-livechat-msg system-error`;
+        div.textContent = 'Visitor Restarted/Deleted the session';
+        chatMessages.appendChild(div);
+    }
 }
 
 /* 
@@ -265,7 +293,6 @@ notifToggle.addEventListener('change', () => {
     }
 });
 
-
 /* 
  * Render visitor list
  */
@@ -333,7 +360,7 @@ function sendAdminMessage() {
     socket.emit("send-message", {
         session_id: currentSession,
         message: msg,
-        sender: "admin"
+        sender: 'admin'
     });
     addAdminMessage({ sender: 'admin', message: msg });
 }
@@ -372,7 +399,7 @@ function renderMessage(msg) {
     div.className = `techno-livechat-msg ${escapeHtml(msg.sender)}`;
     div.textContent = msg.message;
     chatMessages.appendChild(div);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    scrollToBottom();
     adminLastId = Math.max(adminLastId, msg.id || 0);
 }
 function renderMessageBatch(messages) {
@@ -401,8 +428,26 @@ function renderMessageBatch(messages) {
         adminLastId = Math.max(adminLastId, msg.id || 0);
     });
     chatMessages.appendChild(frag);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    scrollToBottom();
 }
+
+/* 
+ * End Chat
+ */
+endBtn?.addEventListener('click', function(){
+    if (!currentSession || !socket) return;
+
+    chatInput.value = '/endchat';
+    sendAdminMessage();
+});
+
+/*
+ * Chat Options
+ */
+chatOptions.querySelector('.options-btn')?.addEventListener('click', function(e){
+    e.stopPropagation();
+    chatOptions.classList.toggle('active');
+});
 
 /* 
  * History
@@ -450,7 +495,6 @@ function loadSessionHistory(sessionId) {
         livechatPage.classList.remove('loading');
     });
 }
-
 
 /* ---------- Support online toggle ---------- */
 if(toggleInput) {

@@ -95,16 +95,24 @@ class Techno_Chatbot_Public {
 			'liveChatGetName' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_livechatgetname'),
 			'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default'),
 			'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish'),
+			'askEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_askemail'),
 			'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit'),
 			'errorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_error'),
 			'cerrorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_criticalerror'),
+			'phoneError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_phone'),
+			'emailError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_email'),
 			'cPhoneLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cphoneLabel'),
 			'cEmailLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cemailLabel'),
 			'menuLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menulivechat'),
 			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall'),
 			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail'),
 			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
+			'menuHistorySend' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend'),
+			'menuLeave' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuleave'),
+			'historySent' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent'),
+			'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg'),
 			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
+			'end_msg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
@@ -354,6 +362,75 @@ class Techno_Chatbot_Public {
 
 		wp_send_json_success();
 
+	}
+
+	/**
+	 * Get and Send History
+	 *
+	 * @since 1.0.0
+	 */
+	public function end_live_chat(){
+		check_ajax_referer('techno_chatbot_nonce','nonce');
+
+		// Rate limit per IP
+		$ip = $_SERVER['REMOTE_ADDR'];
+		$transient_key = 'techno_endchat_' . md5($ip);
+		$count = (int) get_transient($transient_key);
+
+		if( $count >= 10 ){
+			wp_send_json_error('Too many requests');
+		}
+
+		set_transient($transient_key, $count + 1, 60);
+		if( empty($_POST['history']) ){
+			wp_send_json_error();
+		}
+		$history = json_decode( stripslashes($_POST['history']), true );
+
+		if( !is_array($history) ){
+			wp_send_json_error();
+		}
+
+		// Limit messages to prevent abuse
+		$history = array_slice($history, -30);
+		$emails_option = get_option('techno_chatbot_emails');
+		$admin_email = sanitize_email(get_option('admin_email'));
+		if( !empty($emails_option) ){
+			$emails = array_map('trim', explode(',', $emails_option));
+			$admin_email = array_filter(array_map('sanitize_email', $emails));
+		}
+
+		$message = "Chatbot Conversation\n\n";
+		foreach($history as $msg){
+
+			if(!isset($msg['sender']) || !isset($msg['text'])){
+				continue;
+			}
+
+			$sender = sanitize_text_field($msg['sender']);
+			$text   = sanitize_textarea_field($msg['text']);
+			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
+			$message .= "{$label}: {$text}\n";
+		}
+
+		$admin_mail = wp_mail( $admin_email, 'New Chatbot Contact', $message );
+		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+
+		if( !$email && $admin_mail ){
+			wp_send_json_success();
+		}elseif( !$admin_mail ){
+			wp_send_json_error('Admin Email Error');
+		}
+		
+		$site_name = get_bloginfo('name');
+		if( $email ){
+			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
+			if( $client_mail ){
+				wp_send_json_success();
+			}else{
+				wp_send_json_error('Email Error');
+			}
+		}
 	}
 
 	/**
