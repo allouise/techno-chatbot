@@ -436,7 +436,6 @@ function renderMessageBatch(messages) {
  */
 endBtn?.addEventListener('click', function(){
     if (!currentSession || !socket) return;
-
     chatInput.value = '/endchat';
     sendAdminMessage();
 });
@@ -447,6 +446,11 @@ endBtn?.addEventListener('click', function(){
 chatOptions.querySelector('.options-btn')?.addEventListener('click', function(e){
     e.stopPropagation();
     chatOptions.classList.toggle('active');
+});
+document.addEventListener('click', function (e) {
+    if (!chatOptions.contains(e.target)) {
+        chatOptions.classList.remove('active');
+    }
 });
 
 /* 

@@ -526,8 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setState(0);
         if (socket && liveChatSessionId) {
             socket.emit( "visitor-leave", { session_id: liveChatSessionId } );
-            /* socket.disconnect();
-            socket = null; */
+            socket.disconnect();
+            socket = null;
             chatHistory = [];
         }
         clearIdleDisconnectTimer();
