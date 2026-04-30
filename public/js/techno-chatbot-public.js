@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (socket) return;
 
         socket = io(technoChatbot.ws_url, { 
-            transports: ['websocket'], 
+            transports: ['polling', 'websocket'],
             secure: true,
             /* reconnection: false, */
             auth: {

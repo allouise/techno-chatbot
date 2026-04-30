@@ -25,7 +25,7 @@ let currentSession = null,
 
 function initAdminSocket() {
     socket = io(technoLivechat.ws_url, { 
-        transports: ['websocket'], 
+        transports: ['polling', 'websocket'],
         secure: true,
         /* reconnection: false, */
         auth: {
