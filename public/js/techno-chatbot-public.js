@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!document.querySelector('.techno-chatbot-contact-options')) {
                     await botReply(technoChatbot.idleSupport);
                     showNoAnswerOptions();
-                    //setState(0);
+                    /* setState(0); */
                 }
             }
         }, idleSeconds * 1000);
@@ -136,6 +136,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if ( (state >= 5 || idleDisconnectTimer ) && liveChatSessionId && sender != 'admin' ){
             saveMessageToDB(liveChatSessionId, sender, text);
         }
+    }
+    function softClearHistory(){
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(CONTACT_STATE_KEY);
+        localStorage.removeItem(CONTACT_METHOD_KEY);
+        localStorage.removeItem(FAIL_COUNT_KEY);
+        localStorage.removeItem(CHAT_START_KEY);
+        localStorage.removeItem(LIVECHAT_NAME_KEY);
+        localStorage.removeItem(LIVECHAT_SESSION);
+        localStorage.removeItem(LIVECHAT_IDLE);
+        idleDisconnectTimer = null;
+        liveChatSessionId = null;
+        liveChatVisitorName = null;
+        chatHistory = [];
+
+        disableInput(false);
     }
     function clearHistory(prependMsg = null) {
         if (socket) {
@@ -527,8 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setState(0);
         if (socket && liveChatSessionId) {
             socket.emit( "visitor-leave", { session_id: liveChatSessionId } );
-            socket.disconnect();
-            socket = null;
+            /* socket.disconnect();
+            socket = null; */
             chatHistory = [];
         }
         clearIdleDisconnectTimer();
@@ -703,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(res => res.json())
             .then(data => {
-                if(data.success) clearHistory(lastMsg);
+                if(data.success) softClearHistory();/* clearHistory(lastMsg); */
                 else botReply(technoChatbot.cerrorMsg);
             })
             .catch(err => {
@@ -716,6 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     }
     function showNoAnswerOptions(restored = false){
+        console.log( getState(), idleDisconnectTimer );
         if(document.querySelector('.techno-chatbot-contact-options')) return;
 
         const wrapper = document.createElement('div');

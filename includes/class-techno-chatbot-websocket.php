@@ -17,6 +17,15 @@ class Techno_Chatbot_Websocket {
 	private static $instance = null;
 
     /**
+	 * Websocket URL
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 * @var      string    $plugin_name    Websocket url
+	 */
+	private $api_url;
+
+    /**
 	 * Websocket secret
 	 *
 	 * @since    1.0.0

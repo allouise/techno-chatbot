@@ -18,9 +18,9 @@
         <a href="?page=techno-chatbot-livechat&tab=livechat" class="nav-tab <?php echo $active_tab === 'livechat' ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'Live Chat', 'techno-chatbot' ); ?>
         </a>
-        <a href="?page=techno-chatbot-livechat&tab=history" class="nav-tab <?php echo $active_tab === 'history' ? 'nav-tab-active' : ''; ?>">
+        <!-- <a href="?page=techno-chatbot-livechat&tab=history" class="nav-tab <?php echo $active_tab === 'history' ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'History', 'techno-chatbot' ); ?>
-        </a>
+        </a> -->
     </h2>
 
     <?php $plans = techno_chatbot_feature('live_chat');

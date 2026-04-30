@@ -219,7 +219,9 @@ function handleVisitorLeft(sessionId){
 /* 
  * Browser Notifications & sound 
  */
-document.addEventListener('click', unlockAudio, { once: true });
+if(livechatPage){
+    document.addEventListener('click', unlockAudio, { once: true });
+}
 function requestNotificationPermission() {
     if (!('Notification' in window)) {
         console.log("Browser does not support notifications");
@@ -279,20 +281,22 @@ function syncNotificationCheckbox() {
     }
     notifToggle.checked = Notification.permission === 'granted';
 }
-notifToggle.addEventListener('change', () => {
-    unlockAudio();
-    if (notifToggle.checked) {
-        requestNotificationPermission();
-        setTimeout(() => {
+if(notifToggle){
+    notifToggle.addEventListener('change', () => {
+        unlockAudio();
+        if (notifToggle.checked) {
+            requestNotificationPermission();
+            setTimeout(() => {
+                syncNotificationCheckbox();
+            }, 300);
+        } else {
+            alert(
+                "To disable notifications, change your browser settings."
+            );
             syncNotificationCheckbox();
-        }, 300);
-    } else {
-        alert(
-            "To disable notifications, change your browser settings."
-        );
-        syncNotificationCheckbox();
-    }
-});
+        }
+    });
+}
 
 /* 
  * Render visitor list
@@ -444,15 +448,19 @@ endBtn?.addEventListener('click', function(){
 /*
  * Chat Options
  */
-chatOptions.querySelector('.options-btn')?.addEventListener('click', function(e){
-    e.stopPropagation();
-    chatOptions.classList.toggle('active');
-});
-document.addEventListener('click', function (e) {
-    if (!chatOptions.contains(e.target)) {
-        chatOptions.classList.remove('active');
-    }
-});
+if( chatOptions && chatOptions.querySelector('.options-btn') ){
+    chatOptions.querySelector('.options-btn')?.addEventListener('click', function(e){
+        e.stopPropagation();
+        chatOptions.classList.toggle('active');
+    });
+}
+if( chatOptions ){
+    document.addEventListener('click', function (e) {
+        if (!chatOptions.contains(e.target)) {
+            chatOptions.classList.remove('active');
+        }
+    });
+}
 
 /* 
  * History

@@ -60,7 +60,10 @@ class Techno_Chatbot_Admin_Fields_License {
             'title' => 'License',
         ),
 		'api_section' => array(
-            'title' => 'API',
+            'title' => 'TechnoDream Live Chat API',
+        ),
+		'openapi_section' => array(
+            'title' => 'Open API',
         ),
     );
 
@@ -89,6 +92,7 @@ class Techno_Chatbot_Admin_Fields_License {
 			'default'     => '',
 			'placeholder' => '',
 			'description' => 'Designated Socket URL provided by our store.',
+			'features'	  => array('live_chat'),
 		),
 
 		'techno_chatbot_secret' => array(
@@ -98,7 +102,30 @@ class Techno_Chatbot_Admin_Fields_License {
 			'default'     => '',
 			'placeholder' => '',
 			'description' => '',
+			'features'	  => array('live_chat'),
 		),
+
+		// Opean AI
+		'techno_chatbot_openai_app' => array(
+			'label'       => 'App Name',
+			'type'        => 'text',
+			'section'     => 'openapi_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => '',
+			'features'	  => array('ai_training'),
+		),
+
+		'techno_chatbot_openai_secret' => array(
+			'label'       => 'Secret Key',
+			'type'        => 'password',
+			'section'     => 'openapi_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => '',
+			'features'	  => array('ai_training'),
+		),
+
 	);
 
 
@@ -149,6 +176,7 @@ class Techno_Chatbot_Admin_Fields_License {
 					'default'     => $data['default'],
 					'description' => $data['description'] ?? '',
 					'placeholder' => $data['placeholder'] ?? '',
+					'features'	  => $data['features'] ?? '',
 					'disabled' 	  => $data['disabled'] ?? '',
 				)
 			);
@@ -168,8 +196,17 @@ class Techno_Chatbot_Admin_Fields_License {
 		$default     = $args['default'];
 		$description = $args['description'];
 		$placeholder = $args['placeholder'];
+		$features	 = $args['features'];
 		$value		 = get_option( $option, $default );
 		$value		 = ( $default !== '' && $value === '' ) ? $default : $value;
+		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
+		$disabledmsg = '';
+
+		if( $features ){
+			$plans = techno_chatbot_feature($features);
+			$disabled = $plans['allowed'] == false ? 'disabled' : $disabled;
+			$disabledmsg = $plans['message'];
+		}
 
 		// Checkbox
 		if ( $type === 'checkbox' ) {
@@ -222,6 +259,11 @@ class Techno_Chatbot_Admin_Fields_License {
 
 		if ( ! empty( $description ) && $type !== 'checkbox' ) {
 			echo '<p class="description">'. esc_html__( $description, 'techno-chatbot' ) . '</p>';
+		}
+
+		// Pro notice
+		if ( $disabledmsg ) {
+			techno_chatbot_msgformat($disabledmsg);
 		}
 
 	}
