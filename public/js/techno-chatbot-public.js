@@ -320,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         socket = io(technoChatbot.ws_url, { 
             transports: ['websocket'], 
+            secure: true,
             /* reconnection: false, */
             auth: {
                 site: technoChatbot.site_id,

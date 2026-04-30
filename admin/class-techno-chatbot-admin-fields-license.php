@@ -82,6 +82,15 @@ class Techno_Chatbot_Admin_Fields_License {
 		),
 
 		// API
+		'techno_chatbot_apiurl' => array(
+			'label'       => 'API Socket URL',
+			'type'        => 'url',
+			'section'     => 'api_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => 'Designated Socket URL provided by our store.',
+		),
+
 		'techno_chatbot_secret' => array(
 			'label'       => 'Secret Key',
 			'type'        => 'password',
@@ -112,14 +121,19 @@ class Techno_Chatbot_Admin_Fields_License {
 				'techno_chatbot_license_group',
 				$option,
 				array(
-					'sanitize_callback' => $option === 'techno_chatbot_license'
-					? array( $this, 'validate_license' )
-					: ( $option === 'techno_chatbot_secret'
-						? array( $this, 'sanitize_secret_key' )
-						: ( $data['type'] === 'checkbox'
-							? array( $this, 'sanitize_checkbox' )
-							: 'sanitize_text_field' )
-					),
+					'sanitize_callback' => 
+					$option === 'techno_chatbot_license'
+						? array($this, 'validate_license')
+						: ($option === 'techno_chatbot_secret'
+							? array($this, 'sanitize_secret_key')
+							: ($data['type'] === 'checkbox'
+								? array($this, 'sanitize_checkbox')
+								: ($data['type'] === 'url'
+									? 'esc_url_raw'
+									: 'sanitize_text_field'
+								)
+							)
+						),
 					'default' => $data['default'],
 				)
 			);
@@ -170,7 +184,13 @@ class Techno_Chatbot_Admin_Fields_License {
 			}
 			echo '</label>';
 		} else {
-			$input_type = $type === 'password' ? 'password' : 'text';
+			if ($type === 'password') {
+				$input_type = 'password';
+			} elseif ($type === 'url') {
+				$input_type = 'url';
+			} else {
+				$input_type = 'text';
+			}
 			if ( $type === 'password' && !empty($value) ) {
 				$display_value = str_repeat('*', 8);
 			} else {
@@ -183,6 +203,7 @@ class Techno_Chatbot_Admin_Fields_License {
 					class="regular-text"
 					style="width:100%;"
 					placeholder="' . esc_attr( $placeholder ) . '"
+					'.( $input_type == 'url'? 'pattern="https?://.*"' : '' ).'
 				/>';
 		}
 
