@@ -267,7 +267,32 @@ class Techno_Chatbot_Post_Types {
 
         <p>
             <label><strong><?php _e( 'Crawled Content', 'techno-chatbot' ); ?></strong></label><br>
-            <textarea name="crawled_content" rows="5" style="width:100%;"><?php echo esc_textarea( $crawled_content ); ?></textarea>
+            <div class="crawled_content"><?php echo esc_textarea( $crawled_content ); ?></div>
+        </p>
+
+        <p>
+            <label><strong><?php _e( 'AI Clean Text', 'techno-chatbot' ); ?></strong></label><br>
+            <div class="crawled_content"><?php echo esc_textarea( $ai_clean_text ); ?></div>
+        </p>
+
+        <p>
+            <label><strong><?php _e( 'AI Chunks', 'techno-chatbot' ); ?></strong></label><br>
+            <div class="crawled_content"><?php echo esc_textarea( $ai_chunks ); ?></div>
+        </p>
+
+        <p>
+            <label><strong><?php _e( 'AI Last Crawled', 'techno-chatbot' ); ?></strong></label><br>
+            <div class="crawled_content"><?php echo esc_textarea( $ai_last_crawled ); ?></div>
+        </p>
+
+        <p>
+            <label><strong><?php _e( 'AI Status', 'techno-chatbot' ); ?></strong></label><br>
+            <div class="crawled_content"><?php echo esc_textarea( $ai_status ); ?></div>
+        </p>
+
+        <p>
+            <label><strong><?php _e( 'AI Enabled', 'techno-chatbot' ); ?></strong></label><br>
+            <div class="crawled_content"><?php echo esc_textarea( $ai_enabled ); ?></div>
         </p>
 
         <?php
@@ -296,9 +321,5 @@ class Techno_Chatbot_Post_Types {
             update_post_meta( $post_id, '_page_url', sanitize_text_field( $_POST['page_url'] ) );
         }
 
-        if ( isset( $_POST['crawled_content'] ) ) {
-            update_post_meta( $post_id, '_crawled_content', sanitize_textarea_field( $_POST['crawled_content'] )
-            );
-        }
     }
 }

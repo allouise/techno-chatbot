@@ -84,6 +84,7 @@ class Techno_Chatbot_Public {
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
 			'liveChatEnabled' => $livechat_enabled,
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
+			'aiEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies'),
 			'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
@@ -607,5 +608,138 @@ class Techno_Chatbot_Public {
 			}
 		}
 		wp_send_json_success();
+	}
+
+	/**
+	 * AI Find Relevant Chunks
+	 *
+	 * @since    1.0.0
+	 */
+	private function find_relevant_chunks($question, $limit = 3) {
+
+		$results = [];
+
+		$posts = get_posts([
+			'post_type' => 'techno_chatbot_aidb',
+			'numberposts' => -1,
+			'post_status' => 'publish'
+		]);
+
+		foreach ($posts as $post) {
+
+			$chunks_json = get_post_meta($post->ID, '_ai_chunks', true);
+			$chunks = json_decode($chunks_json, true);
+
+			if (!$chunks) continue;
+
+			foreach ($chunks as $chunk) {
+
+				similar_text(strtolower($question), strtolower($chunk), $score);
+
+				$results[] = [
+					'text' => $chunk,
+					'score' => $score
+				];
+			}
+		}
+
+		// Sort highest score first
+		usort($results, function($a, $b) {
+			return $b['score'] <=> $a['score'];
+		});
+
+		return array_slice($results, 0, $limit);
+	}
+
+	/**
+	 * OpeanAI request
+	 *
+	 * @since    1.0.0
+	 */
+	private function ask_openai($question, $context_chunks) {
+		$api_key = get_option('techno_chatbot_openai_secret');
+
+		if (!$api_key) {
+			return 'OpenAI API key not configured.';
+		}
+
+		$context_text = implode("\n\n", array_column($context_chunks, 'text'));
+		/* $prompt = "
+		You are a helpful customer support assistant.
+
+		Answer the user's question ONLY using the context below.
+		If the answer is not found, say: 'Sorry, I don't have that information.'
+
+		Context:
+		$context_text
+
+		Question:
+		$question
+		"; */
+
+		$prompt = "
+		You are a customer support assistant.
+
+		STRICT RULES:
+		- Answer ONLY using the provided context
+		- Do NOT make up information
+		- If the answer is not in the context, say:
+		'Sorry, I don't have that information.'
+
+		Context:
+		$context_text
+
+		Question:
+		$question
+		";
+
+		$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+			'headers' => [
+				'Authorization' => 'Bearer ' . $api_key,
+				'Content-Type'  => 'application/json',
+			],
+			'body' => json_encode([
+				'model' => 'gpt-4o-mini',
+				'messages' => [
+					['role' => 'user', 'content' => $prompt]
+				],
+				'temperature' => 0.3
+			]),
+			'timeout' => 20
+		]);
+
+		if (is_wp_error($response)) {
+			return 'Error contacting AI';
+		}
+
+		$body = json_decode(wp_remote_retrieve_body($response), true);
+		return $body['choices'][0]['message']['content'] ?? 'No response';
+	}
+
+	/**
+	 * OpeanAI request
+	 *
+	 * @since    1.0.0
+	 */
+	public function ask_ai() {
+		if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'techno_chatbot_nonce')) {
+			wp_send_json_error('Invalid nonce');
+		}
+
+		$question = sanitize_text_field($_POST['question']);
+
+		if (!$question) {
+			wp_send_json_error('Empty question');
+		}
+
+		// 1. Get relevant chunks
+		$chunks = $this->find_relevant_chunks($question);
+
+		// 2. Ask OpenAI
+		$answer = $this->ask_openai($question, $chunks);
+
+		wp_send_json_success([
+			'answer' => $answer
+		]);
 	}
 }

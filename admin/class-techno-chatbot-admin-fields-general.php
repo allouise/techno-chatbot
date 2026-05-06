@@ -90,6 +90,15 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'Display the disclaimer in chatbot and menu',
 		),
 
+		'techno_chatbot_aireplies' => array(
+			'label'       => 'Enable AI',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 1,
+			'description' => 'Enable AI instead of FAQ',
+			'features'	  => array('ai_training')
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'Notification Emails',
 			'type'        => 'text',

@@ -425,11 +425,12 @@ class Techno_Chatbot_Admin {
 		// FETCH
 		$response = wp_remote_get($url, [
 			'timeout' => 20,
-			'user-agent' => 'TechnoChatbotCrawler/1.0'
+			'user-agent' => 'TechnoChatbotCrawler/1.0',
+			'sslverify'  => false
 		]);
 
 		if (is_wp_error($response)) {
-			wp_send_json_error('Fetch failed');
+			wp_send_json_error($response->get_error_message());
 		}
 
 		$html = wp_remote_retrieve_body($response);

@@ -244,6 +244,8 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_ajax_nopriv_end_live_chat', $plugin_public, 'end_live_chat' );
 		$this->loader->add_action( 'wp_ajax_end_live_chat', $plugin_public, 'end_live_chat' );
 
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_ask_ai', $plugin_public, 'ask_ai' );
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_chatbot_ask_ai', $plugin_public, 'ask_ai' );
 	}
 
 	/**

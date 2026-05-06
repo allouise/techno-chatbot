@@ -329,13 +329,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return matrix[b.length][a.length];
     }
 
+    /* ---------- AI FAQ Handling ---------- */
+    async function askAI(question) {
+        const formData = new FormData();
+        formData.append("action", "techno_chatbot_ask_ai");
+        formData.append("question", question);
+        formData.append("nonce", technoChatbot.nonce);
+
+        try {
+            const res = await fetch(technoChatbot.ajax_url, {
+                method: "POST",
+                credentials: "same-origin",
+                body: formData
+            });
+
+            const data = await res.json();
+
+            if (data.success && data.data.answer) {
+                return data.data.answer;
+            }
+
+            return null;
+
+        } catch (e) {
+            console.error("AI error:", e);
+            return null;
+        }
+    }
+
     /* ---------- WebSocket Live Chat ---------- */
     function initSocket() {
         if(!technoChatbot.ws_url) return;
         if (socket) return;
 
         socket = io(technoChatbot.ws_url, { 
-            transports: ['polling', 'websocket'],
+            transports: [/* 'polling',  */'websocket'],
             secure: true,
             /* reconnection: false, */
             auth: {
@@ -633,7 +661,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        await handleFaqReply(userMessage);
+        /* Answer Via AI */
+        if ( technoChatbot.aiEnabled == 1 ) {
+            const aiAnswer = await askAI(userMessage);
+            if (aiAnswer && aiAnswer !== "Error") {
+                await botReply(aiAnswer);
+                isProcessing = false;
+                return;
+            }
+        }else{
+            await handleFaqReply(userMessage);
+        }
+
         isProcessing = false;
     };
     function addMessage(text, sender, save = true) {
