@@ -611,11 +611,44 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Limit Token Context
+	 *
+	 * @since    1.0.0
+	 */
+	private function limit_context_tokens($text, $maxChars = 1200) {
+		return mb_substr($text, 0, $maxChars);
+	}
+
+	/**
+	 * Get Embed Cache
+	 *
+	 * @since    1.0.0
+	 */
+	private function get_embedding_cache($text) {
+		return get_transient('emb_' . md5($text));
+	}
+
+	/**
+	 * Set Embed Cache
+	 *
+	 * @since    1.0.0
+	 */
+	private function set_embedding_cache($text, $embedding) {
+		set_transient('emb_' . md5($text), $embedding, WEEK_IN_SECONDS);
+	}
+
+	/**
 	 * AI Find Relevant Chunks
 	 *
 	 * @since    1.0.0
 	 */
 	private function find_relevant_chunks($question, $limit = 3) {
+
+		$question_embedding = $this->create_embedding($question);
+
+		if (!$question_embedding) {
+			return [];
+		}
 
 		$results = [];
 
@@ -627,27 +660,32 @@ class Techno_Chatbot_Public {
 
 		foreach ($posts as $post) {
 
-			$chunks_json = get_post_meta($post->ID, '_ai_chunks', true);
-			$chunks = json_decode($chunks_json, true);
+			$stored = get_post_meta($post->ID, '_ai_embeddings', true);
+			$chunks = $stored;
+			if (is_string($chunks)) {
+				$chunks = maybe_unserialize($chunks);
+			}
 
 			if (!$chunks) continue;
 
 			foreach ($chunks as $chunk) {
 
-				similar_text(strtolower($question), strtolower($chunk), $score);
+				if (empty($chunk['embedding']) || !is_array($chunk['embedding'])) continue;
+				if (!isset($chunk['embedding']) || !isset($chunk['text'])) continue;
+
+				$score = $this->cosine_similarity($question_embedding, $chunk['embedding']);
+				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
+				$score = $score * $lengthPenalty;
+				// if ($score < 0.45) continue;
 
 				$results[] = [
-					'text' => $chunk,
+					'text' => $chunk['text'],
 					'score' => $score
 				];
 			}
 		}
 
-		// Sort highest score first
-		usort($results, function($a, $b) {
-			return $b['score'] <=> $a['score'];
-		});
-
+		usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
 		return array_slice($results, 0, $limit);
 	}
 
@@ -663,27 +701,30 @@ class Techno_Chatbot_Public {
 			return 'OpenAI API key not configured.';
 		}
 
-		$context_text = implode("\n\n", array_column($context_chunks, 'text'));
-		/* $prompt = "
-		You are a helpful customer support assistant.
+		if (empty($context_chunks)) {
+			return "I'm not sure, but I can only answer based on the website content.";
+		}
 
-		Answer the user's question ONLY using the context below.
-		If the answer is not found, say: 'Sorry, I don't have that information.'
+		$context_text = '';
+		foreach ($context_chunks as $chunk) {
+			$text = $this->limit_context_tokens($chunk['text'], 800);
+			$context_text .= "SOURCE:\n" . $text . "\n\n";
+		}
 
-		Context:
-		$context_text
-
-		Question:
-		$question
-		"; */
+		
 
 		$prompt = "
-		You are a customer support assistant.
+		You are a helpful customer support assistant.
 
-		STRICT RULES:
-		- Answer ONLY using the provided context
-		- Do NOT make up information
-		- If the answer is not in the context, say:
+		Use the provided context to answer the user's question naturally and conversationally.
+
+		Instructions:
+		- Answer directly using the context.
+		- Combine related details into a smooth response.
+		- Do not mention “the context says” or “according to the context.”
+		- If multiple relevant facts exist, include them briefly.
+		- Keep the tone friendly and concise.
+		- If the information is not available, say:
 		'Sorry, I don't have that information.'
 
 		Context:
@@ -692,6 +733,8 @@ class Techno_Chatbot_Public {
 		Question:
 		$question
 		";
+
+		error_log($prompt);
 
 		$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
 			'headers' => [
@@ -712,8 +755,87 @@ class Techno_Chatbot_Public {
 			return 'Error contacting AI';
 		}
 
+		error_log(json_encode($response));
+
 		$body = json_decode(wp_remote_retrieve_body($response), true);
 		return $body['choices'][0]['message']['content'] ?? 'No response';
+	}
+
+	/**
+	 * Cosine Similarity
+	 *
+	 * @since    1.0.0
+	 */
+	private function cosine_similarity($a, $b) {
+
+		$dot = 0;
+		$normA = 0;
+		$normB = 0;
+		$len = min(count($a), count($b));
+		if ($len === 0) {
+			return 0;
+		}
+
+		for ($i = 0; $i < $len; $i++) {
+			$dot += $a[$i] * $b[$i];
+			$normA += $a[$i] * $a[$i];
+			$normB += $b[$i] * $b[$i];
+		}
+
+		if ($normA == 0 || $normB == 0) {
+			return 0;
+		}
+
+		return $dot / (sqrt($normA) * sqrt($normB));
+	}
+
+	/**
+	 * Create Embedding
+	 *
+	 * @since    1.0.0
+	 */
+	private function create_embedding($text) {
+
+		$api_key = get_option('techno_chatbot_openai_secret');
+
+		if (!$api_key) {
+			return false;
+		}
+
+		$cached = $this->get_embedding_cache($text);
+		if ($cached) {
+			return $cached;
+		}
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/embeddings',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				],
+				'body' => wp_json_encode([
+					'model' => 'text-embedding-3-small',
+					'input' => $text
+				]),
+				'timeout' => 30
+			]
+		);
+
+		if (is_wp_error($response)) {
+			error_log( 'Embedding Error: ' . $response->get_error_message());
+			return false;
+		}
+
+		$body = json_decode( wp_remote_retrieve_body($response), true );
+		if (!isset($body['data'][0]['embedding'])) {
+			error_log( 'Embedding API Response: ' . print_r($body, true) );
+			return false;
+		}
+
+		$embedding = $body['data'][0]['embedding'];
+		$this->set_embedding_cache($text, $embedding);
+		return $embedding;
 	}
 
 	/**
@@ -730,6 +852,18 @@ class Techno_Chatbot_Public {
 
 		if (!$question) {
 			wp_send_json_error('Empty question');
+		}
+
+		// Greetings small talk
+		$lower = strtolower($question);
+		$greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon'];
+		foreach ($greetings as $g) {
+			if (strpos($lower, $g) !== false) {
+
+				wp_send_json_success([
+					'answer' => "Hello! 👋 I'm here to help you with questions about this website."
+				]);
+			}
 		}
 
 		// 1. Get relevant chunks

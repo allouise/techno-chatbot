@@ -441,10 +441,29 @@ class Techno_Chatbot_Admin {
 		// CHUNK CONTENT
 		$chunks = $this->chunk_text($clean_text);
 
+		// EMBEDDING
+		$results = $this->create_embeddings_batch($chunks);
+		if (!$results) {
+			wp_send_json_error('Embedding failed');
+		}
+		$embedded_chunks = [];
+		foreach ($results as $item) {
+			if (!isset($item['embedding'])) {
+				continue;
+			}
+
+			$index = $item['index'];
+
+			$embedded_chunks[] = [
+				'text' => $chunks[$index] ?? '',
+				'embedding' => $item['embedding']
+			];
+		}
+
 		// SAVE
 		update_post_meta($post_id, '_crawled_content', $clean_text);
 		update_post_meta($post_id, '_ai_clean_text', $clean_text);
-		update_post_meta($post_id, '_ai_chunks', json_encode($chunks));
+		update_post_meta($post_id, '_ai_embeddings', $embedded_chunks);
 		update_post_meta($post_id, '_ai_last_crawled', current_time('mysql'));
 		update_post_meta($post_id, '_ai_status', 'crawled');
 
@@ -460,27 +479,42 @@ class Techno_Chatbot_Admin {
 	 * @since    1.0.0
 	 */
 	private function extract_main_content($html) {
+
 		libxml_use_internal_errors(true);
+
 		$dom = new DOMDocument();
 		$dom->loadHTML($html);
 
 		$xpath = new DOMXPath($dom);
 
-		// Try to target main content areas first
-		$nodes = $xpath->query("//main | //article | //div[contains(@class,'content')]");
+		// remove junk first
+		foreach (['script', 'style', 'noscript', 'header', 'footer', 'nav', 'form'] as $tag) {
+			$nodes = $dom->getElementsByTagName($tag);
+			for ($i = $nodes->length - 1; $i >= 0; $i--) {
+				$node = $nodes->item($i);
+				$node->parentNode->removeChild($node);
+			}
+		}
 
-		$text = '';
+		// prioritize real content containers
+		$nodes = $xpath->query("//article | //main");
+
+		$textParts = [];
 
 		if ($nodes->length > 0) {
 			foreach ($nodes as $node) {
-				$text .= ' ' . $node->textContent;
+				$textParts[] = trim($node->textContent);
 			}
 		} else {
-			// fallback
-			$text = $dom->textContent;
+			$body = $dom->getElementsByTagName('body')->item(0);
+			$textParts[] = $body ? $body->textContent : '';
 		}
 
+		$text = implode(" ", $textParts);
+
+		// normalize whitespace
 		$text = preg_replace('/\s+/', ' ', $text);
+
 		return trim($text);
 	}
 	
@@ -489,15 +523,68 @@ class Techno_Chatbot_Admin {
 	 *
 	 * @since    1.0.0
 	 */
-	private function chunk_text($text, $size = 800) {
+	private function chunk_text($text, $maxLength = 800) {
+
+		$sentences = preg_split('/(?<=[.!?])\s+/', $text);
 
 		$chunks = [];
-		$length = strlen($text);
+		$current = '';
 
-		for ($i = 0; $i < $length; $i += $size) {
-			$chunks[] = substr($text, $i, $size);
+		foreach ($sentences as $sentence) {
+
+			if (strlen($current . ' ' . $sentence) > $maxLength) {
+				$chunks[] = trim($current);
+				$current = $sentence;
+			} else {
+				$current = $current ? $current . ' ' . $sentence : $sentence;
+			}
+		}
+
+		if (trim($current) !== '') {
+			$chunks[] = trim($current);
 		}
 
 		return $chunks;
+	}
+	
+	/**
+	 * Open AI Embedding
+	 *
+	 * @since    1.0.0
+	 */
+	private function create_embeddings_batch($chunks) {
+
+		$api_key = get_option('techno_chatbot_openai_secret');
+
+		if (!$api_key || empty($chunks)) {
+			return false;
+		}
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/embeddings',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				],
+				'body' => json_encode([
+					'model' => 'text-embedding-3-small',
+					'input' => $chunks
+				]),
+				'timeout' => 60
+			]
+		);
+
+		if (is_wp_error($response)) {
+			return false;
+		}
+
+		$body = json_decode(wp_remote_retrieve_body($response), true);
+
+		if (!isset($body['data'])) {
+			return false;
+		}
+
+		return $body['data'];
 	}
 }

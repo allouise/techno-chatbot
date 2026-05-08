@@ -20,13 +20,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 credentials: "same-origin",
                 body: formData
             });
-
             const data = await response.json();
 
             if (data.success) {
-                alert("Crawl completed successfully!");
+                button.innerText = "Success!";
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
             } else {
                 alert("Error: " + data.data);
+
+                button.disabled = false;
+                button.innerText = "Crawl This Page";
             }
 
         } catch (error) {

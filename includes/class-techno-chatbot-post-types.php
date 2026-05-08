@@ -235,7 +235,7 @@ class Techno_Chatbot_Post_Types {
         $page_url = get_post_meta( $post->ID, '_page_url', true );
         $crawled_content = get_post_meta( $post->ID, '_crawled_content', true );
         $ai_clean_text = get_post_meta( $post->ID, '_ai_clean_text', true );
-        $ai_chunks = get_post_meta( $post->ID, '_ai_chunks', true );
+        $ai_embeddings = get_post_meta( $post->ID, '_ai_embeddings', true );
         $ai_last_crawled = get_post_meta( $post->ID, '_ai_last_crawled', true );
         $ai_status = get_post_meta( $post->ID, '_ai_status', true );
         $ai_enabled = get_post_meta( $post->ID, '_ai_enabled', true );
@@ -243,7 +243,8 @@ class Techno_Chatbot_Post_Types {
         $ai_check = techno_chatbot_feature('ai_training');
     	$ai_allowed = $ai_check['allowed'] === true;
         $disabledmsg = $ai_check['message'];
-        if( $ai_allowed ){ ?>
+        $post_status = get_post_status( $post->ID );
+        if( $ai_allowed && $post_status === 'publish' ){ ?>
             <p>
                 <button type="button" class="button button-primary" id="techno-crawl-page">
                     Crawl This Page
@@ -262,7 +263,7 @@ class Techno_Chatbot_Post_Types {
         
         <p>
             <label><strong><?php _e( 'Page URL', 'techno-chatbot' ); ?></strong></label><br>
-            <input type="url" name="page_url" value="<?php echo esc_attr( $page_url ); ?>" style="width:100%;" />
+            <input type="url" name="page_url" value="<?php echo esc_attr( $page_url ); ?>" <?php echo isset($page_url) && !empty($page_url)? 'readonly disabled':''; ?> style="width:100%;" />
         </p>
 
         <p>
@@ -276,8 +277,8 @@ class Techno_Chatbot_Post_Types {
         </p>
 
         <p>
-            <label><strong><?php _e( 'AI Chunks', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( $ai_chunks ); ?></div>
+            <label><strong><?php _e( 'AI Embeddings', 'techno-chatbot' ); ?></strong></label><br>
+            <div class="crawled_content"><?php echo esc_textarea( is_array($ai_embeddings)? print_r($ai_embeddings, true) : $ai_embeddings ); ?></div>
         </p>
 
         <p>

@@ -331,28 +331,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ---------- AI FAQ Handling ---------- */
     async function askAI(question) {
+        const typing = showTyping();
         const formData = new FormData();
         formData.append("action", "techno_chatbot_ask_ai");
         formData.append("question", question);
         formData.append("nonce", technoChatbot.nonce);
-
+        
         try {
             const res = await fetch(technoChatbot.ajax_url, {
                 method: "POST",
                 credentials: "same-origin",
                 body: formData
             });
-
             const data = await res.json();
-
+            typing.remove();
             if (data.success && data.data.answer) {
                 return data.data.answer;
             }
-
             return null;
 
         } catch (e) {
             console.error("AI error:", e);
+            typing.remove();
             return null;
         }
     }
@@ -363,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (socket) return;
 
         socket = io(technoChatbot.ws_url, { 
-            transports: [/* 'polling',  */'websocket'],
+            transports: ['polling', 'websocket'],
             secure: true,
             /* reconnection: false, */
             auth: {
