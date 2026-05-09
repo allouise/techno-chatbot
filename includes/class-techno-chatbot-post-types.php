@@ -278,7 +278,7 @@ class Techno_Chatbot_Post_Types {
 
         <p>
             <label><strong><?php _e( 'AI Embeddings', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( is_array($ai_embeddings)? print_r($ai_embeddings, true) : $ai_embeddings ); ?></div>
+            <div class="crawled_content" style=" width: 100%; height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; "><?php echo esc_textarea( is_array($ai_embeddings)? print_r($ai_embeddings, true) : $ai_embeddings ); ?></div>
         </p>
 
         <p>

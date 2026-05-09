@@ -82,6 +82,7 @@ class Techno_Chatbot_Public {
 		$script_array = array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
+			'supportOnline' => techno_wss_check() ? (int) get_option('techno_chatbot_support_online', 0) : false,
 			'liveChatEnabled' => $livechat_enabled,
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
 			'aiEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies'),
@@ -435,6 +436,61 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Get and Send History to Customer
+	 *
+	 * @since 1.0.0
+	 */
+	public function send_transcript(){
+		check_ajax_referer('techno_chatbot_nonce','nonce');
+
+		// Rate limit per IP
+		$ip = $_SERVER['REMOTE_ADDR'];
+		$transient_key = 'techno_send_transcript_' . md5($ip);
+		$count = (int) get_transient($transient_key);
+
+		if( $count >= 10 ){
+			wp_send_json_error('Too many requests');
+		}
+
+		set_transient($transient_key, $count + 1, 60);
+		if( empty($_POST['history']) ){
+			wp_send_json_error();
+		}
+		$history = json_decode( stripslashes($_POST['history']), true );
+		if( !is_array($history) ){
+			wp_send_json_error();
+		}
+		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+		if( !$email || empty($email) || $email == '' ){
+			wp_send_json_error();
+		}
+
+		$history = array_slice($history, -30);
+		$message = "Chatbot Conversation\n\n";
+		foreach($history as $msg){
+
+			if(!isset($msg['sender']) || !isset($msg['text'])){
+				continue;
+			}
+
+			$sender = sanitize_text_field($msg['sender']);
+			$text   = sanitize_textarea_field($msg['text']);
+			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
+			$message .= "{$label}: {$text}\n";
+		}
+
+		$site_name = get_bloginfo('name');
+		if( $email ){
+			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
+			if( $client_mail ){
+				wp_send_json_success();
+			}else{
+				wp_send_json_error('Email Error');
+			}
+		}
+	}
+
+	/**
 	 * Scheduled Validate License
 	 *
 	 * @since    1.0.0
@@ -698,11 +754,12 @@ class Techno_Chatbot_Public {
 		$api_key = get_option('techno_chatbot_openai_secret');
 
 		if (!$api_key) {
-			return 'OpenAI API key not configured.';
+			error_log('TechnoChatbot OpenAI API key not configured.');
+			return 'NO_ANSWER';
 		}
 
 		if (empty($context_chunks)) {
-			return "I'm not sure, but I can only answer based on the website content.";
+			return 'NO_ANSWER';
 		}
 
 		$context_text = '';
@@ -710,8 +767,6 @@ class Techno_Chatbot_Public {
 			$text = $this->limit_context_tokens($chunk['text'], 800);
 			$context_text .= "SOURCE:\n" . $text . "\n\n";
 		}
-
-		
 
 		$prompt = "
 		You are a helpful customer support assistant.
@@ -724,8 +779,7 @@ class Techno_Chatbot_Public {
 		- Do not mention “the context says” or “according to the context.”
 		- If multiple relevant facts exist, include them briefly.
 		- Keep the tone friendly and concise.
-		- If the information is not available, say:
-		'Sorry, I don't have that information.'
+		- If the information is not available, respond only with: 'NO_ANSWER'
 
 		Context:
 		$context_text
@@ -733,8 +787,6 @@ class Techno_Chatbot_Public {
 		Question:
 		$question
 		";
-
-		error_log($prompt);
 
 		$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
 			'headers' => [
@@ -752,13 +804,12 @@ class Techno_Chatbot_Public {
 		]);
 
 		if (is_wp_error($response)) {
-			return 'Error contacting AI';
+			error_log('TechnoChatbot Error contacting AI.');
+			return 'NO_ANSWER';
 		}
 
-		error_log(json_encode($response));
-
 		$body = json_decode(wp_remote_retrieve_body($response), true);
-		return $body['choices'][0]['message']['content'] ?? 'No response';
+		return $body['choices'][0]['message']['content'] ?? 'NO_ANSWER';
 	}
 
 	/**
@@ -852,18 +903,6 @@ class Techno_Chatbot_Public {
 
 		if (!$question) {
 			wp_send_json_error('Empty question');
-		}
-
-		// Greetings small talk
-		$lower = strtolower($question);
-		$greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon'];
-		foreach ($greetings as $g) {
-			if (strpos($lower, $g) !== false) {
-
-				wp_send_json_success([
-					'answer' => "Hello! 👋 I'm here to help you with questions about this website."
-				]);
-			}
 		}
 
 		// 1. Get relevant chunks

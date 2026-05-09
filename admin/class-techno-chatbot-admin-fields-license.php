@@ -151,8 +151,11 @@ class Techno_Chatbot_Admin_Fields_License {
 					'sanitize_callback' => 
 					$option === 'techno_chatbot_license'
 						? array($this, 'validate_license')
-						: ($option === 'techno_chatbot_secret'
-							? array($this, 'sanitize_secret_key')
+						: ($option === 'techno_chatbot_secret' ||
+							$option === 'techno_chatbot_openai_secret'
+								? function($value) use ($option) {
+									return $this->sanitize_secret_key($value, $option);
+								}
 							: ($data['type'] === 'checkbox'
 								? array($this, 'sanitize_checkbox')
 								: ($data['type'] === 'url'
@@ -229,7 +232,8 @@ class Techno_Chatbot_Admin_Fields_License {
 				$input_type = 'text';
 			}
 			if ( $type === 'password' && !empty($value) ) {
-				$display_value = str_repeat('*', 8);
+				$display_value = '';
+				/* $display_value = str_repeat('*', 8); */
 			} else {
 				$display_value = $value;
 			}
@@ -239,9 +243,15 @@ class Techno_Chatbot_Admin_Fields_License {
 					value="' . esc_attr( $display_value ) . '"
 					class="regular-text"
 					style="width:100%;"
-					placeholder="' . esc_attr( $placeholder ) . '"
+					placeholder="' . ( $type === 'password' && !empty($value)? '********' : esc_attr( $placeholder ) ) . '"
 					'.( $input_type == 'url'? 'pattern="https?://.*"' : '' ).'
 				/>';
+
+			if ( $type === 'password' && !empty($value) ) {
+				echo '<p class="description">';
+				echo esc_html__('Leave blank to keep the current value.','techno-chatbot');
+				echo '</p>';
+			}
 		}
 
 		if ($option === 'techno_chatbot_license') {
@@ -293,10 +303,10 @@ class Techno_Chatbot_Admin_Fields_License {
 	 *
 	 * @since 1.0.0
 	 */
-	public function sanitize_secret_key( $value ) {
-		$current = get_option('techno_chatbot_secret', '');
-		// If user typed the placeholder (****), keep current
-		if ( $value === str_repeat('*', 8) || empty($value) ) {
+	public function sanitize_secret_key( $value, $option_name ) {
+		$current = get_option($option_name, '');
+		// If empty, keep existing value
+		if ( empty($value) ) {
 			return $current;
 		}
 		return sanitize_text_field( $value );

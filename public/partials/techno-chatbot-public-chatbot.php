@@ -37,6 +37,7 @@
 				<?php if( $disclaimerEnabled ){ ?>
 					<li><a id="techno-chatbot-disclaimer">Disclaimer</a></li>
 				<?php } ?>
+				<li><a id="techno-chatbot-transcript-request">Request Transcript</a></li>
 				<li><a class="techno-chatbot-reset">Restart</a></li>
 			</ul>
 		</div>

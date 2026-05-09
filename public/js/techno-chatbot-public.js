@@ -13,7 +13,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-
     /* ---------- Elements ---------- */
     const el = {
         icon: document.getElementById('techno-chatbot-floating-icon'),
@@ -26,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reset: document.querySelectorAll('.techno-chatbot-reset'),
         disclaimer: document.getElementById('techno-chatbot-disclaimer'),
         disclaimerModal: document.getElementById('techno-chatbot-disclaimer-modal'),
+        transcriptRequest: document.getElementById('techno-chatbot-transcript-request'),
     };
 
     if (!el.icon || !el.window) return;
@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ---------- State ---------- */
     let socket = null;
+    let transcriptOnlyRequest = false;
     let liveChatSessionId = null;
     let liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY) || null;
     let chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -242,6 +243,23 @@ document.addEventListener('DOMContentLoaded', () => {
             )
         );
     }
+    function sendTranscriptToEmail(email){
+        const history = localStorage.getItem(STORAGE_KEY);
+        if (!history) return Promise.reject();
+        return fetch(technoChatbot.ajax_url, {
+            method:'POST',
+            headers:{
+                'Content-Type':
+                'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                action: 'send_transcript',
+                history: history,
+                email: email,
+                nonce: technoChatbot.nonce
+            })
+        });
+    }
 
     /* ---------- FAQ Handling ---------- */
     const processedFaq = technoChatbot.faq.map(faq => ({
@@ -359,9 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ---------- WebSocket Live Chat ---------- */
     function initSocket() {
+        if (parseInt(technoChatbot.supportOnline) !== 1) return;
         if(!technoChatbot.ws_url) return;
         if (socket) return;
-
+        
         socket = io(technoChatbot.ws_url, { 
             transports: ['polling', 'websocket'],
             secure: true,
@@ -656,18 +675,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 isProcessing = false;
                 return;
             }
-            await finishLiveChat(email);
+            if (transcriptOnlyRequest) {
+                transcriptOnlyRequest = false;
+                try {
+                    await sendTranscriptToEmail(email);
+                    await botReply(technoChatbot.historySent);
+                } catch(e){
+                    await botReply(technoChatbot.errorMsg);
+                }
+                setState(0);
+            } else {
+                await finishLiveChat(email);
+            }
             isProcessing = false;
             return;
         }
 
         /* Answer Via AI */
-        if ( technoChatbot.aiEnabled == 1 ) {
+        if (technoChatbot.aiEnabled == 1) {
             const aiAnswer = await askAI(userMessage);
-            if (aiAnswer && aiAnswer !== "Error") {
+            const failLimit = parseInt(technoChatbot.noAnswerTrigger) || 0;
+            let failCount = parseInt(localStorage.getItem(FAIL_COUNT_KEY) || '0');
+
+            if (aiAnswer && aiAnswer !== "NO_ANSWER") {
+                localStorage.setItem(FAIL_COUNT_KEY, 0);
                 await botReply(aiAnswer);
-                isProcessing = false;
-                return;
+            }else {
+                failCount++;
+                localStorage.setItem(FAIL_COUNT_KEY, failCount);
+                if (failLimit === 0 || failCount >= failLimit) {
+                    await botReply(
+                        technoChatbot.noAnswerFinalDefault ||
+                        technoChatbot.noAnswer ||
+                        '...'
+                    );
+                    showNoAnswerOptions();
+                    localStorage.setItem(FAIL_COUNT_KEY, 0);
+                } else {
+                    await botReply(
+                        technoChatbot.noAnswer || '...'
+                    );
+                }
             }
         }else{
             await handleFaqReply(userMessage);
@@ -771,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     }
     function showNoAnswerOptions(restored = false){
-        console.log( getState(), idleDisconnectTimer );
         if(document.querySelector('.techno-chatbot-contact-options')) return;
 
         const wrapper = document.createElement('div');
@@ -874,6 +921,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         el.disclaimerModal.querySelector('.close-btn').onclick = () => el.disclaimerModal.classList.remove('active');
     }
+    el.transcriptRequest?.addEventListener('click', async () => {
+        transcriptOnlyRequest = true;
+        addMessage(
+            technoChatbot.menuHistorySend,
+            'visitor',
+            true
+        );
+        await askEmailForHistory();
+        el.menubtn.classList.remove('active');
+    });
     /* TO FIX THIS SHOULD ONLY RUN ON LIVECHAT */
     /* window.addEventListener("storage", (e) => {
         if (e.key === STORAGE_KEY) {
