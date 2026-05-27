@@ -31,7 +31,7 @@
 /* Header Menu */
 .techno-chatbot-menu { display: inline-flex; margin-left: auto; margin-right: 5px; font-size: 0.7em; position: relative; z-index: 1; }
 .techno-chatbot-menu > a { color: var(--techno-header-text); cursor: pointer; text-decoration: none; padding: 3px 10px; border: 1px solid var(--techno-header-text); }
-.techno-chatbot-menu > a.active { background: var(--techno-header-text); color: var(--techno-header-bg); font-weight: 500; }
+.techno-chatbot-menu > a.active, .techno-chatbot-menu > a.active:not([href]):not([tabindex]) { background: var(--techno-header-text); color: var(--techno-header-bg); font-weight: 500; }
 .techno-chatbot-menu ul { position: absolute; right: 0; background: var(--techno-header-bg); list-style: none; padding: 0; margin: 0; top: 30px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; border: 1px solid var(--techno-header-text); overflow: hidden; max-height: 0px; transition: 0.3s all ease-in; opacity: 0; width: 160px;}
 .techno-chatbot-menu > a.active + ul { max-height: 9999px; opacity: 1; }
 .techno-chatbot-menu ul a { text-decoration: none; color: var(--techno-header-text); display: block; padding: 5px 10px; cursor: pointer; border-bottom: 1px solid rgba(0, 0, 0, 0.5); font-weight: 500; }
