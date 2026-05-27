@@ -26,10 +26,10 @@
 
 /* Header */ 
 .techno-chatbot-header { background: var(--techno-header-bg); color: var(--techno-header-text); font-size: var(--techno-chatbot-headingsize); padding: 12px; display: flex; justify-content: space-between; align-items: center; } 
-.techno-chatbot-header button { background: none; border: none; color: var(--techno-header-text); font-size: 1em; cursor: pointer; } 
+.techno-chatbot-header button, .techno-chatbot-header button[type=button]:focus, .techno-chatbot-header button[type=button]:hover, .techno-chatbot-header button[type=submit]:focus, .techno-chatbot-header button[type=submit]:hover, .techno-chatbot-header button:focus, .techno-chatbot-header button:hover { background: none; border: none; color: var(--techno-header-text); font-size: 1em; cursor: pointer; padding: 0 5px; } 
 
 /* Header Menu */
-.techno-chatbot-menu { display: inline-flex; margin-left: auto; margin-right: 5px; font-size: 0.7em; position: relative; z-index: 1; }
+.techno-chatbot-menu { display: inline-flex; margin-left: auto; margin-right: 5px; font-size: 0.7em; padding: 0; position: relative; z-index: 1; }
 .techno-chatbot-menu > a { color: var(--techno-header-text); cursor: pointer; text-decoration: none; padding: 3px 10px; border: 1px solid var(--techno-header-text); }
 .techno-chatbot-menu > a.active, .techno-chatbot-menu > a.active:not([href]):not([tabindex]) { background: var(--techno-header-text); color: var(--techno-header-bg); font-weight: 500; }
 .techno-chatbot-menu ul { position: absolute; right: 0; background: var(--techno-header-bg); list-style: none; padding: 0; margin: 0; top: 30px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; border: 1px solid var(--techno-header-text); overflow: hidden; max-height: 0px; transition: 0.3s all ease-in; opacity: 0; width: 160px;}
@@ -46,7 +46,7 @@
 
 /* Input */ 
 .techno-chatbot-input-wrapper { background: var(--techno-input-bg); color: var(--techno-input-txt); display: flex; border-top: 1px solid rgba(44, 42, 42, 0.15); } 
-#techno-chatbot-input { flex: 1; padding: 10px; border: none; outline: none; font-size: var(--techno-chatbot-inputtxtsize); } 
+#techno-chatbot-input { box-shadow: none; flex: 1; padding: 10px; border: none; outline: none; font-size: var(--techno-chatbot-inputtxtsize); } 
 #techno-chatbot-input[disabled] { pointer-events: none; cursor: not-allowed; }
 #techno-chatbot-send { background: var(--techno-sendbtn-bg); color: var(--techno-sendbtn-txt); border: none; padding: 0 15px; cursor: pointer; font-size: var(--techno-chatbot-sendbtnsize); } 
 #techno-chatbot-send[disabled] { pointer-events: none; cursor: not-allowed; }
