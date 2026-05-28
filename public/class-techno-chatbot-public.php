@@ -777,10 +777,15 @@ class Techno_Chatbot_Public {
 
 		Instructions:
 		- Answer directly using the context.
-		- Combine related details into a smooth response.
-		- Do not mention “the context says” or “according to the context.”
-		- If multiple relevant facts exist, include them briefly.
+		- Always produce a complete, self-contained answer.
+		- Do NOT assume the user has seen previous messages or context.
+		- Do NOT refer to 'previous answers', 'above', 'earlier', or 'context'.
+		- Do NOT use phrases that depend on follow-up continuity (like 'as mentioned', 'that', 'it', unless clearly defined in the current question).
+		- If multiple facts are relevant, merge them into one clear explanation.
+		- Keep answers direct, informative, and independent.
 		- Keep the tone friendly and concise.
+		- Avoid conversational dependency or implied follow-up context
+		- Do not mention 'the context says' or 'according to the context.'
 		- If the information is not available, respond only with: 'NO_ANSWER'
 
 		Context:
@@ -789,7 +794,7 @@ class Techno_Chatbot_Public {
 		Question:
 		$question
 		";
-
+	
 		$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
 			'headers' => [
 				'Authorization' => 'Bearer ' . $api_key,

@@ -422,21 +422,30 @@ class Techno_Chatbot_Admin {
 			wp_send_json_error('Invalid URL');
 		}
 
-		// FETCH
-		$response = wp_remote_get($url, [
-			'timeout' => 20,
-			'user-agent' => 'TechnoChatbotCrawler/1.0',
-			'sslverify'  => false
-		]);
-
-		if (is_wp_error($response)) {
-			wp_send_json_error($response->get_error_message());
+		// FETCH NEW Using Content Only
+		$wp_post_id = url_to_postid($url);
+		if ($wp_post_id) {
+			$wp_post = get_post($wp_post_id);
+			if (!$wp_post) wp_send_json_error('Post not found');
+			// Get rendered WP content
+			$content = apply_filters('the_content', $wp_post->post_content);
+			// Convert HTML to clean text
+			$clean_text = wp_strip_all_tags($content);
+			// Normalize spaces
+			$clean_text = preg_replace('/\s+/', ' ', $clean_text);
+			$clean_text = trim($clean_text);
+		} else {
+			// EXTERNAL URL FALLBACK
+			$response = wp_remote_get($url, [
+				'timeout' => 20,
+				'user-agent' => 'TechnoChatbotCrawler/1.0',
+			]);
+			if (is_wp_error($response)) {
+				wp_send_json_error($response->get_error_message());
+			}
+			$html = wp_remote_retrieve_body($response);
+			$clean_text = $this->extract_main_content($html);
 		}
-
-		$html = wp_remote_retrieve_body($response);
-
-		// CLEAN CONTENT
-		$clean_text = $this->extract_main_content($html);
 
 		// CHUNK CONTENT
 		$chunks = $this->chunk_text($clean_text);
@@ -484,21 +493,37 @@ class Techno_Chatbot_Admin {
 
 		$dom = new DOMDocument();
 		$dom->loadHTML($html);
-
 		$xpath = new DOMXPath($dom);
 
-		// remove junk first
-		foreach (['script', 'style', 'noscript', 'header', 'footer', 'nav', 'form'] as $tag) {
-			$nodes = $dom->getElementsByTagName($tag);
-			for ($i = $nodes->length - 1; $i >= 0; $i--) {
-				$node = $nodes->item($i);
+		// Remove unwanted elements
+		$removeQueries = [
+			'//script',
+			'//style',
+			'//noscript',
+			'//header',
+			'//footer',
+			'//nav',
+			'//form',
+			'//*[contains(@class,"header")]',
+			'//*[contains(@class,"footer")]',
+			'//*[contains(@class,"menu")]',
+			'//*[contains(@class,"sidebar")]',
+			'//*[contains(@id,"header")]',
+			'//*[contains(@id,"footer")]',
+			'//*[contains(@id,"menu")]',
+			'//*[contains(@id,"sidebar")]',
+		];
+
+		foreach ($removeQueries as $query) {
+			$nodes = $xpath->query($query);
+
+			foreach ($nodes as $node) {
 				$node->parentNode->removeChild($node);
 			}
 		}
 
-		// prioritize real content containers
-		$nodes = $xpath->query("//article | //main");
-
+		// Prefer article/main content
+		$nodes = $xpath->query('//article | //main');
 		$textParts = [];
 
 		if ($nodes->length > 0) {
@@ -506,15 +531,14 @@ class Techno_Chatbot_Admin {
 				$textParts[] = trim($node->textContent);
 			}
 		} else {
+			// fallback to body
 			$body = $dom->getElementsByTagName('body')->item(0);
 			$textParts[] = $body ? $body->textContent : '';
 		}
 
-		$text = implode(" ", $textParts);
-
-		// normalize whitespace
+		libxml_clear_errors();
+		$text = implode(' ', $textParts);
 		$text = preg_replace('/\s+/', ' ', $text);
-
 		return trim($text);
 	}
 	
