@@ -261,7 +261,9 @@ class Techno_Chatbot_Public {
 			--techno-chatbot-offset-y: {$offset_y}px;
 			--techno-chatbot-z-index: {$zindex};
 			--techno-chatbot-iconsize: {$iconsize};
-
+			--techno-chatbot-iconheight: {$icon_height}px;
+			--techno-chatbot-iconwidth: {$icon_width}px;
+			
 			--techno-chatbot-headingsize: {$headingsize}px;
 			--techno-chatbot-chatmsgsize: {$chatmsgsize}px;
 			--techno-chatbot-inputtxtsize: {$inputtxtsize}px;
