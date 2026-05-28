@@ -199,6 +199,15 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => ''
         ),
 
+        'techno_chatbot_next_step' => array(
+            'label'       => 'Next Step Message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'Please choose an option:',
+            'description' => 'Default message sent when guest is sent next step'
+        ),
+
         'techno_chatbot_no_answer_message' => array(
             'label'       => 'No Answer Default',
             'type'        => 'textarea',

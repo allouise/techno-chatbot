@@ -275,21 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const failLimit = parseInt(technoChatbot.noAnswerTrigger) || 0;
         let failCount = parseInt(localStorage.getItem(FAIL_COUNT_KEY) || '0');
 
-        if(technoChatbot.transferKeywords && technoChatbot.transferKeywords.length){
-            const text = cleanText(message);
-            for(const keyword of technoChatbot.transferKeywords){
-                if(keyword && text.includes(cleanText(keyword))){
-                    failCount = failLimit;
-                    localStorage.setItem(FAIL_COUNT_KEY, failCount);
-                    break;
-                }
-            }
-        }
-
         if(answer === technoChatbot.noAnswer){
             failCount++;
             localStorage.setItem(FAIL_COUNT_KEY, failCount);
-            if(failCount >= failLimit){
+            if(failLimit === 0 || failCount >= failLimit){
                 await botReply(technoChatbot.noAnswerFinalDefault || technoChatbot.noAnswer || '...');
                 showNoAnswerOptions();
                 localStorage.setItem(FAIL_COUNT_KEY, 0);
@@ -610,6 +599,38 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage(userMessage, 'visitor');
         el.input.value = '';
         const state = getState();
+
+        /* LIVE CHAT KEYWORDS */
+        if ( technoChatbot.transferLiveChatKeywords && technoChatbot.transferLiveChatKeywords.length ) {
+            const text = cleanText(userMessage);
+            for (const keyword of technoChatbot.transferLiveChatKeywords) {
+                if (keyword && text.includes(cleanText(keyword))) {
+                    localStorage.setItem(FAIL_COUNT_KEY,0);
+                    await checkAndTransferToLiveChat();
+                    isProcessing = false;
+                    return;
+                }
+            }
+        }
+
+        /* TRANSFER KEYWORDS */
+        if ( technoChatbot.transferKeywords && technoChatbot.transferKeywords.length ) {
+            const text = cleanText(userMessage);
+            for (const keyword of technoChatbot.transferKeywords) {
+                if (keyword && text.includes(cleanText(keyword))) {
+                    localStorage.setItem(FAIL_COUNT_KEY, 0);
+                    await botReply(
+                        technoChatbot.nextStepMsg ||
+                        technoChatbot.noAnswerFinalDefault ||
+                        technoChatbot.noAnswer ||
+                        '...'
+                    );
+                    showNoAnswerOptions();
+                    isProcessing = false;
+                    return;
+                }
+            }
+        }
 
         if(state === 2){
             const method = getContactMethod();
