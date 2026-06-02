@@ -366,14 +366,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ---------- WebSocket Live Chat ---------- */
     function initSocket() {
-        if (parseInt(technoChatbot.supportOnline) !== 1) return;
+        /* if (parseInt(technoChatbot.supportOnline) !== 1) return; */
         if(!technoChatbot.ws_url) return;
         if (socket) return;
         
         socket = io(technoChatbot.ws_url, { 
             transports: ['polling', 'websocket'],
             secure: true,
-            /* reconnection: false, */
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000,
             auth: {
                 site: technoChatbot.site_id,
                 token: technoChatbot.token
@@ -410,6 +414,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     startIdleDisconnectTimer();
                 } else {
                     clearIdleDisconnectTimer();
+                }
+                const existingOptions = document.querySelector('.techno-chatbot-contact-options');
+                if (existingOptions) {
+                    existingOptions.remove();
+                    showNoAnswerOptions(true);
                 }
             }
         });

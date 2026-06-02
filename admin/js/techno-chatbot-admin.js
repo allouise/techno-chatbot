@@ -27,7 +27,11 @@ function initAdminSocket() {
     socket = io(technoLivechat.ws_url, { 
         transports: ['polling', 'websocket'],
         secure: true,
-        /* reconnection: false, */
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
         auth: {
             site: technoLivechat.site_id,
             token: technoLivechat.token
