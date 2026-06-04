@@ -85,6 +85,7 @@ class Techno_Chatbot_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		$screen = get_current_screen();
 
 		wp_enqueue_media();
 		wp_enqueue_style( 'wp-color-picker' );
@@ -119,7 +120,7 @@ class Techno_Chatbot_Admin {
 
 		$ai_allowed = techno_chatbot_feature('ai_training');
     	$ai_allowed = $ai_allowed['allowed'] === true;
-		if( $ai_allowed ){
+		if( $ai_allowed && $screen && $screen->post_type === 'techno_chatbot_aidb' ){
 			wp_enqueue_script( 'techno-aidb-script', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-aidb.js', [], $this->version, true );
 			wp_localize_script(
 				'techno-aidb-script',
@@ -164,6 +165,7 @@ class Techno_Chatbot_Admin {
 		$user = wp_get_current_user();
 		if ( ! in_array('chat_support', (array) $user->roles, true) ) return;
 
+		if ( wp_doing_ajax() ) return;
 		$allowed_page = 'techno-chatbot-livechat';
 		if ( isset($_GET['page']) && $_GET['page'] === $allowed_page ) return;
 
@@ -306,7 +308,7 @@ class Techno_Chatbot_Admin {
 			wp_send_json_success(['online' => (bool)$force, 'forced' => 1]);
 		}
 
-		$current = (int) get_user_meta( $user_id, 'techno_chat_online', true );
+		$current = (int) get_user_meta( $userID, 'techno_chat_online', true );
 		$onlinestatus = $current ? 0 : 1;
 		update_user_meta( $userID, 'techno_chat_online', $onlinestatus);
 
