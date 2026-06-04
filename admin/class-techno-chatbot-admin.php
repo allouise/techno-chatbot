@@ -134,6 +134,44 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Hide All Menus from Chat Support
+	 *
+	 * @since    1.0.0
+	 */
+	public function hide_everything_from_support() {
+		$user = wp_get_current_user();
+		if ( ! in_array('chat_support', (array) $user->roles, true) ) return;
+
+		global $menu;
+		$allowed = [
+			'techno-chatbot-livechat'
+		];
+
+		foreach ($menu as $item) {
+			if (!isset($item[2])) continue;
+			if (!in_array($item[2], $allowed, true)) {
+				remove_menu_page($item[2]);
+			}
+		}
+	}
+
+	/**
+	 * Block All Menu's page from Chat Support
+	 *
+	 * @since    1.0.0
+	 */
+	public function block_everything_from_support() {
+		$user = wp_get_current_user();
+		if ( ! in_array('chat_support', (array) $user->roles, true) ) return;
+
+		$allowed_page = 'techno-chatbot-livechat';
+		if ( isset($_GET['page']) && $_GET['page'] === $allowed_page ) return;
+
+		wp_redirect( admin_url('admin.php?page=techno-chatbot-livechat') );
+		exit;
+	}
+
+	/**
 	 * Register the administration menu.
 	 *
 	 * @since    1.0.0
@@ -163,7 +201,7 @@ class Techno_Chatbot_Admin {
 			'techno-chatbot',
 			__( 'Chats', 'techno-chatbot' ),
 			__( 'Chats', 'techno-chatbot' ),
-			'manage_options',
+			'techno_chat_support',
 			'techno-chatbot-livechat',
 			array( $this, 'display_chats_page' )
 		);
@@ -224,10 +262,13 @@ class Techno_Chatbot_Admin {
 	 * @since    1.0.0
 	 */
 	public function display_chats_page() {
+		if (!current_user_can('techno_chat_support')) {
+			wp_die('Unauthorized');
+		}
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'livechat';
 		switch ($active_tab) {
 			case 'livechat':
-				$online = (int)get_option('techno_chatbot_support_online', 0);
+				$online = (int) get_user_meta( get_current_user_id(), 'techno_chat_online', true );
 				$server = techno_wss_check();
 				$online = !$server? false : $online;
 			break;
@@ -243,10 +284,11 @@ class Techno_Chatbot_Admin {
 	public function toggle_support_online() {
 		check_ajax_referer('techno_chatbot_nonce', 'nonce');
 
-		if (!current_user_can('manage_options')) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error();
 		}
 		
+		$userID = get_current_user_id();
 		$status = get_transient('techno_wss_status');
 		if ($status === false) {
 			$status = techno_wss_check() ? 1 : 0;
@@ -254,19 +296,19 @@ class Techno_Chatbot_Admin {
 		}
 
 		if( !$status ){
-			update_option('techno_chatbot_support_online', 0);
+			update_user_meta( $userID, 'techno_chat_online', 0);
 			wp_send_json_success(['online' => 0, 'server_offline' => 1]);
 		}
 		
 		$force = isset($_POST['force_status']) && $_POST['force_status'] == 1 ? 1 : 0;
-		if ( $force ) {
-			update_option('techno_chatbot_support_online', $force);
+		if ( isset($_POST['force_status']) ) {
+			update_user_meta( $userID, 'techno_chat_online', $force);
 			wp_send_json_success(['online' => (bool)$force, 'forced' => 1]);
 		}
 
-		$current = get_option('techno_chatbot_support_online', 0);
+		$current = (int) get_user_meta( $user_id, 'techno_chat_online', true );
 		$onlinestatus = $current ? 0 : 1;
-		update_option('techno_chatbot_support_online', $onlinestatus);
+		update_user_meta( $userID, 'techno_chat_online', $onlinestatus);
 
 		wp_send_json_success(['online' => (bool)$onlinestatus, 'before' => $current]);
 	}
@@ -279,7 +321,7 @@ class Techno_Chatbot_Admin {
 	public function save_admin_chat_message() {
         check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
-		if (!current_user_can('manage_options')) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error();
 		}
  
@@ -366,7 +408,7 @@ class Techno_Chatbot_Admin {
 	public function techno_get_chat_history_ajxfunction() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
  
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
 		}
  
@@ -404,7 +446,7 @@ class Techno_Chatbot_Admin {
 			wp_send_json_error('Invalid nonce');
 		}
 
-		if (!current_user_can('manage_options')) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error('Unauthorized');
 		}
 

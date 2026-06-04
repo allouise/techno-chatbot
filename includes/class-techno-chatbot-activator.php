@@ -36,10 +36,9 @@ class Techno_Chatbot_Activator {
 			wp_schedule_event( time(), 'daily', 'techno_chatbot_daily_license_check' );
 		}
 
-		/*
-		 * Create live chat messages table
-		 */
 		self::create_livechat_table();
+		self::techno_chatbot_add_role();
+		self::techno_chatbot_add_admin_capability();
 	}
 
 	/**
@@ -72,4 +71,32 @@ class Techno_Chatbot_Activator {
 		dbDelta( $sql );
 	}
 
+	/**
+	 * Create the live chat messages DB table
+	 *
+	 * @since    1.0.0
+	 */
+	public static function techno_chatbot_add_role() {
+		add_role(
+			'chat_support',
+			'Chat Support',
+			[
+				'read' => true,
+				'techno_chat_support' => true,
+			]
+		);
+	}
+
+	/**
+	 * Assign 
+	 *
+	 * @since    1.0.0
+	 */
+	public static function techno_chatbot_add_admin_capability()
+	{
+		$admin = get_role('administrator');
+		if ($admin && !$admin->has_cap('techno_chat_support')) {
+			$admin->add_cap('techno_chat_support');
+		}
+	}
 }

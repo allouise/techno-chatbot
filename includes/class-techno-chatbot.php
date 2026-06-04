@@ -197,6 +197,8 @@ class Techno_Chatbot {
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+		$this->loader->add_action( 'admin_menu', $plugin_admin, 'hide_everything_from_support' );
+		$this->loader->add_action( 'admin_init', $plugin_admin, 'block_everything_from_support' );
 		
     	$this->loader->add_action( 'init', $this->post_types, 'register_post_types' ); 
 		$this->loader->add_action( 'init', $this->post_types, 'register_taxonomies' );

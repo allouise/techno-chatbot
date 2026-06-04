@@ -132,7 +132,7 @@ class Techno_Chatbot_Websocket {
      */
     public function sync_status() {
         if (!$this->is_running()) {
-            update_option('techno_chatbot_support_online', 0);
+            update_user_meta( get_current_user_id(), 'techno_chat_online', 0);
         }
     }
 

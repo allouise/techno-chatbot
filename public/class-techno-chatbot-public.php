@@ -82,7 +82,7 @@ class Techno_Chatbot_Public {
 		$script_array = array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
-			'supportOnline' => techno_wss_check() ? (int) get_option('techno_chatbot_support_online', 0) : false,
+			'supportOnline' => techno_wss_check() ? (int) get_user_meta( get_current_user_id(), 'techno_chat_online', true ) : false,
 			'liveChatEnabled' => $livechat_enabled,
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
 			'aiEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies'),
@@ -516,7 +516,7 @@ class Techno_Chatbot_Public {
 			wp_send_json_success(['online' => false]);
 			return;
 		}
-		$toggle = (bool) get_option('techno_chatbot_support_online', 0);
+		$toggle = (int) get_user_meta( get_current_user_id(), 'techno_chat_online', true );
 		wp_send_json_success(['online' => $toggle]);
 	}
 
