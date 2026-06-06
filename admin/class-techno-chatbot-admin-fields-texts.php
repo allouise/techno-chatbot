@@ -80,11 +80,20 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Title displayed at the top of the chatbox.'
         ),
 
+        'techno_chatbot_chaticontext' => array(
+            'label'       => 'Chat Icon Text',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Contact Us',
+            'placeholder' => 'Contact Us',
+            'description' => 'Text shown next to icon If Icon type is = "Icon & Text"'
+        ),
+
         'techno_chatbot_icontext' => array(
             'label'       => 'Floating Text',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Got questions? Chat with us!',
+            'default'     => '',
             'placeholder' => 'Got questions? Chat with us!',
             'description' => 'Text shown next to icon. Leave blank to disable.'
         ),

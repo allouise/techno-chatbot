@@ -87,7 +87,7 @@ class Techno_Chatbot_Public {
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
 			'aiEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies'),
 			'transferLiveChatKeywords' => explode(',', get_option( 'techno_chatbot_live_chat_trigger' )),
-			'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
+			// 'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
@@ -157,14 +157,18 @@ class Techno_Chatbot_Public {
 
 		$headertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_header');
 		$icontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_icontext');
+		$chaticontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_chaticontext');
+		$chaticontype = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chatbot_icontype');
 		$inputtxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext');
 		$sendbtn = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_sendbtn');
-
+		$menutranscripttxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend');
+		$menuresettxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset');
 		$disclaimerEnabled = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer');
+		$disclaimer = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg');
 		$disclaimerFullMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimerfullmsg');
 
-		$chaticon = get_option( 'techno_chatbot_icon' );
-		$chaticon = !empty($chaticon)? "<img src='$chaticon' alt='".__( 'Techno chatbot Icon', 'techno-chatbot' )."'/>" : '💬';
+		$chaticonval = get_option( 'techno_chatbot_icon' );
+		$chaticon = !empty($chaticonval)? "<img src='$chaticonval' alt='".__( 'Techno chatbot Icon', 'techno-chatbot' )."'/>" : '💬';
 		$livechat_plan = techno_chatbot_feature('live_chat');
     	$livechat_enabled = $livechat_plan['allowed'] === true;
 		include plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-public-chatbot.php';
@@ -198,7 +202,8 @@ class Techno_Chatbot_Public {
 		$dsclaimer_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_disclaimerbg');
 		$dsclaimer_txt = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_disclaimertxt');
 
-		$height   = absint( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_height' ) );
+		$height = absint( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_height' ) );
+		$width = absint( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_width' ) );
 		$offset_x = floatval( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_offset_x' ) );
 		$offset_y = floatval( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_offset_y' ) );
 		$icon_distance = floatval( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_distance' ) );
@@ -211,8 +216,10 @@ class Techno_Chatbot_Public {
 		$position = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_position' );
 		$zindex = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_zindex' );
 		$iconsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_iconsize' );
+		$icontextsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_icontextsize' );
 
 		$headingsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_heading_size' );
+		$chatmenusize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_heading_menu_size' );
 		$chatmsgsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_chatmsg_size' );
 		$inputtxtsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_inputtxt_size' );
 		$sendbtnsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_sendbtn_size' );
@@ -259,14 +266,17 @@ class Techno_Chatbot_Public {
 			--techno-dsclaimer_txt: {$dsclaimer_txt};
 
 			--techno-chatbot-height: {$height}px;
+			--techno-chatbot-width: {$width}px;
 			--techno-chatbot-offset-x: {$offset_x}px;
 			--techno-chatbot-offset-y: {$offset_y}px;
 			--techno-chatbot-z-index: {$zindex};
 			--techno-chatbot-iconsize: {$iconsize};
+			--techno-chatbot-icontextsize: {$icontextsize}px;
 			--techno-chatbot-iconheight: {$icon_height}px;
 			--techno-chatbot-iconwidth: {$icon_width}px;
 			
 			--techno-chatbot-headingsize: {$headingsize}px;
+			--techno-chatbot-chatmenusize: {$chatmenusize}px;
 			--techno-chatbot-chatmsgsize: {$chatmsgsize}px;
 			--techno-chatbot-inputtxtsize: {$inputtxtsize}px;
 			--techno-chatbot-sendbtnsize: {$sendbtnsize}px;
