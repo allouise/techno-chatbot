@@ -113,7 +113,7 @@ class Techno_Chatbot_Admin_Fields_General {
 			'label'       => 'Live Chat Trigger',
 			'type'        => 'text',
 			'section'     => 'livechat_section',
-			'default'     => 'talk to an agent, live chat',
+			'default'     => 'talk to an agent, live chat, talk with someone, talk to someone, I need to talk with your agent, can i talk with someone',
 			'placeholder' => 'help, support, live chat',
 			'description' => 'Separate trigger text with comma. e.g. (Help, Support, Live chat)',
 			'features'	  => array('live_chat')
