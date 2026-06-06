@@ -10,7 +10,7 @@
 #techno-chatbot-floating-text { position: fixed; font-size: var(--techno-chatbot-floatingtxtsize); background: var(--techno-floatingtxt-bg); color: var(--techno-floatingtxt-text); padding: 5px 10px;  z-index: var(--techno-chatbot-z-index); }
 
 /* Chat Window */ 
-#techno-chatbot-window { position: fixed; width: var(--techno-chatbot-width); height: var(--techno-chatbot-height); max-height: 95%; background: var(--techno-chatbox-bg); border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; z-index: var(--techno-chatbot-z-index); } 
+#techno-chatbot-window { position: fixed; width: var(--techno-chatbot-width); height: var(--techno-chatbot-height); background: var(--techno-chatbox-bg); border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; z-index: var(--techno-chatbot-z-index); } 
 #techno-chatbot-window.techno-chatbot-hidden { display: none; } 
 
 /* Chat option buttons */
@@ -54,7 +54,7 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-chatbot-input-wrapper { background: var(--techno-input-bg); color: var(--techno-input-txt); display: flex; border-top: 1px solid rgba(44, 42, 42, 0.15); border-bottom: 1px solid rgba(44, 42, 42, 0.15); margin: 0 15px; } 
 #techno-chatbot-input { box-shadow: none; flex: 1; padding: 10px; border: none; outline: none; font-size: var(--techno-chatbot-inputtxtsize); } 
 #techno-chatbot-input[disabled] { pointer-events: none; cursor: not-allowed; }
-#techno-chatbot-send { background: var(--techno-sendbtn-bg); color: var(--techno-sendbtn-txt); border: none; padding: 0 15px; cursor: pointer; font-size: var(--techno-chatbot-sendbtnsize); } 
+#techno-chatbot-send { background: var(--techno-sendbtn-bg); color: var(--techno-sendbtn-txt); border: none; padding: 15px; cursor: pointer; font-size: var(--techno-chatbot-sendbtnsize); } 
 #techno-chatbot-send[disabled] { pointer-events: none; cursor: not-allowed; }
 .techno-chatbot-message { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px 15px 0px; max-width: 80%; word-wrap: break-word; } 
 .techno-chatbot-message.visitor { background: var(--techno-visitor-bubble-bg); color: var(--techno-visitor-bubble-text); margin-left: auto; text-align: left; } 
