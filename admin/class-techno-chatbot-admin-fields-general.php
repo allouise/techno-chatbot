@@ -3,7 +3,7 @@
 /**
  * The admin settings field - chatbot
  *
- * @link       https://technodreamwebdesign.com/
+ * @link       https://technodreamwebdesign.com/techno-chatbot/
  * @since      1.0.0
  *
  * @package    Techno_Chatbot

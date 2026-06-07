@@ -3,7 +3,7 @@
 /**
  * Admin Settings area view for the plugin
  *
- * @link       https://technodreamwebdesign.com/
+ * @link       https://technodreamwebdesign.com/techno-chatbot/
  * @since      1.0.0
  *
  * @package    Techno_Chatbot

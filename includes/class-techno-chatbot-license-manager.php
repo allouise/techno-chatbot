@@ -123,7 +123,7 @@ class Techno_Chatbot_License_Manager {
 		}
 
 		$response = wp_remote_post(
-			'https://technodreamwebdesign.com/license/verify',
+			'https://technodreamwebdesign.com/techno-chatbot/license/verify',
 			[
 				'timeout' => 15,
 				'sslverify' => true,
