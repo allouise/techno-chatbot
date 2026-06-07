@@ -90,6 +90,15 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'Display the disclaimer in chatbot and menu',
 		),
 
+		'techno_chatbot_aireplies' => array(
+			'label'       => 'Enable AI',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 1,
+			'description' => 'Enable AI instead of FAQ',
+			'features'	  => array('ai_training')
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'Notification Emails',
 			'type'        => 'text',
@@ -104,7 +113,7 @@ class Techno_Chatbot_Admin_Fields_General {
 			'label'       => 'Live Chat Trigger',
 			'type'        => 'text',
 			'section'     => 'livechat_section',
-			'default'     => 'talk to an agent, live chat',
+			'default'     => 'talk to an agent, live chat, talk with someone, talk to someone, I need to talk with your agent, can i talk with someone',
 			'placeholder' => 'help, support, live chat',
 			'description' => 'Separate trigger text with comma. e.g. (Help, Support, Live chat)',
 			'features'	  => array('live_chat')

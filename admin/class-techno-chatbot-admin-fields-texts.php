@@ -80,12 +80,21 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Title displayed at the top of the chatbox.'
         ),
 
+        'techno_chatbot_chaticontext' => array(
+            'label'       => 'Chat Icon Text',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Contact Us',
+            'placeholder' => 'Contact Us',
+            'description' => 'Text shown next to icon If Icon type is = "Icon & Text"'
+        ),
+
         'techno_chatbot_icontext' => array(
             'label'       => 'Floating Text',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Chat with us',
-            'placeholder' => 'Chat with us',
+            'default'     => '',
+            'placeholder' => 'Got questions? Chat with us!',
             'description' => 'Text shown next to icon. Leave blank to disable.'
         ),
 
@@ -111,8 +120,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Menu livechat',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Transfer to live chat',
-            'placeholder' => 'Transfer to live chat',
+            'default'     => 'Transfer me to a live agent.',
+            'placeholder' => 'Transfer me to a live agent.',
             'description' => 'Menu livechat button text.'
         ),
 
@@ -120,8 +129,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Menu call',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Request for a call',
-            'placeholder' => 'Request for a call',
+            'default'     => 'Call Me Back',
+            'placeholder' => 'Call Me Back',
             'description' => 'Menu call button text.'
         ),
 
@@ -129,8 +138,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Menu email',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Send me an email',
-            'placeholder' => 'Send me an email',
+            'default'     => 'Email me',
+            'placeholder' => 'Email me',
             'description' => 'Menu email button text.'
         ),
 
@@ -138,9 +147,27 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Menu reset',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Restart',
-            'placeholder' => 'Restart',
+            'default'     => 'Start a new session',
+            'placeholder' => 'Start a new session',
             'description' => 'Menu reset button text.'
+        ),
+
+        'techno_chatbot_menuhistorysend' => array(
+            'label'       => 'Menu send history',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Email Me the Transcript',
+            'placeholder' => 'Email Me the Transcript',
+            'description' => 'Menu send history button text.'
+        ),
+
+        'techno_chatbot_menuleave' => array(
+            'label'       => 'Menu end',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'End Conversation',
+            'placeholder' => 'End Conversation',
+            'description' => 'Menu end button text.'
         ),
 
         // Messages
@@ -148,8 +175,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Disclaimer message',
             'type'        => 'text',
             'section'     => 'messages_section',
-            'default'     => 'Do not provide sensitive information.',
-            'placeholder' => 'Do not provide sensitive information.',
+            'default'     => 'Please do not share sensitive or confidential information.',
+            'placeholder' => 'Please do not share sensitive or confidential information.',
             'description' => 'Disclaimer message that will display in chatbox before welcome message.'
         ),
 
@@ -159,7 +186,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'section'     => 'messages_section',
             'rows'        => 4,
             'default'     => '<p><strong>Disclaimer:</strong></p>
-<p>This plugin is provided for general use only. Do not share or submit any sensitive or confidential information, including but not limited to credit card details, passwords, personal identification numbers (PINs), or private personal data. You are responsible for ensuring that any information you provide is safe and appropriate.</p>',
+<p>This chat tool is provided for general informational purposes only. For your security, please do not share sensitive or confidential information in this chat, including passwords, credit card details, PINs, or other personal data.</p>',
             'description' => 'Disclaimer popup message'
         ),
 
@@ -176,9 +203,18 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Best time to call',
             'type'        => 'text',
             'section'     => 'messages_section',
-            'default'     => 'What is the best time to call you?',
-            'placeholder' => 'What is the best time to call you?',
+            'default'     => 'Best time to call?',
+            'placeholder' => 'Best time to call?',
             'description' => ''
+        ),
+
+        'techno_chatbot_next_step' => array(
+            'label'       => 'Next Step Message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'Please choose an option:',
+            'description' => 'Default message sent when guest is sent next step'
         ),
 
         'techno_chatbot_no_answer_message' => array(
@@ -186,7 +222,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'I do not have the specific information for your question, please try asking different question.',
+            'default'     => "I don't have the information you're looking for. Try rephrasing your question or asking something else.",
             'description' => 'Default message sent when the chatbot cannot find a proper answer.'
         ),
 
@@ -195,7 +231,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'I do not have the specific information for your question, the best thing I can do is have one of our representative reach you, please provide the best way to contact you.',
+            'default'     => "I'm sorry, I don't have that information right now, but I can connect you with our team.",
             'description' => 'Final message reply when the chatbot cannot find a proper answer then transfer to next option.'
         ),
 
@@ -204,7 +240,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => 'Sorry all agents are busy right now — please provide the best way to contact you.',
+            'default'     => "Sorry, all agents are currently busy. Please leave your contact details, and we'll get back to you as soon as possible.",
             'description' => 'Message shown when all agents are offline.'
         ),
 
@@ -239,8 +275,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Live Chat Get Name',
             'type'        => 'text',
             'section'     => 'messages_section',
-            'default'     => 'Can I get your name?',
-            'placeholder' => 'Can I get your name?',
+            'default'     => 'May I have your name, please?',
+            'placeholder' => 'May I have your name, please?',
             'description' => ''
         ),
 
@@ -262,12 +298,64 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Message shown after successful getting of contact information.'
         ),
 
+        'techno_chatbot_endchat' => array(
+            'label'       => 'End Chat Message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'Thank you for chatting with us today! 😊, Would you like a copy of this conversation sent to your email?',
+            'description' => 'Message sent to guests when you end the chat'
+        ),
+
+        'techno_chatbot_askemail' => array(
+            'label'       => 'Ask Email for History',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 2,
+            'default'     => 'Please enter your email to receive a copy of this conversation.',
+            'description' => 'Message sent to guests asking for email when you ended the chat'
+        ),
+
+        'techno_chatbot_historysent' => array(
+            'label'       => 'History Sent Prompt',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 2,
+            'default'     => 'A copy of this conversation has been sent successfully. Thank you for chatting with us!',
+            'description' => 'Message shown after successful sending history to guest.'
+        ),
+
+        'techno_chatbot_endchatmsg' => array(
+            'label'       => 'End Chat Message',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 2,
+            'default'     => 'Thank you for chatting with us. Have a great day!',
+            'description' => 'Message shown after ending live chat'
+        ),
+
         'techno_chatbot_submissionspam_limit' => array(
             'label'       => 'Spam limitation warning',
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 2,
             'default'     => 'Please wait a moment before submitting.',
+            'description' => ''
+        ),
+
+        'techno_chatbot_invalid_email' => array(
+            'label'       => 'Invalid Email',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Please enter a valid email address.',
+            'description' => ''
+        ),
+
+        'techno_chatbot_invalid_phone' => array(
+            'label'       => 'Invalid Phone',
+            'type'        => 'text',
+            'section'     => 'messages_section',
+            'default'     => 'Please enter a valid phone number.',
             'description' => ''
         ),
 

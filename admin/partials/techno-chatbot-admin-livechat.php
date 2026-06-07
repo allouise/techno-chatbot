@@ -2,13 +2,25 @@
     <a id="notifHowTo"><span>ℹ️</span> How to enable <strong>Desktop & Browser Notification</strong></a>
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
-        <div id="techno-support-switch">
+
+        <div class="techno-switch-con active">
+            <span>Browser Notification</span>
+            <label class="techno-switch">
+                <input type="checkbox" id="techno-notification-toggle">
+                <span class="techno-slider"></span>
+            </label>
+            <span class="techno-switch-label">
+                Disabled
+            </span>
+        </div>
+
+        <div id="techno-support-switch" class="techno-switch-con">
             <span>Live Chat</span>
             <label class="techno-switch">
                 <input type="checkbox" id="techno-admin-toggle-online" <?php checked($online, 1); ?>>
                 <span class="techno-slider"></span>
             </label>
-            <span id="techno-toggle-label">
+            <span id="techno-toggle-label" class="techno-switch-label">
                 <?php 
                 if( $server ){
                     echo esc_html($online == 1 ? 'Online' : 'Offline');
@@ -29,9 +41,15 @@
             <div id="techno-admin-chat-header">Chatting with: N/A</div>
             <div id="techno-admin-chat-messages"></div>
         </div>
-        <div style="display:flex; margin-top:10px; gap: 10px;">
+        <div class="chat-controls">
             <input type="text" id="techno-admin-chat-input" disabled/>
-            <button id="techno-admin-chat-send" disabled>Offline</button>
+            <button id="techno-admin-chat-send" type="button" disabled>Offline</button>
+            <div id="chat-options">
+                <button class="options-btn">&#8942;</button>
+                <div class="options-menu">
+                    <button class="menu-item" id="techno-admin-chat-end" type="button">End Chat</button>
+                </div>
+            </div>
         </div>
     </div>
 

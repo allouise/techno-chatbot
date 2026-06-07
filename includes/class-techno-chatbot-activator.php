@@ -36,10 +36,9 @@ class Techno_Chatbot_Activator {
 			wp_schedule_event( time(), 'daily', 'techno_chatbot_daily_license_check' );
 		}
 
-		/*
-		 * Create live chat messages table
-		 */
 		self::create_livechat_table();
+		self::techno_chatbot_add_role();
+		self::techno_chatbot_add_admin_capability();
 	}
 
 	/**
@@ -53,12 +52,16 @@ class Techno_Chatbot_Activator {
 		$charset = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
-			id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id   VARCHAR(64)     NOT NULL,
-			sender       ENUM('visitor','admin','bot') NOT NULL,
-			message      TEXT            NOT NULL,
-			name		 VARCHAR(100)    DEFAULT NULL,
-			created_at   DATETIME        DEFAULT CURRENT_TIMESTAMP,
+			id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			session_id     VARCHAR(64)     NOT NULL,
+			sender         ENUM('visitor','admin','bot') NOT NULL,
+			message        TEXT            NOT NULL,
+			name           VARCHAR(100)    DEFAULT NULL,
+			message_type   ENUM('text','image','file','system') DEFAULT 'text',
+			viewed_at      DATETIME DEFAULT NULL,
+			user_agent 	   VARCHAR(255) DEFAULT NULL,
+			ip_address     VARCHAR(45) DEFAULT NULL,
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			INDEX idx_session (session_id),
 			INDEX idx_created (created_at)
@@ -68,4 +71,32 @@ class Techno_Chatbot_Activator {
 		dbDelta( $sql );
 	}
 
+	/**
+	 * Create the live chat messages DB table
+	 *
+	 * @since    1.0.0
+	 */
+	public static function techno_chatbot_add_role() {
+		add_role(
+			'chat_support',
+			'Chat Support',
+			[
+				'read' => true,
+				'techno_chat_support' => true,
+			]
+		);
+	}
+
+	/**
+	 * Assign 
+	 *
+	 * @since    1.0.0
+	 */
+	public static function techno_chatbot_add_admin_capability()
+	{
+		$admin = get_role('administrator');
+		if ($admin && !$admin->has_cap('techno_chat_support')) {
+			$admin->add_cap('techno_chat_support');
+		}
+	}
 }

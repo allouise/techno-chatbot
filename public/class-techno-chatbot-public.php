@@ -82,12 +82,16 @@ class Techno_Chatbot_Public {
 		$script_array = array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
+			'supportOnline' => techno_wss_check() ? (int) get_user_meta( get_current_user_id(), 'techno_chat_online', true ) : false,
 			'liveChatEnabled' => $livechat_enabled,
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
-			'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
+			'aiEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies'),
+			'transferLiveChatKeywords' => explode(',', get_option( 'techno_chatbot_live_chat_trigger' )),
+			// 'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
+			'nextStepMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_next_step'),
 			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
 			'idleSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_agents_message'),
 			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
@@ -95,16 +99,24 @@ class Techno_Chatbot_Public {
 			'liveChatGetName' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_livechatgetname'),
 			'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default'),
 			'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish'),
+			'askEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_askemail'),
 			'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit'),
 			'errorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_error'),
 			'cerrorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_criticalerror'),
+			'phoneError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_phone'),
+			'emailError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_email'),
 			'cPhoneLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cphoneLabel'),
 			'cEmailLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cemailLabel'),
 			'menuLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menulivechat'),
 			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall'),
 			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail'),
 			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
+			'menuHistorySend' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend'),
+			'menuLeave' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuleave'),
+			'historySent' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent'),
+			'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg'),
 			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
+			'end_msg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
@@ -145,14 +157,18 @@ class Techno_Chatbot_Public {
 
 		$headertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_header');
 		$icontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_icontext');
+		$chaticontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_chaticontext');
+		$chaticontype = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chatbot_icontype');
 		$inputtxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext');
 		$sendbtn = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_sendbtn');
-
+		$menutranscripttxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend');
+		$menuresettxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset');
 		$disclaimerEnabled = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer');
+		$disclaimer = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg');
 		$disclaimerFullMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimerfullmsg');
 
-		$chaticon = get_option( 'techno_chatbot_icon' );
-		$chaticon = !empty($chaticon)? "<img src='$chaticon' alt='".__( 'Techno chatbot Icon', 'techno-chatbot' )."'/>" : '💬';
+		$chaticonval = get_option( 'techno_chatbot_icon' );
+		$chaticon = !empty($chaticonval)? "<img src='$chaticonval' alt='".__( 'Techno chatbot Icon', 'techno-chatbot' )."'/>" : '💬';
 		$livechat_plan = techno_chatbot_feature('live_chat');
     	$livechat_enabled = $livechat_plan['allowed'] === true;
 		include plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-public-chatbot.php';
@@ -186,7 +202,8 @@ class Techno_Chatbot_Public {
 		$dsclaimer_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_disclaimerbg');
 		$dsclaimer_txt = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_disclaimertxt');
 
-		$height   = absint( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_height' ) );
+		$height = absint( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_height' ) );
+		$width = absint( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_width' ) );
 		$offset_x = floatval( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_offset_x' ) );
 		$offset_y = floatval( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_offset_y' ) );
 		$icon_distance = floatval( Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_distance' ) );
@@ -199,28 +216,30 @@ class Techno_Chatbot_Public {
 		$position = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_position' );
 		$zindex = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_zindex' );
 		$iconsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_iconsize' );
+		$icontextsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_icontextsize' );
 
 		$headingsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_heading_size' );
+		$chatmenusize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_heading_menu_size' );
 		$chatmsgsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_chatmsg_size' );
 		$inputtxtsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_inputtxt_size' );
 		$sendbtnsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_sendbtn_size' );
 		$floatingtxtsize = Techno_Chatbot_Admin_Fields_Styles::get_value( 'techno_chatbot_floatingtxt_size' );
 
-		$position_css = "#techno-chatbot-floating-icon{ bottom: {$offset_y}px; right: {$offset_x}px; } #techno-chatbot-window{ bottom: {$icon_offset_y}px; right: {$offset_x}px; } #techno-chatbot-floating-text{ bottom: {$offset_y}px; right: {$floating_offset_x}px; border-radius: 10px 0 10px 10px; }";
+		$position_css = "#techno-chatbot-floating-icon{ bottom: {$offset_y}px; right: {$offset_x}px; } #techno-chatbot-window{ bottom: {$icon_offset_y}px; right: {$offset_x}px; max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ bottom: {$offset_y}px; right: {$floating_offset_x}px; border-radius: 10px 0 10px 10px; }";
 		if( $position == 'upper left' ){
-			$position_css = "#techno-chatbot-floating-icon{ top: {$offset_y}px; left: {$offset_x}px; } #techno-chatbot-window{ top: {$icon_offset_y}px; left: {$offset_x}px; } #techno-chatbot-floating-text{ top: {$offset_y}px; left: {$floating_offset_x}px; border-radius: 10px 10px 10px 0; }";
+			$position_css = "#techno-chatbot-floating-icon{ top: {$offset_y}px; left: {$offset_x}px; } #techno-chatbot-window{ top: {$icon_offset_y}px; left: {$offset_x}px; max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ top: {$offset_y}px; left: {$floating_offset_x}px; border-radius: 10px 10px 10px 0; }";
 		}elseif ( $position == 'top center' ){
-			$position_css = "#techno-chatbot-floating-icon{ top: {$offset_y}px; left: 50%; transform: translateX(-50%); } #techno-chatbot-window{ top: {$icon_offset_y}px; left: 50%; transform: translateX(-50%); } #techno-chatbot-floating-text{ top: {$floating_offset_y}px; left: 50%; transform: translateX(-50%); border-radius: 10px; }";
+			$position_css = "#techno-chatbot-floating-icon{ top: {$offset_y}px; left: 50%; transform: translateX(-50%); } #techno-chatbot-window{ top: {$icon_offset_y}px; left: 50%; transform: translateX(-50%); max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ top: {$floating_offset_y}px; left: 50%; transform: translateX(-50%); border-radius: 10px; }";
 		}elseif ( $position == 'upper right' ){
-			$position_css = "#techno-chatbot-floating-icon{ top: {$offset_y}px; right: {$offset_x}px; } #techno-chatbot-window{ top: {$icon_offset_y}px; right: {$offset_x}px; } #techno-chatbot-floating-text{ top: {$offset_y}px; right: {$floating_offset_x}px; border-radius: 10px 10px 0 10px; }";
+			$position_css = "#techno-chatbot-floating-icon{ top: {$offset_y}px; right: {$offset_x}px; } #techno-chatbot-window{ top: {$icon_offset_y}px; right: {$offset_x}px; max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ top: {$offset_y}px; right: {$floating_offset_x}px; border-radius: 10px 10px 0 10px; }";
 		}elseif ( $position == 'left' ){
-			$position_css = "#techno-chatbot-floating-icon{ top: 50%; transform: translateY(-50%); left: {$offset_x}px; } #techno-chatbot-window{ top: 50%; transform: translateY(-50%); left: {$icon_offset_x}px; } #techno-chatbot-floating-text{ top: 50%; transform: translateY(-50%); left: {$floating_offset_x}px; border-radius: 10px 10px 10px 0; }";
+			$position_css = "#techno-chatbot-floating-icon{ top: 50%; transform: translateY(-50%); left: {$offset_x}px; } #techno-chatbot-window{ top: 50%; transform: translateY(-50%); left: {$icon_offset_x}px; max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ top: 50%; transform: translateY(-50%); left: {$floating_offset_x}px; border-radius: 10px 10px 10px 0; }";
 		}elseif ( $position == 'right' ){
-			$position_css = "#techno-chatbot-floating-icon{ top: 50%; transform: translateY(-50%); right: {$offset_x}px; } #techno-chatbot-window{ top: 50%; transform: translateY(-50%); right: {$icon_offset_x}px; } #techno-chatbot-floating-text{ top: 50%; transform: translateY(-50%); right: {$floating_offset_x}px; border-radius: 10px 10px 0 10px; }";
+			$position_css = "#techno-chatbot-floating-icon{ top: 50%; transform: translateY(-50%); right: {$offset_x}px; } #techno-chatbot-window{ top: 50%; transform: translateY(-50%); right: {$icon_offset_x}px; max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ top: 50%; transform: translateY(-50%); right: {$floating_offset_x}px; border-radius: 10px 10px 0 10px; }";
 		}elseif ( $position == 'bottom left' ){
-			$position_css = "#techno-chatbot-floating-icon{ bottom: {$offset_y}px; left: {$offset_x}px; } #techno-chatbot-window{ bottom: {$icon_offset_y}px; left: {$offset_x}px; } #techno-chatbot-floating-text{ bottom: {$offset_y}px; left: {$floating_offset_x}px; border-radius: 10px 10px 10px 0; }";
+			$position_css = "#techno-chatbot-floating-icon{ bottom: {$offset_y}px; left: {$offset_x}px; } #techno-chatbot-window{ bottom: {$icon_offset_y}px; left: {$offset_x}px; max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ bottom: {$offset_y}px; left: {$floating_offset_x}px; border-radius: 10px 10px 10px 0; }";
 		}elseif ( $position == 'bottom center' ){
-			$position_css = "#techno-chatbot-floating-icon{ bottom: {$offset_y}px; left: 50%; transform: translateX(-50%); } #techno-chatbot-window{ bottom: {$icon_offset_y}px; left: 50%; transform: translateX(-50%); } #techno-chatbot-floating-text{ bottom: {$floating_offset_y}px; left: 50%; transform: translateX(-50%); border-radius: 10px; ";
+			$position_css = "#techno-chatbot-floating-icon{ bottom: {$offset_y}px; left: 50%; transform: translateX(-50%); } #techno-chatbot-window{ bottom: {$icon_offset_y}px; left: 50%; transform: translateX(-50%); max-height: calc(100% - {$offset_y}px); max-width: calc(100% - {$offset_x}px ); } #techno-chatbot-floating-text{ bottom: {$floating_offset_y}px; left: 50%; transform: translateX(-50%); border-radius: 10px; ";
 		}
 
 		$css = "
@@ -247,12 +266,17 @@ class Techno_Chatbot_Public {
 			--techno-dsclaimer_txt: {$dsclaimer_txt};
 
 			--techno-chatbot-height: {$height}px;
+			--techno-chatbot-width: {$width}px;
 			--techno-chatbot-offset-x: {$offset_x}px;
 			--techno-chatbot-offset-y: {$offset_y}px;
 			--techno-chatbot-z-index: {$zindex};
 			--techno-chatbot-iconsize: {$iconsize};
-
+			--techno-chatbot-icontextsize: {$icontextsize}px;
+			--techno-chatbot-iconheight: {$icon_height}px;
+			--techno-chatbot-iconwidth: {$icon_width}px;
+			
 			--techno-chatbot-headingsize: {$headingsize}px;
+			--techno-chatbot-chatmenusize: {$chatmenusize}px;
 			--techno-chatbot-chatmsgsize: {$chatmsgsize}px;
 			--techno-chatbot-inputtxtsize: {$inputtxtsize}px;
 			--techno-chatbot-sendbtnsize: {$sendbtnsize}px;
@@ -357,6 +381,130 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Get and Send History
+	 *
+	 * @since 1.0.0
+	 */
+	public function end_live_chat(){
+		check_ajax_referer('techno_chatbot_nonce','nonce');
+
+		// Rate limit per IP
+		$ip = $_SERVER['REMOTE_ADDR'];
+		$transient_key = 'techno_endchat_' . md5($ip);
+		$count = (int) get_transient($transient_key);
+
+		if( $count >= 10 ){
+			wp_send_json_error('Too many requests');
+		}
+
+		set_transient($transient_key, $count + 1, 60);
+		if( empty($_POST['history']) ){
+			wp_send_json_error();
+		}
+		$history = json_decode( stripslashes($_POST['history']), true );
+
+		if( !is_array($history) ){
+			wp_send_json_error();
+		}
+
+		// Limit messages to prevent abuse
+		$history = array_slice($history, -30);
+		$emails_option = get_option('techno_chatbot_emails');
+		$admin_email = sanitize_email(get_option('admin_email'));
+		if( !empty($emails_option) ){
+			$emails = array_map('trim', explode(',', $emails_option));
+			$admin_email = array_filter(array_map('sanitize_email', $emails));
+		}
+
+		$message = "Chatbot Conversation\n\n";
+		foreach($history as $msg){
+
+			if(!isset($msg['sender']) || !isset($msg['text'])){
+				continue;
+			}
+
+			$sender = sanitize_text_field($msg['sender']);
+			$text   = sanitize_textarea_field($msg['text']);
+			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
+			$message .= "{$label}: {$text}\n";
+		}
+
+		$admin_mail = wp_mail( $admin_email, 'New Chatbot Contact', $message );
+		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+
+		if( !$email && $admin_mail ){
+			wp_send_json_success();
+		}elseif( !$admin_mail ){
+			wp_send_json_error('Admin Email Error');
+		}
+		
+		$site_name = get_bloginfo('name');
+		if( $email ){
+			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
+			if( $client_mail ){
+				wp_send_json_success();
+			}else{
+				wp_send_json_error('Email Error');
+			}
+		}
+	}
+
+	/**
+	 * Get and Send History to Customer
+	 *
+	 * @since 1.0.0
+	 */
+	public function send_transcript(){
+		check_ajax_referer('techno_chatbot_nonce','nonce');
+
+		// Rate limit per IP
+		$ip = $_SERVER['REMOTE_ADDR'];
+		$transient_key = 'techno_send_transcript_' . md5($ip);
+		$count = (int) get_transient($transient_key);
+
+		if( $count >= 10 ){
+			wp_send_json_error('Too many requests');
+		}
+
+		set_transient($transient_key, $count + 1, 60);
+		if( empty($_POST['history']) ){
+			wp_send_json_error();
+		}
+		$history = json_decode( stripslashes($_POST['history']), true );
+		if( !is_array($history) ){
+			wp_send_json_error();
+		}
+		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+		if( !$email || empty($email) || $email == '' ){
+			wp_send_json_error();
+		}
+
+		$history = array_slice($history, -30);
+		$message = "Chatbot Conversation\n\n";
+		foreach($history as $msg){
+
+			if(!isset($msg['sender']) || !isset($msg['text'])){
+				continue;
+			}
+
+			$sender = sanitize_text_field($msg['sender']);
+			$text   = sanitize_textarea_field($msg['text']);
+			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
+			$message .= "{$label}: {$text}\n";
+		}
+
+		$site_name = get_bloginfo('name');
+		if( $email ){
+			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
+			if( $client_mail ){
+				wp_send_json_success();
+			}else{
+				wp_send_json_error('Email Error');
+			}
+		}
+	}
+
+	/**
 	 * Scheduled Validate License
 	 *
 	 * @since    1.0.0
@@ -378,7 +526,7 @@ class Techno_Chatbot_Public {
 			wp_send_json_success(['online' => false]);
 			return;
 		}
-		$toggle = (bool) get_option('techno_chatbot_support_online', 0);
+		$toggle = (int) get_user_meta( get_current_user_id(), 'techno_chat_online', true );
 		wp_send_json_success(['online' => $toggle]);
 	}
 
@@ -400,10 +548,11 @@ class Techno_Chatbot_Public {
         set_transient( $rate_key, $rate_count + 1, 60 );
  
         /* ---- validate inputs ---- */
-        $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
-        $sender = isset( $_POST['sender'] ) ? sanitize_text_field( $_POST['sender'] ) : '';
-        $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
-        $visitor_name = isset( $_POST['visitor_name'] ) ? sanitize_text_field( $_POST['visitor_name'] ) : null;
+        $session_id = isset($_POST['session_id'])? sanitize_text_field($_POST['session_id']) : '';
+		$sender = isset($_POST['sender'])? sanitize_text_field($_POST['sender']) : '';
+		$message = isset($_POST['message'])? trim( sanitize_textarea_field($_POST['message']) ) : '';
+		$visitor_name = isset($_POST['visitor_name'])? sanitize_text_field($_POST['visitor_name']) : null;
+		$message_type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
  
         if ( ! $session_id || ! $sender || ! $message ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
@@ -428,23 +577,41 @@ class Techno_Chatbot_Public {
         if ( mb_strlen( $message ) > 2000 ) {
             wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
         }
+
+		/* message type validation */
+		$allowed_types = ['text','image','file','system'];
+		if ( ! in_array($message_type, $allowed_types, true) ) {
+			$message_type = 'text';
+		}
+
+		/* metadata */
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
  
         global $wpdb;
         $table = $wpdb->prefix . 'techno_livechat_messages';
- 
         $data = [
-            'session_id' => $session_id,
-            'sender' => $sender,
-            'message' => $message,
-        ];
-        $format = [ '%s', '%s', '%s' ];
+			'session_id'   => $session_id,
+			'sender'       => $sender,
+			'message'      => $message,
+			'message_type' => $message_type,
+			'user_agent'   => $user_agent,
+			'ip_address'   => $ip_address,
+		];
+		$format = [
+			'%s', // session_id
+			'%s', // sender
+			'%s', // message
+			'%s', // message_type
+			'%s', // user_agent
+			'%s', // ip_address
+		];
  
         /* attach visitor_name when provided (visitor messages only) */
         if ( $visitor_name !== null && $sender === 'visitor' ) {
             $data['name'] = $visitor_name;
             $format[] = '%s';
         }
- 
         $result = $wpdb->insert( $table, $data, $format );
  
         if ( $result === false ) {
@@ -481,19 +648,27 @@ class Techno_Chatbot_Public {
 			wp_send_json_error();
 		}
 
+		/* metadata */
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip = $_SERVER['HTTP_CF_CONNECTING_IP']?? $_SERVER['HTTP_X_FORWARDED_FOR']?? $_SERVER['REMOTE_ADDR']?? '';
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
+
 		foreach ($messages as $msg){
-			$sender = sanitize_text_field($msg['sender'] ?? '');
-			$text   = sanitize_textarea_field($msg['text'] ?? '');
+			$sender = isset($msg['sender']) ? sanitize_text_field($msg['sender']) : '';
+			$text = isset($msg['text']) ? sanitize_textarea_field($msg['text']) : '';
+			$created_at = isset($msg['created_at']) ? sanitize_textarea_field($msg['created_at']) : '';
 			if (!$text) continue;
 			$result = $wpdb->insert(
 				$table,
 				[
-					'session_id' => $session_id,
-					'sender'     => $sender,
-					'message'    => $text,
-					'created_at' => current_time('mysql')
+					'session_id'	=> $session_id,
+					'sender'		=> $sender,
+					'message'		=> $text,
+					'user_agent'	=> $user_agent,
+					'ip_address'	=> $ip_address,
+					'created_at'	=> $created_at
 				],
-				['%s','%s','%s','%s']
+				['%s','%s','%s','%s','%s','%s']
 			);
 			if ($result === false) {
 				wp_send_json_error();
@@ -503,5 +678,260 @@ class Techno_Chatbot_Public {
 			}
 		}
 		wp_send_json_success();
+	}
+
+	/**
+	 * Limit Token Context
+	 *
+	 * @since    1.0.0
+	 */
+	private function limit_context_tokens($text, $maxChars = 1200) {
+		return mb_substr($text, 0, $maxChars);
+	}
+
+	/**
+	 * Get Embed Cache
+	 *
+	 * @since    1.0.0
+	 */
+	private function get_embedding_cache($text) {
+		return get_transient('emb_' . md5($text));
+	}
+
+	/**
+	 * Set Embed Cache
+	 *
+	 * @since    1.0.0
+	 */
+	private function set_embedding_cache($text, $embedding) {
+		set_transient('emb_' . md5($text), $embedding, WEEK_IN_SECONDS);
+	}
+
+	/**
+	 * AI Find Relevant Chunks
+	 *
+	 * @since    1.0.0
+	 */
+	private function find_relevant_chunks($question, $limit = 3) {
+
+		$question_embedding = $this->create_embedding($question);
+
+		if (!$question_embedding) {
+			return [];
+		}
+
+		$results = [];
+
+		$posts = get_posts([
+			'post_type' => 'techno_chatbot_aidb',
+			'numberposts' => -1,
+			'post_status' => 'publish'
+		]);
+
+		foreach ($posts as $post) {
+
+			$stored = get_post_meta($post->ID, '_ai_embeddings', true);
+			$chunks = $stored;
+			if (is_string($chunks)) {
+				$chunks = maybe_unserialize($chunks);
+			}
+
+			if (!$chunks) continue;
+
+			foreach ($chunks as $chunk) {
+
+				if (empty($chunk['embedding']) || !is_array($chunk['embedding'])) continue;
+				if (!isset($chunk['embedding']) || !isset($chunk['text'])) continue;
+
+				$score = $this->cosine_similarity($question_embedding, $chunk['embedding']);
+				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
+				$score = $score * $lengthPenalty;
+				// if ($score < 0.45) continue;
+
+				$results[] = [
+					'text' => $chunk['text'],
+					'score' => $score
+				];
+			}
+		}
+
+		usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
+		return array_slice($results, 0, $limit);
+	}
+
+	/**
+	 * OpeanAI request
+	 *
+	 * @since    1.0.0
+	 */
+	private function ask_openai($question, $context_chunks) {
+		$api_key = get_option('techno_chatbot_openai_secret');
+
+		if (!$api_key) {
+			error_log('TechnoChatbot OpenAI API key not configured.');
+			return 'NO_ANSWER';
+		}
+
+		if (empty($context_chunks)) {
+			return 'NO_ANSWER';
+		}
+
+		$context_text = '';
+		foreach ($context_chunks as $chunk) {
+			$text = $this->limit_context_tokens($chunk['text'], 800);
+			$context_text .= "SOURCE:\n" . $text . "\n\n";
+		}
+
+		$prompt = "
+		You are a helpful customer support assistant.
+
+		Use the provided context to answer the user's question naturally and conversationally.
+
+		Instructions:
+		- Answer directly using the context.
+		- Always produce a complete, self-contained answer.
+		- Do NOT assume the user has seen previous messages or context.
+		- Do NOT refer to 'previous answers', 'above', 'earlier', or 'context'.
+		- Do NOT use phrases that depend on follow-up continuity (like 'as mentioned', 'that', 'it', unless clearly defined in the current question).
+		- If multiple facts are relevant, merge them into one clear explanation.
+		- Keep answers direct, informative, and independent.
+		- Keep the tone friendly and concise.
+		- Avoid conversational dependency or implied follow-up context
+		- Do not mention 'the context says' or 'according to the context.'
+		- If the information is not available, respond only with: 'NO_ANSWER'
+
+		Context:
+		$context_text
+
+		Question:
+		$question
+		";
+	
+		$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+			'headers' => [
+				'Authorization' => 'Bearer ' . $api_key,
+				'Content-Type'  => 'application/json',
+			],
+			'body' => json_encode([
+				'model' => 'gpt-4o-mini',
+				'messages' => [
+					['role' => 'user', 'content' => $prompt]
+				],
+				'temperature' => 0.3
+			]),
+			'timeout' => 20
+		]);
+
+		if (is_wp_error($response)) {
+			error_log('TechnoChatbot Error contacting AI.');
+			return 'NO_ANSWER';
+		}
+
+		$body = json_decode(wp_remote_retrieve_body($response), true);
+		return $body['choices'][0]['message']['content'] ?? 'NO_ANSWER';
+	}
+
+	/**
+	 * Cosine Similarity
+	 *
+	 * @since    1.0.0
+	 */
+	private function cosine_similarity($a, $b) {
+
+		$dot = 0;
+		$normA = 0;
+		$normB = 0;
+		$len = min(count($a), count($b));
+		if ($len === 0) {
+			return 0;
+		}
+
+		for ($i = 0; $i < $len; $i++) {
+			$dot += $a[$i] * $b[$i];
+			$normA += $a[$i] * $a[$i];
+			$normB += $b[$i] * $b[$i];
+		}
+
+		if ($normA == 0 || $normB == 0) {
+			return 0;
+		}
+
+		return $dot / (sqrt($normA) * sqrt($normB));
+	}
+
+	/**
+	 * Create Embedding
+	 *
+	 * @since    1.0.0
+	 */
+	private function create_embedding($text) {
+
+		$api_key = get_option('techno_chatbot_openai_secret');
+
+		if (!$api_key) {
+			return false;
+		}
+
+		$cached = $this->get_embedding_cache($text);
+		if ($cached) {
+			return $cached;
+		}
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/embeddings',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				],
+				'body' => wp_json_encode([
+					'model' => 'text-embedding-3-small',
+					'input' => $text
+				]),
+				'timeout' => 30
+			]
+		);
+
+		if (is_wp_error($response)) {
+			error_log( 'Embedding Error: ' . $response->get_error_message());
+			return false;
+		}
+
+		$body = json_decode( wp_remote_retrieve_body($response), true );
+		if (!isset($body['data'][0]['embedding'])) {
+			error_log( 'Embedding API Response: ' . print_r($body, true) );
+			return false;
+		}
+
+		$embedding = $body['data'][0]['embedding'];
+		$this->set_embedding_cache($text, $embedding);
+		return $embedding;
+	}
+
+	/**
+	 * OpeanAI request
+	 *
+	 * @since    1.0.0
+	 */
+	public function ask_ai() {
+		if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'techno_chatbot_nonce')) {
+			wp_send_json_error('Invalid nonce');
+		}
+
+		$question = sanitize_text_field($_POST['question']);
+
+		if (!$question) {
+			wp_send_json_error('Empty question');
+		}
+
+		// 1. Get relevant chunks
+		$chunks = $this->find_relevant_chunks($question);
+
+		// 2. Ask OpenAI
+		$answer = $this->ask_openai($question, $chunks);
+
+		wp_send_json_success([
+			'answer' => $answer
+		]);
 	}
 }

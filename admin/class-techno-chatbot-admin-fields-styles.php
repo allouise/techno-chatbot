@@ -74,6 +74,13 @@ class Techno_Chatbot_Admin_Fields_Styles {
 		'techno_chatbot_icon' => array(
 			'label'=>'Chatbot Icon','type'=>'icon','section'=>'layout_section','default'=>''
 		),
+		'techno_chatbot_icontype' => array(
+			'label'=>'Icon Type','type'=>'select','section'=>'layout_section','default'=>'contain',
+			'options'=>array(
+				array('label'=>'Icon','value'=>'icon'),
+				array('label'=>'Icon & Text','value'=>'icon_text'),
+			)
+		),
 		'techno_chatbot_iconsize' => array(
 			'label'=>'Icon Size','type'=>'select','section'=>'layout_section','default'=>'contain',
 			'options'=>array(
@@ -104,7 +111,10 @@ class Techno_Chatbot_Admin_Fields_Styles {
 			'label'=>'Chatbox Distance','type'=>'number','section'=>'layout_section','default'=>0,'min'=>0,'step'=>0.1,'unit'=>'px'
 		),
 		'techno_chatbot_height' => array(
-			'label'=>'Chatbox Height','type'=>'number','section'=>'layout_section','default'=>420,'min'=>100,'unit'=>'px'
+			'label'=>'Chatbox Height','type'=>'number','section'=>'layout_section','default'=>700,'min'=>100,'unit'=>'px'
+		),
+		'techno_chatbot_width' => array(
+			'label'=>'Chatbox Width','type'=>'number','section'=>'layout_section','default'=>520,'min'=>100,'unit'=>'px'
 		),
 		'techno_chatbot_icon_height' => array(
 			'label'=>'Icon Height','type'=>'number','section'=>'layout_section','default'=>60,'min'=>10,'unit'=>'px'
@@ -117,8 +127,14 @@ class Techno_Chatbot_Admin_Fields_Styles {
 		),
 
 		// Font sizes
+		'techno_chatbot_icontextsize' => array(
+			'label'=>'Icon Text Size','type'=>'number','section'=>'font_size_section','default'=>20,'unit'=>'px'
+		),
 		'techno_chatbot_heading_size' => array(
-			'label'=>'Heading Size','type'=>'number','section'=>'font_size_section','default'=>20,'unit'=>'px'
+			'label'=>'Heading Size','type'=>'number','section'=>'font_size_section','default'=>30,'unit'=>'px'
+		),
+		'techno_chatbot_heading_menu_size' => array(
+			'label'=>'Chat Menu Size','type'=>'number','section'=>'font_size_section','default'=>20,'unit'=>'px'
 		),
 		'techno_chatbot_chatmsg_size' => array(
 			'label'=>'Chat Message Size','type'=>'number','section'=>'font_size_section','default'=>15,'unit'=>'px'

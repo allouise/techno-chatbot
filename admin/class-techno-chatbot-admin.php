@@ -41,6 +41,19 @@ class Techno_Chatbot_Admin {
 	private $version;
 
 	/**
+	 * Required Classes
+	 *
+	 * @since 1.0.0
+	 * @access protected
+	 * @var Classes Related Classes
+	 */
+	protected $general_fields;
+    protected $behaviors_fields;
+    protected $texts_fields;
+    protected $styles_fields;
+    protected $license_fields;
+
+	/**
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    1.0.0
@@ -72,18 +85,21 @@ class Techno_Chatbot_Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		$screen = get_current_screen();
 
 		wp_enqueue_media();
 		wp_enqueue_style( 'wp-color-picker' );
 		wp_enqueue_script( 'wp-color-picker-alpha', plugin_dir_url( __FILE__ ) . 'js/wp-color-picker-alpha.min.js', array( 'wp-color-picker' ), $this->version, true );
 		wp_enqueue_script( 'techno-admin-jquery', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-jquery.js', array( 'wp-color-picker', 'wp-color-picker-alpha', 'jquery' ), $this->version, true );
 		wp_enqueue_script( 'techno-admin-script', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-admin.js', [], $this->version, true );
-
+		
+		$is_livechat_page = is_admin() && isset($_GET['page']) && $_GET['page'] === 'techno-chatbot-livechat';
 		$livechat_allowed = techno_chatbot_feature('live_chat');
     	$livechat_allowed = $livechat_allowed['allowed'] === true;
-		if( $livechat_allowed ){
+		if( $livechat_allowed && $is_livechat_page ){
 			wp_enqueue_script( $this->plugin_name.'-socket-io', plugin_dir_url( __FILE__ ) . 'js/socket.io.min.js', array(), $this->version, true );
 
+			$end_msg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat');
 			$ws = techno_chatbot_websocket();
 			$site = get_site_url();
 			wp_localize_script(
@@ -97,10 +113,64 @@ class Techno_Chatbot_Admin {
 					'token'    => $ws->get_token($site),
 					'site_name' => get_bloginfo('name'),
 					'notification_sound' => TECHNO_CHATBOT_FOLDER_URL . '/notification.mp3',
+					'end_message' => $end_msg
 				]
 			);
 		}
 
+		$ai_allowed = techno_chatbot_feature('ai_training');
+    	$ai_allowed = $ai_allowed['allowed'] === true;
+		if( $ai_allowed && $screen && $screen->post_type === 'techno_chatbot_aidb' ){
+			wp_enqueue_script( 'techno-aidb-script', plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-aidb.js', [], $this->version, true );
+			wp_localize_script(
+				'techno-aidb-script',
+				'technoaidb',
+				[
+					'ajax_url' => admin_url('admin-ajax.php'),
+					'nonce'    => wp_create_nonce('techno_aidb_nonce'),
+					'post_id'  => get_the_ID(),
+				]
+			);
+		}
+	}
+
+	/**
+	 * Hide All Menus from Chat Support
+	 *
+	 * @since    1.0.0
+	 */
+	public function hide_everything_from_support() {
+		$user = wp_get_current_user();
+		if ( ! in_array('chat_support', (array) $user->roles, true) ) return;
+
+		global $menu;
+		$allowed = [
+			'techno-chatbot-livechat'
+		];
+
+		foreach ($menu as $item) {
+			if (!isset($item[2])) continue;
+			if (!in_array($item[2], $allowed, true)) {
+				remove_menu_page($item[2]);
+			}
+		}
+	}
+
+	/**
+	 * Block All Menu's page from Chat Support
+	 *
+	 * @since    1.0.0
+	 */
+	public function block_everything_from_support() {
+		$user = wp_get_current_user();
+		if ( ! in_array('chat_support', (array) $user->roles, true) ) return;
+
+		if ( wp_doing_ajax() ) return;
+		$allowed_page = 'techno-chatbot-livechat';
+		if ( isset($_GET['page']) && $_GET['page'] === $allowed_page ) return;
+
+		wp_redirect( admin_url('admin.php?page=techno-chatbot-livechat') );
+		exit;
 	}
 
 	/**
@@ -131,6 +201,15 @@ class Techno_Chatbot_Admin {
 
 		add_submenu_page(
 			'techno-chatbot',
+			__( 'Chats', 'techno-chatbot' ),
+			__( 'Chats', 'techno-chatbot' ),
+			'techno_chat_support',
+			'techno-chatbot-livechat',
+			array( $this, 'display_chats_page' )
+		);
+
+		add_submenu_page(
+			'techno-chatbot',
 			__( 'FAQ - Training Data', 'techno-chatbot' ),
 			__( 'FAQ - Training Data', 'techno-chatbot' ),
 			'manage_options',
@@ -139,20 +218,10 @@ class Techno_Chatbot_Admin {
 
 		add_submenu_page(
 			'techno-chatbot',
-			__( 'Chats', 'techno-chatbot' ),
-			__( 'Chats', 'techno-chatbot' ),
-			'manage_options',
-			'techno-chatbot-livechat',
-			array( $this, 'display_chats_page' )
-		);
-
-		add_submenu_page(
-			'techno-chatbot',
 			__( 'AI Knowledgebase', 'techno-chatbot' ),
 			__( 'AI Knowledgebase', 'techno-chatbot' ),
 			'manage_options',
-			'techno-chatbot-knowledgebase',
-			array( $this, 'display_knowledgebase_page' )
+			'edit.php?post_type=techno_chatbot_aidb'
 		);
 	}
 
@@ -190,24 +259,18 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
-	 * Render the AI knowledge page.
-	 *
-	 * @since    1.0.0
-	 */
-	public function display_knowledgebase_page() {
-		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-aiknowledgebase.php';
-	}
-
-	/**
 	 * Render the Live Chat page.
 	 *
 	 * @since    1.0.0
 	 */
 	public function display_chats_page() {
+		if (!current_user_can('techno_chat_support')) {
+			wp_die('Unauthorized');
+		}
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'livechat';
 		switch ($active_tab) {
 			case 'livechat':
-				$online = (int)get_option('techno_chatbot_support_online', 0);
+				$online = (int) get_user_meta( get_current_user_id(), 'techno_chat_online', true );
 				$server = techno_wss_check();
 				$online = !$server? false : $online;
 			break;
@@ -223,10 +286,11 @@ class Techno_Chatbot_Admin {
 	public function toggle_support_online() {
 		check_ajax_referer('techno_chatbot_nonce', 'nonce');
 
-		if (!current_user_can('manage_options')) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error();
 		}
 		
+		$userID = get_current_user_id();
 		$status = get_transient('techno_wss_status');
 		if ($status === false) {
 			$status = techno_wss_check() ? 1 : 0;
@@ -234,19 +298,19 @@ class Techno_Chatbot_Admin {
 		}
 
 		if( !$status ){
-			update_option('techno_chatbot_support_online', 0);
+			update_user_meta( $userID, 'techno_chat_online', 0);
 			wp_send_json_success(['online' => 0, 'server_offline' => 1]);
 		}
 		
 		$force = isset($_POST['force_status']) && $_POST['force_status'] == 1 ? 1 : 0;
-		if ( $force ) {
-			update_option('techno_chatbot_support_online', $force);
+		if ( isset($_POST['force_status']) ) {
+			update_user_meta( $userID, 'techno_chat_online', $force);
 			wp_send_json_success(['online' => (bool)$force, 'forced' => 1]);
 		}
 
-		$current = get_option('techno_chatbot_support_online', 0);
+		$current = (int) get_user_meta( $userID, 'techno_chat_online', true );
 		$onlinestatus = $current ? 0 : 1;
-		update_option('techno_chatbot_support_online', $onlinestatus);
+		update_user_meta( $userID, 'techno_chat_online', $onlinestatus);
 
 		wp_send_json_success(['online' => (bool)$onlinestatus, 'before' => $current]);
 	}
@@ -259,7 +323,7 @@ class Techno_Chatbot_Admin {
 	public function save_admin_chat_message() {
         check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
-		if (!current_user_can('manage_options')) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error();
 		}
  
@@ -275,6 +339,7 @@ class Techno_Chatbot_Admin {
         /* ---- validate inputs ---- */
         $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
         $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
+		$message_type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
 			
         if ( ! $session_id || ! $message ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
@@ -293,19 +358,43 @@ class Techno_Chatbot_Admin {
         if ( mb_strlen( $message ) > 2000 ) {
             wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
         }
- 
+
+		/* validate message_type */
+		$allowed_types = ['text','image','file','system'];
+		if ( ! in_array($message_type, $allowed_types, true) ) {
+			$message_type = 'text';
+		}
+
+		/* get admin info */
 		$current_user = wp_get_current_user();
-		$admin_name = $current_user->display_name;
+		$admin_name   = $current_user->display_name;
+
+		/* capture metadata */
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
 
         global $wpdb;
-        $result = $wpdb->insert( $wpdb->prefix . 'techno_livechat_messages', 
+        $result = $wpdb->insert(
+			$wpdb->prefix . 'techno_livechat_messages',
 			[
-				'session_id' => $session_id,
-				'sender' => 'admin',
-				'message' => $message,
-				'name' => $admin_name
-        	], 
-		[ '%s', '%s', '%s', '%s' ] );
+				'session_id'   => $session_id,
+				'sender'       => 'admin',
+				'message'      => $message,
+				'name'         => $admin_name,
+				'message_type' => $message_type,
+				'user_agent'   => $user_agent,
+				'ip_address'   => $ip_address,
+			],
+			[
+				'%s', // session_id
+				'%s', // sender
+				'%s', // message
+				'%s', // name
+				'%s', // message_type
+				'%s', // user_agent
+				'%s', // ip_address
+			]
+		);
  
         if ( $result === false ) {
             wp_send_json_error( [ 'message' => 'DB error' ], 500 );
@@ -321,7 +410,7 @@ class Techno_Chatbot_Admin {
 	public function techno_get_chat_history_ajxfunction() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
  
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if (!current_user_can('techno_chat_support')) {
 			wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
 		}
  
@@ -337,7 +426,7 @@ class Techno_Chatbot_Admin {
 		global $wpdb;
 		$messages = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT sender, message
+				"SELECT sender, message, name, created_at
 				 FROM {$wpdb->prefix}techno_livechat_messages
 				 WHERE session_id = %s
 				 ORDER BY id ASC",
@@ -347,5 +436,223 @@ class Techno_Chatbot_Admin {
 		);
  
 		wp_send_json_success( $messages ?: [] );
+	}
+	
+	/**
+	 * Crawl Page
+	 *
+	 * @since    1.0.0
+	 */
+	public function crawl_page() {
+		if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'techno_aidb_nonce')) {
+			wp_send_json_error('Invalid nonce');
+		}
+
+		if (!current_user_can('techno_chat_support')) {
+			wp_send_json_error('Unauthorized');
+		}
+
+		$ai_allowed = techno_chatbot_feature('ai_training');
+    	$ai_allowed = $ai_allowed['allowed'] === true;
+
+		if( !$ai_allowed ){
+			wp_send_json_error('Invalid Plan');
+		}
+
+		$post_id = intval($_POST['post_id']);
+		$url = get_post_meta($post_id, '_page_url', true);
+
+		if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+			wp_send_json_error('Invalid URL');
+		}
+
+		// FETCH NEW Using Content Only
+		$wp_post_id = url_to_postid($url);
+		if ($wp_post_id) {
+			$wp_post = get_post($wp_post_id);
+			if (!$wp_post) wp_send_json_error('Post not found');
+			// Get rendered WP content
+			$content = apply_filters('the_content', $wp_post->post_content);
+			// Convert HTML to clean text
+			$clean_text = wp_strip_all_tags($content);
+			// Normalize spaces
+			$clean_text = preg_replace('/\s+/', ' ', $clean_text);
+			$clean_text = trim($clean_text);
+		} else {
+			// EXTERNAL URL FALLBACK
+			$response = wp_remote_get($url, [
+				'timeout' => 20,
+				'user-agent' => 'TechnoChatbotCrawler/1.0',
+			]);
+			if (is_wp_error($response)) {
+				wp_send_json_error($response->get_error_message());
+			}
+			$html = wp_remote_retrieve_body($response);
+			$clean_text = $this->extract_main_content($html);
+		}
+
+		// CHUNK CONTENT
+		$chunks = $this->chunk_text($clean_text);
+
+		// EMBEDDING
+		$results = $this->create_embeddings_batch($chunks);
+		if (!$results) {
+			wp_send_json_error('Embedding failed');
+		}
+		$embedded_chunks = [];
+		foreach ($results as $item) {
+			if (!isset($item['embedding'])) {
+				continue;
+			}
+
+			$index = $item['index'];
+
+			$embedded_chunks[] = [
+				'text' => $chunks[$index] ?? '',
+				'embedding' => $item['embedding']
+			];
+		}
+
+		// SAVE
+		update_post_meta($post_id, '_crawled_content', $clean_text);
+		update_post_meta($post_id, '_ai_clean_text', $clean_text);
+		update_post_meta($post_id, '_ai_embeddings', $embedded_chunks);
+		update_post_meta($post_id, '_ai_last_crawled', current_time('mysql'));
+		update_post_meta($post_id, '_ai_status', 'crawled');
+
+		wp_send_json_success([
+			'message' => 'Crawled successfully',
+			'chunks' => count($chunks)
+		]);
+	}
+	
+	/**
+	 * Get only main content
+	 *
+	 * @since    1.0.0
+	 */
+	private function extract_main_content($html) {
+
+		libxml_use_internal_errors(true);
+
+		$dom = new DOMDocument();
+		$dom->loadHTML($html);
+		$xpath = new DOMXPath($dom);
+
+		// Remove unwanted elements
+		$removeQueries = [
+			'//script',
+			'//style',
+			'//noscript',
+			'//header',
+			'//footer',
+			'//nav',
+			'//form',
+			'//*[contains(@class,"header")]',
+			'//*[contains(@class,"footer")]',
+			'//*[contains(@class,"menu")]',
+			'//*[contains(@class,"sidebar")]',
+			'//*[contains(@id,"header")]',
+			'//*[contains(@id,"footer")]',
+			'//*[contains(@id,"menu")]',
+			'//*[contains(@id,"sidebar")]',
+		];
+
+		foreach ($removeQueries as $query) {
+			$nodes = $xpath->query($query);
+
+			foreach ($nodes as $node) {
+				$node->parentNode->removeChild($node);
+			}
+		}
+
+		// Prefer article/main content
+		$nodes = $xpath->query('//article | //main');
+		$textParts = [];
+
+		if ($nodes->length > 0) {
+			foreach ($nodes as $node) {
+				$textParts[] = trim($node->textContent);
+			}
+		} else {
+			// fallback to body
+			$body = $dom->getElementsByTagName('body')->item(0);
+			$textParts[] = $body ? $body->textContent : '';
+		}
+
+		libxml_clear_errors();
+		$text = implode(' ', $textParts);
+		$text = preg_replace('/\s+/', ' ', $text);
+		return trim($text);
+	}
+	
+	/**
+	 * AI Chunking
+	 *
+	 * @since    1.0.0
+	 */
+	private function chunk_text($text, $maxLength = 800) {
+
+		$sentences = preg_split('/(?<=[.!?])\s+/', $text);
+
+		$chunks = [];
+		$current = '';
+
+		foreach ($sentences as $sentence) {
+
+			if (strlen($current . ' ' . $sentence) > $maxLength) {
+				$chunks[] = trim($current);
+				$current = $sentence;
+			} else {
+				$current = $current ? $current . ' ' . $sentence : $sentence;
+			}
+		}
+
+		if (trim($current) !== '') {
+			$chunks[] = trim($current);
+		}
+
+		return $chunks;
+	}
+	
+	/**
+	 * Open AI Embedding
+	 *
+	 * @since    1.0.0
+	 */
+	private function create_embeddings_batch($chunks) {
+
+		$api_key = get_option('techno_chatbot_openai_secret');
+
+		if (!$api_key || empty($chunks)) {
+			return false;
+		}
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/embeddings',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				],
+				'body' => json_encode([
+					'model' => 'text-embedding-3-small',
+					'input' => $chunks
+				]),
+				'timeout' => 60
+			]
+		);
+
+		if (is_wp_error($response)) {
+			return false;
+		}
+
+		$body = json_decode(wp_remote_retrieve_body($response), true);
+
+		if (!isset($body['data'])) {
+			return false;
+		}
+
+		return $body['data'];
 	}
 }

@@ -17,22 +17,13 @@ class Techno_Chatbot_Websocket {
 	private static $instance = null;
 
     /**
-	 * Websocket host
+	 * Websocket URL
 	 *
 	 * @since    1.0.0
 	 * @access   private
-	 * @var      string    $plugin_name    Websocket host
+	 * @var      string    $plugin_name    Websocket url
 	 */
-	private $host;
-
-    /**
-	 * Websocket port
-	 *
-	 * @since    1.0.0
-	 * @access   private
-	 * @var      int    $plugin_name    Websocket port
-	 */
-	private $port;
+	private $api_url;
 
     /**
 	 * Websocket secret
@@ -58,8 +49,7 @@ class Techno_Chatbot_Websocket {
 	 * @since    1.0.0
 	 */
     public function __construct() {
-        $this->host = 'localhost';
-        $this->port = 3000;
+        $this->api_url = trailingslashit(get_option('techno_chatbot_apiurl', ''));
         $this->secret = get_option('techno_chatbot_secret', '');
         $this->endpoints = [
             'status' => '/status',
@@ -89,11 +79,13 @@ class Techno_Chatbot_Websocket {
      * @since    1.0.0
      */
     public function get_url($endpoint_key = '') {
-        $endpoint = ($endpoint_key && isset($this->endpoints[$endpoint_key])) 
-            ? $this->endpoints[$endpoint_key] 
-            : '';
-        $scheme = is_ssl() ? 'https' : 'http';
-        return "{$scheme}://{$this->host}:{$this->port}{$endpoint}";
+        $base = rtrim(get_option('techno_chatbot_apiurl', ''), '/');
+        if (empty($base)) {
+            return '';
+        }
+
+        $endpoint = ($endpoint_key && isset($this->endpoints[$endpoint_key])) ? $this->endpoints[$endpoint_key] : '';
+        return $base . $endpoint;
     }
 
     /**
@@ -140,7 +132,7 @@ class Techno_Chatbot_Websocket {
      */
     public function sync_status() {
         if (!$this->is_running()) {
-            update_option('techno_chatbot_support_online', 0);
+            update_user_meta( get_current_user_id(), 'techno_chat_online', 0);
         }
     }
 

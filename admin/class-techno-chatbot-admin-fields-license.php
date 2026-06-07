@@ -60,7 +60,10 @@ class Techno_Chatbot_Admin_Fields_License {
             'title' => 'License',
         ),
 		'api_section' => array(
-            'title' => 'API',
+            'title' => 'TechnoDream Live Chat API',
+        ),
+		'openapi_section' => array(
+            'title' => 'Open API',
         ),
     );
 
@@ -82,6 +85,16 @@ class Techno_Chatbot_Admin_Fields_License {
 		),
 
 		// API
+		'techno_chatbot_apiurl' => array(
+			'label'       => 'API Socket URL',
+			'type'        => 'url',
+			'section'     => 'api_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => 'Designated Socket URL provided by our store.',
+			'features'	  => array('live_chat'),
+		),
+
 		'techno_chatbot_secret' => array(
 			'label'       => 'Secret Key',
 			'type'        => 'password',
@@ -89,7 +102,30 @@ class Techno_Chatbot_Admin_Fields_License {
 			'default'     => '',
 			'placeholder' => '',
 			'description' => '',
+			'features'	  => array('live_chat'),
 		),
+
+		// Opean AI
+		'techno_chatbot_openai_app' => array(
+			'label'       => 'App Name',
+			'type'        => 'text',
+			'section'     => 'openapi_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => '',
+			'features'	  => array('ai_training'),
+		),
+
+		'techno_chatbot_openai_secret' => array(
+			'label'       => 'Secret Key',
+			'type'        => 'password',
+			'section'     => 'openapi_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => '',
+			'features'	  => array('ai_training'),
+		),
+
 	);
 
 
@@ -112,14 +148,22 @@ class Techno_Chatbot_Admin_Fields_License {
 				'techno_chatbot_license_group',
 				$option,
 				array(
-					'sanitize_callback' => $option === 'techno_chatbot_license'
-					? array( $this, 'validate_license' )
-					: ( $option === 'techno_chatbot_secret'
-						? array( $this, 'sanitize_secret_key' )
-						: ( $data['type'] === 'checkbox'
-							? array( $this, 'sanitize_checkbox' )
-							: 'sanitize_text_field' )
-					),
+					'sanitize_callback' => 
+					$option === 'techno_chatbot_license'
+						? array($this, 'validate_license')
+						: ($option === 'techno_chatbot_secret' ||
+							$option === 'techno_chatbot_openai_secret'
+								? function($value) use ($option) {
+									return $this->sanitize_secret_key($value, $option);
+								}
+							: ($data['type'] === 'checkbox'
+								? array($this, 'sanitize_checkbox')
+								: ($data['type'] === 'url'
+									? 'esc_url_raw'
+									: 'sanitize_text_field'
+								)
+							)
+						),
 					'default' => $data['default'],
 				)
 			);
@@ -135,6 +179,7 @@ class Techno_Chatbot_Admin_Fields_License {
 					'default'     => $data['default'],
 					'description' => $data['description'] ?? '',
 					'placeholder' => $data['placeholder'] ?? '',
+					'features'	  => $data['features'] ?? '',
 					'disabled' 	  => $data['disabled'] ?? '',
 				)
 			);
@@ -154,8 +199,17 @@ class Techno_Chatbot_Admin_Fields_License {
 		$default     = $args['default'];
 		$description = $args['description'];
 		$placeholder = $args['placeholder'];
+		$features	 = $args['features'];
 		$value		 = get_option( $option, $default );
 		$value		 = ( $default !== '' && $value === '' ) ? $default : $value;
+		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
+		$disabledmsg = '';
+
+		if( $features ){
+			$plans = techno_chatbot_feature($features);
+			$disabled = $plans['allowed'] == false ? 'disabled' : $disabled;
+			$disabledmsg = $plans['message'];
+		}
 
 		// Checkbox
 		if ( $type === 'checkbox' ) {
@@ -170,9 +224,16 @@ class Techno_Chatbot_Admin_Fields_License {
 			}
 			echo '</label>';
 		} else {
-			$input_type = $type === 'password' ? 'password' : 'text';
+			if ($type === 'password') {
+				$input_type = 'password';
+			} elseif ($type === 'url') {
+				$input_type = 'url';
+			} else {
+				$input_type = 'text';
+			}
 			if ( $type === 'password' && !empty($value) ) {
-				$display_value = str_repeat('*', 8);
+				$display_value = '';
+				/* $display_value = str_repeat('*', 8); */
 			} else {
 				$display_value = $value;
 			}
@@ -182,8 +243,15 @@ class Techno_Chatbot_Admin_Fields_License {
 					value="' . esc_attr( $display_value ) . '"
 					class="regular-text"
 					style="width:100%;"
-					placeholder="' . esc_attr( $placeholder ) . '"
+					placeholder="' . ( $type === 'password' && !empty($value)? '********' : esc_attr( $placeholder ) ) . '"
+					'.( $input_type == 'url'? 'pattern="https?://.*"' : '' ).'
 				/>';
+
+			if ( $type === 'password' && !empty($value) ) {
+				echo '<p class="description">';
+				echo esc_html__('Leave blank to keep the current value.','techno-chatbot');
+				echo '</p>';
+			}
 		}
 
 		if ($option === 'techno_chatbot_license') {
@@ -201,6 +269,11 @@ class Techno_Chatbot_Admin_Fields_License {
 
 		if ( ! empty( $description ) && $type !== 'checkbox' ) {
 			echo '<p class="description">'. esc_html__( $description, 'techno-chatbot' ) . '</p>';
+		}
+
+		// Pro notice
+		if ( $disabledmsg ) {
+			techno_chatbot_msgformat($disabledmsg);
 		}
 
 	}
@@ -230,10 +303,10 @@ class Techno_Chatbot_Admin_Fields_License {
 	 *
 	 * @since 1.0.0
 	 */
-	public function sanitize_secret_key( $value ) {
-		$current = get_option('techno_chatbot_secret', '');
-		// If user typed the placeholder (****), keep current
-		if ( $value === str_repeat('*', 8) || empty($value) ) {
+	public function sanitize_secret_key( $value, $option_name ) {
+		$current = get_option($option_name, '');
+		// If empty, keep existing value
+		if ( empty($value) ) {
 			return $current;
 		}
 		return sanitize_text_field( $value );
