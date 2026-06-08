@@ -3,7 +3,7 @@
 /**
  * Admin Settings view: Live Chat
  *
- * @link       https://technodreamwebdesign.com/
+ * @link       https://technodreamwebdesign.com/techno-chatbot/
  * @since      1.0.0
  *
  * @package    Techno_Chatbot

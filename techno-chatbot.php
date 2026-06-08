@@ -1,18 +1,17 @@
 <?php
 
 /**
- * The plugin bootstrap file
- * @link              https://technodreamwebdesign.com/
+ * @link              https://technodreamwebdesign.com/techno-chatbot/
  * @since             1.0.0
  * @package           Techno_Chatbot
  *
  * @wordpress-plugin
  * Plugin Name:       Techno Chatbot
- * Plugin URI:        https://github.com/allouise/techno-chatbot
+ * Plugin URI:        https://technodreamwebdesign.com/techno-chatbot
  * Description:       Technodream Chatbot
  * Version:           1.0.0
  * Author:            Technodream
- * Author URI:        https://technodreamwebdesign.com//
+ * Author URI:        https://technodreamwebdesign.com/techno-chatbot/
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       techno-chatbot
@@ -60,6 +59,11 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-techno-chatbot.php';
  * Helpers
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-techno-chatbot-helpers.php';
+
+/**
+ * Plugin Update Checker
+ */
+require plugin_dir_path( __FILE__ ) . 'includes/class-techno-chatbot-updater.php';
 
 /**
  * Begins execution of the plugin.
