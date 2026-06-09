@@ -75,8 +75,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Chatbox Header',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Chat Support',
-            'placeholder' => 'Chat Support',
+            'default'     => 'Chat Assistant',
+            'placeholder' => 'Chat Assistant',
             'description' => 'Title displayed at the top of the chatbox.'
         ),
 

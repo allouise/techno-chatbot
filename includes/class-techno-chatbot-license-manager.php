@@ -113,58 +113,76 @@ class Techno_Chatbot_License_Manager {
 		$license_key = sanitize_text_field($license_key);
 		$license_key = preg_replace('/[^A-Z0-9\-]/','', strtoupper($license_key));
 
-		if(empty($license_key)){
-			update_option( 'techno_chatbot_license_data', [
-				'plan' => 'free',
+		if (empty($license_key)) {
+			update_option('techno_chatbot_license_data', [
+				'plan'   => 'free',
 				'status' => 'inactive'
 			], false);
-
 			return '';
 		}
 
-		$response = wp_remote_post(
-			'https://technodreamwebdesign.com/techno-chatbot/license/verify',
-			[
-				'timeout' => 15,
-				'sslverify' => true,
-				'body' => [
-					'license_key' => $license_key,
-					'domain' => home_url()
-				]
-			]
-		);
-
-		if(is_wp_error($response)){
+		$cache_key = 'tpl_license_' . md5($license_key);
+		$cached = get_transient($cache_key);
+		if ($cached !== false) {
+			update_option('techno_chatbot_license_data', $cached, false);
 			return $license_key;
 		}
 
-		$body = wp_remote_retrieve_body($response);
-		$data = json_decode($body,true);
+		$response = wp_remote_get(
+			add_query_arg(
+				[
+					'license' => $license_key,
+					'site' => home_url(),
+				],
+				'https://technodreamwebdesign.com/wp-json/techno-licensing/v1/check'
+			),
+			[
+				'timeout' => 15,
+			]
+		);
+		if (is_wp_error($response)) {
+			return $license_key;
+		}
 
-		if(!is_array($data)){
+		$code = wp_remote_retrieve_response_code($response);
+		$body = wp_remote_retrieve_body($response);
+		$data = json_decode($body, true);
+
+		if (!is_array($data)) {
 			$data = [];
 		}
 
-		$status = sanitize_text_field($data['status'] ?? 'invalid');
-		$plan = sanitize_text_field($data['plan'] ?? 'free');
+		if ($code !== 200 || !empty($data['error'])) {
+			$license_data = [
+				'key'    => $license_key,
+				'plan'   => 'free',
+				'status' => 'invalid',
+				'expires'=> '',
+				'last_check' => time()
+			];
+			update_option('techno_chatbot_license_data', $license_data, false);
+			delete_transient($cache_key);
+			return $license_key;
+		}
+
+		$status  = sanitize_text_field($data['status'] ?? 'invalid');
+		$plan    = sanitize_text_field($data['plan'] ?? 'free');
 		$expires = sanitize_text_field($data['expires'] ?? '');
 
-		if($status !== 'active'){
+		if ($status !== 'active') {
 			$plan = 'free';
 		}
 
-		update_option(
-			'techno_chatbot_license_data',
-			[
-				'key' => $license_key,
-				'plan' => $plan,
-				'status' => $status,
-				'expires' => $expires,
-				'last_check' => time()
-			],
-			false
-		);
+		$license_data = [
+			'key'        => $license_key,
+			'plan'       => $plan,
+			'status'     => $status,
+			'expires'    => $expires,
+			'last_check' => time()
+		];
 
+		update_option('techno_chatbot_license_data', $license_data, false);
+		set_transient($cache_key, $license_data, 6 * HOUR_IN_SECONDS);
 		return $license_key;
 	}
 
