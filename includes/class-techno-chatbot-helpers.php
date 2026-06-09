@@ -12,11 +12,11 @@ function techno_chatbot_check_plan( $plan ){
 
 function techno_chatbot_feature($features){
     // testing purposes
-    return [
+    /* return [
             'allowed' => true,
             'message' => ''
         ];
-
+    */
     if (techno_chatbot_license()->has_feature($features)) {
         return [
             'allowed' => true,
