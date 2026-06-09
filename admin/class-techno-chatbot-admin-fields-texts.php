@@ -75,8 +75,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Chatbox Header',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Chat Support',
-            'placeholder' => 'Chat Support',
+            'default'     => 'Chat Assistant',
+            'placeholder' => 'Chat Assistant',
             'description' => 'Title displayed at the top of the chatbox.'
         ),
 
@@ -231,7 +231,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => "I'm sorry, I don't have the specifics on that at the moment. However, I can connect you with our team for better assistance.",
+            'default'     => "I'm sorry, I don't have the specifics on that at the moment. However, I can connect you with our team for better assistance. Please choose one of the options below:",
             'description' => 'Final message reply when the chatbot cannot find a proper answer then transfer to next option.'
         ),
 

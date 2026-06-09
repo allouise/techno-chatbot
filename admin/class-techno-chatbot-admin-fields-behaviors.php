@@ -90,7 +90,7 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'label'       => 'Best time to call',
 			'type'        => 'checkbox',
 			'section'     => 'behavior_section',
-			'default'     => '',
+			'default'     => 1,
 			'description' => 'Show & require \'Best time to call?\' question when getting client\'s phone number.',
 		),
 
