@@ -65,3 +65,8 @@ The system includes the following security measures:
 * Updated default message
 * Made the FAQ answer field WYSIWYG
 * Allowed chatbot return bot answer with HTML
+
+= 1.0.3 =
+* Fixed AI Prompt for no response
+* Updated chatbot default replies
+* Fixed Licensing
