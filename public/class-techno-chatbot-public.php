@@ -800,7 +800,7 @@ class Techno_Chatbot_Public {
 		- Build your answer with HTML for better view, use only these allowed tags '<p>,<strong>,<em>,<ul>,<ol>'
 		- Use the allowed tags like <strong> & <em> for word that need emphasizing. <ul> & <ol> if the answer has information that needs to be listed for better readability.
 		- Do not mention 'the context says' or 'according to the context.'
-		- If the information is not available, respond only with: 'NO_ANSWER'
+		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response
 
 		Context:
 		$context_text
