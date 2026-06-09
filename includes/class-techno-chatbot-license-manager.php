@@ -34,11 +34,13 @@ class Techno_Chatbot_License_Manager {
 	 */
     private $plugin_plans = [ 
 		'free' => [ 'label' => 'Free', 'url' => '#', 'features' => [ 
+		
+		] ], 
+		'standard' => [ 'label' => 'Standard', 'url' => '#', 'features' => [ 
 			'basic_chat' => 'Basic Chat'
 		] ], 
 		'master' => [ 'label' => 'Master', 'url' => '#', 'features' => [
 			'basic_chat' => 'Basic Chat',
-			'chat_history' => 'Chat History',
 			'live_chat' => 'Live Chat',
 			'ai_training' => 'Ai Training'
 		] ] ];
@@ -114,18 +116,8 @@ class Techno_Chatbot_License_Manager {
 		$license_key = preg_replace('/[^A-Z0-9\-]/','', strtoupper($license_key));
 
 		if (empty($license_key)) {
-			update_option('techno_chatbot_license_data', [
-				'plan'   => 'free',
-				'status' => 'inactive'
-			], false);
+			delete_option('techno_chatbot_license_data');
 			return '';
-		}
-
-		$cache_key = 'tpl_license_' . md5($license_key);
-		$cached = get_transient($cache_key);
-		if ($cached !== false) {
-			update_option('techno_chatbot_license_data', $cached, false);
-			return $license_key;
 		}
 
 		$response = wp_remote_get(
@@ -153,36 +145,23 @@ class Techno_Chatbot_License_Manager {
 		}
 
 		if ($code !== 200 || !empty($data['error'])) {
-			$license_data = [
-				'key'    => $license_key,
-				'plan'   => 'free',
-				'status' => 'invalid',
-				'expires'=> '',
-				'last_check' => time()
-			];
-			update_option('techno_chatbot_license_data', $license_data, false);
-			delete_transient($cache_key);
-			return $license_key;
+			delete_option('techno_chatbot_license_data');
+			return '';
 		}
 
-		$status  = sanitize_text_field($data['status'] ?? 'invalid');
-		$plan    = sanitize_text_field($data['plan'] ?? 'free');
+		$status = sanitize_text_field($data['status'] ?? 'invalid');
+		$plan = sanitize_text_field($data['plan'] ?? 'free');
 		$expires = sanitize_text_field($data['expires'] ?? '');
 
-		if ($status !== 'active') {
-			$plan = 'free';
-		}
-
 		$license_data = [
-			'key'        => $license_key,
-			'plan'       => $plan,
-			'status'     => $status,
-			'expires'    => $expires,
+			'key' => $license_key,
+			'plan' => $plan,
+			'status' => $status,
+			'expires' => $expires,
 			'last_check' => time()
 		];
 
 		update_option('techno_chatbot_license_data', $license_data, false);
-		set_transient($cache_key, $license_data, 6 * HOUR_IN_SECONDS);
 		return $license_key;
 	}
 

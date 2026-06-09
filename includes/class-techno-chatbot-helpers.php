@@ -6,17 +6,8 @@
 function techno_chatbot_license() {
     return Techno_Chatbot_License_Manager::instance();
 }
-function techno_chatbot_check_plan( $plan ){
-    return techno_chatbot_license()->get_plan() === $plan;
-}
 
 function techno_chatbot_feature($features){
-    // testing purposes
-    /* return [
-            'allowed' => true,
-            'message' => ''
-        ];
-    */
     if (techno_chatbot_license()->has_feature($features)) {
         return [
             'allowed' => true,
