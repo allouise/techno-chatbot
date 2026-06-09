@@ -70,3 +70,6 @@ The system includes the following security measures:
 * Fixed AI Prompt for no response
 * Updated chatbot default replies
 * Fixed Licensing
+
+= 1.0.4 =
+* Fixed Licensing capabilities
