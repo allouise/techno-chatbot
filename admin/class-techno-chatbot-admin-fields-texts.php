@@ -84,8 +84,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Chat Icon Text',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Contact Us',
-            'placeholder' => 'Contact Us',
+            'default'     => 'Chat With Us',
+            'placeholder' => 'Chat With Us',
             'description' => 'Text shown next to icon If Icon type is = "Icon & Text"'
         ),
 
@@ -231,7 +231,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 4,
-            'default'     => "I'm sorry, I don't have that information right now, but I can connect you with our team.",
+            'default'     => "I'm sorry, I don't have the specifics on that at the moment. However, I can connect you with our team for better assistance.",
             'description' => 'Final message reply when the chatbot cannot find a proper answer then transfer to next option.'
         ),
 

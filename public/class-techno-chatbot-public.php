@@ -796,7 +796,9 @@ class Techno_Chatbot_Public {
 		- If multiple facts are relevant, merge them into one clear explanation.
 		- Keep answers direct, informative, and independent.
 		- Keep the tone friendly and concise.
-		- Avoid conversational dependency or implied follow-up context
+		- Avoid conversational dependency or implied follow-up context.
+		- Build your answer with HTML for better view, use only these allowed tags '<p>,<strong>,<em>,<ul>,<ol>'
+		- Use the allowed tags like <strong> & <em> for word that need emphasizing. <ul> & <ol> if the answer has information that needs to be listed for better readability.
 		- Do not mention 'the context says' or 'according to the context.'
 		- If the information is not available, respond only with: 'NO_ANSWER'
 
@@ -865,17 +867,11 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	private function create_embedding($text) {
-
 		$api_key = get_option('techno_chatbot_openai_secret');
-
-		if (!$api_key) {
-			return false;
-		}
+		if (!$api_key) return false;
 
 		$cached = $this->get_embedding_cache($text);
-		if ($cached) {
-			return $cached;
-		}
+		if ($cached) return $cached;
 
 		$response = wp_remote_post(
 			'https://api.openai.com/v1/embeddings',
@@ -917,19 +913,14 @@ class Techno_Chatbot_Public {
 		if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'techno_chatbot_nonce')) {
 			wp_send_json_error('Invalid nonce');
 		}
-
 		$question = sanitize_text_field($_POST['question']);
-
 		if (!$question) {
 			wp_send_json_error('Empty question');
 		}
-
 		// 1. Get relevant chunks
 		$chunks = $this->find_relevant_chunks($question);
-
 		// 2. Ask OpenAI
 		$answer = $this->ask_openai($question, $chunks);
-
 		wp_send_json_success([
 			'answer' => $answer
 		]);

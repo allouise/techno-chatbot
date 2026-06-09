@@ -129,7 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ---------- Histories ---------- */
     function saveHistory(text, sender) {
-        text = sanitizeText(text);
+        if (sender !== 'admin' && sender !== 'bot') {
+            text = sanitizeText(text);
+        }
         if (!text) return;
         chatHistory.push({ text, sender, created_at: new Date().toISOString() });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
@@ -760,7 +762,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sender === 'admin') cssClass = 'admin';
         if (sender === 'visitor') cssClass = 'visitor';
         message.className = `techno-chatbot-message ${cssClass}`;
-        message.textContent = text;
+        if (sender === 'bot' || sender === 'admin') {
+            message.innerHTML = text;
+        } else {
+            message.textContent = text;
+        }
 
         /* Time */
         const time = document.createElement('div');

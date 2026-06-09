@@ -171,7 +171,24 @@ class Techno_Chatbot_Post_Types {
 
         <p>
             <label><strong><?php _e( 'Answer', 'techno-chatbot' ); ?></strong></label><br>
-            <textarea name="faq_answer" rows="5" style="width:100%;"><?php echo esc_textarea( $answer ); ?></textarea>
+            <?php wp_editor(
+                $answer,
+                'faq_answer_editor',
+                array(
+                    'textarea_name' => 'faq_answer', 
+                    'textarea_rows' => 6,
+                    'media_buttons' => false,
+                    'teeny' => true,
+                    'quicktags' => false,
+                    'tinymce' => array(
+                        'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
+                        'toolbar2' => '',
+                        'menubar'  => false,
+                        'branding' => false,
+                        'statusbar'=> false,
+                    ),
+                )
+            ); ?>
         </p>
 
         <p>
@@ -214,8 +231,7 @@ class Techno_Chatbot_Post_Types {
         }
 
         if ( isset( $_POST['faq_answer'] ) ) {
-            update_post_meta( $post_id, '_faq_answer', sanitize_textarea_field( $_POST['faq_answer'] )
-            );
+            update_post_meta( $post_id, '_faq_answer', wp_kses_post( wp_unslash( $_POST['faq_answer'] ) ));
         }
 
         if ( isset( $_POST['faq_priority'] ) ) {
