@@ -49,6 +49,18 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 /* Messages */ 
 #techno-chatbot-messages { display: flex; flex: 1; flex-direction: column; padding: 50px 10px 25px 10px; overflow-y: auto; font-size: var(--techno-chatbot-chatmsgsize); position: relative; } 
 .techno-chatbot-time { font-size: 0.8em; display: block; text-align: right; margin: 10px 0 0; opacity: 0.7; }
+.techno-chatbot-message { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px 15px 0px; max-width: 80%; word-wrap: break-word; } 
+.techno-chatbot-message.visitor { background: var(--techno-visitor-bubble-bg); color: var(--techno-visitor-bubble-text); margin-left: auto; text-align: left; } 
+.techno-chatbot-message.admin, .techno-chatbot-message.bot { background: var(--techno-admin-bubble-bg); border-radius: 15px 15px 15px 0px; color: var(--techno-admin-bubble-text); margin-right: auto; }
+.techno-chatbot-message p { margin: 0 0 10px; padding: 0; }
+.techno-chatbot-message ol, .techno-chatbot-message ul { margin: 0 0 10px; padding: 0 0 0 20px; }
+
+/* Typing */
+.techno-chatbot-message.typing { display: flex; gap: 4px; align-items: center; width: 50px; justify-content: center; } 
+.techno-chatbot-message.typing span { width: 6px; height: 6px; background: var(--techno-admin-bubble-text); border-radius: 50%; animation: technoTyping 1.2s infinite ease-in-out; } 
+.techno-chatbot-message.typing span:nth-child(2) { animation-delay: 0.2s; } 
+.techno-chatbot-message.typing span:nth-child(3) { animation-delay: 0.4s; } 
+@keyframes technoTyping { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
 
 /* Input */ 
 .techno-chatbot-input-wrapper { background: var(--techno-input-bg); color: var(--techno-input-txt); display: flex; border-top: 1px solid rgba(44, 42, 42, 0.15); border-bottom: 1px solid rgba(44, 42, 42, 0.15); margin: 0 15px; } 
@@ -56,9 +68,6 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 #techno-chatbot-input[disabled] { pointer-events: none; cursor: not-allowed; }
 #techno-chatbot-send { background: var(--techno-sendbtn-bg); color: var(--techno-sendbtn-txt); border: none; padding: 15px; cursor: pointer; font-size: var(--techno-chatbot-sendbtnsize); } 
 #techno-chatbot-send[disabled] { pointer-events: none; cursor: not-allowed; }
-.techno-chatbot-message { margin-bottom: 8px; padding: 8px 12px; border-radius: 15px 15px 0px; max-width: 80%; word-wrap: break-word; } 
-.techno-chatbot-message.visitor { background: var(--techno-visitor-bubble-bg); color: var(--techno-visitor-bubble-text); margin-left: auto; text-align: left; } 
-.techno-chatbot-message.admin, .techno-chatbot-message.bot { background: var(--techno-admin-bubble-bg); border-radius: 15px 15px 15px 0px; color: var(--techno-admin-bubble-text); margin-right: auto; }
 
 /* Disclaimer modal */
 .techno-chatbot-disclaimer-short { padding: 10px 10px; text-align: center; font-size: 0.9em; }
@@ -67,10 +76,3 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-chatbot-disclaimer-container { border-radius: 5px; width: 700px; background: var(--techno-dsclaimer_bg); color: var(--techno-dsclaimer_txt); max-width: 90%; max-height: 90%; overflow: auto; }
 .techno-chatbot-disclaimer-content { padding: 20px; position: relative; }
 #techno-chatbot-disclaimer-modal .close-btn { position: absolute; right: 0; top: 0; border-radius: 100px; box-shadow: none; border: none; font-size: 30px; background: #fff; color: #000; cursor: pointer; }
-
-/* Typing */
-.techno-chatbot-message.typing { display: flex; gap: 4px; align-items: center; width: 50px; justify-content: center; } 
-.techno-chatbot-message.typing span { width: 6px; height: 6px; background: var(--techno-admin-bubble-text); border-radius: 50%; animation: technoTyping 1.2s infinite ease-in-out; } 
-.techno-chatbot-message.typing span:nth-child(2) { animation-delay: 0.2s; } 
-.techno-chatbot-message.typing span:nth-child(3) { animation-delay: 0.4s; } 
-@keyframes technoTyping { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
