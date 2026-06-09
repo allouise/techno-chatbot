@@ -12,8 +12,6 @@
  * Version:           1.0.2
  * Author:            Technodream
  * Author URI:        https://technodreamwebdesign.com/techno-chatbot/
- * License:           GPL-2.0+
- * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       techno-chatbot
  * Domain Path:       /languages
  */
