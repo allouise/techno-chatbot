@@ -84,8 +84,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'label'       => 'Chat Icon Text',
             'type'        => 'text',
             'section'     => 'texts_section',
-            'default'     => 'Chat With Us',
-            'placeholder' => 'Chat With Us',
+            'default'     => "Let's Chat!",
+            'placeholder' => "Let's Chat!",
             'description' => 'Text shown next to icon If Icon type is = "Icon & Text"'
         ),
 
@@ -94,7 +94,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'text',
             'section'     => 'texts_section',
             'default'     => '',
-            'placeholder' => 'Got questions? Chat with us!',
+            'placeholder' => "Got questions? Let's Chat!",
             'description' => 'Text shown next to icon. Leave blank to disable.'
         ),
 
