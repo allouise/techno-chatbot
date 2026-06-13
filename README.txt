@@ -2,7 +2,7 @@
 Plugin Name: Techno Chatbot
 Requires at least: 3.0.1
 Tested up to: 7.0
-Stable tag: 1.0.2
+Stable tag: 1.0.5
 
 == Description ==
 Techno Chatbot is a real-time chatbot and live chat system built as a WordPress plugin by Technodream Webdesign. It allows automated bot responses and seamless transfer to human administrators for live chat.
@@ -73,3 +73,7 @@ The system includes the following security measures:
 
 = 1.0.4 =
 * Fixed Licensing capabilities
+
+= 1.0.5 =
+* Updated text defaults
+* Fixed Css
