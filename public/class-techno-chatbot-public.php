@@ -640,6 +640,7 @@ class Techno_Chatbot_Public {
 		global $wpdb;
 		$table = $wpdb->prefix . 'techno_livechat_messages';
 		$session_id = sanitize_text_field( $_POST['session_id'] ?? '' );
+		$visitor_name = sanitize_text_field( $_POST['visitor_name'] ?? '' );
 		$history = wp_unslash( $_POST['history'] ?? '' );
 		if (!$session_id || !$history){
 			wp_send_json_error();
@@ -660,17 +661,33 @@ class Techno_Chatbot_Public {
 			$text = isset($msg['text']) ? sanitize_textarea_field($msg['text']) : '';
 			$created_at = isset($msg['created_at']) ? sanitize_textarea_field($msg['created_at']) : '';
 			if (!$text) continue;
+			$data = [
+				'session_id' => $session_id,
+				'sender'     => $sender,
+				'message'    => $text,
+				'user_agent' => $user_agent,
+				'ip_address' => $ip_address,
+				'created_at' => $created_at,
+			];
+			// Save visitor name only for visitor messages
+			if ( ! empty( $visitor_name ) && $sender === 'visitor' ) {
+				$data['name'] = $visitor_name;
+			}
+			$formats = [
+				'%s', // session_id
+				'%s', // sender
+				'%s', // message
+				'%s', // user_agent
+				'%s', // ip_address
+				'%s', // created_at
+			];
+			if ( isset( $data['name'] ) ) {
+				$formats[] = '%s';
+			}
 			$result = $wpdb->insert(
 				$table,
-				[
-					'session_id'	=> $session_id,
-					'sender'		=> $sender,
-					'message'		=> $text,
-					'user_agent'	=> $user_agent,
-					'ip_address'	=> $ip_address,
-					'created_at'	=> $created_at
-				],
-				['%s','%s','%s','%s','%s','%s']
+				$data,
+				$formats
 			);
 			if ($result === false) {
 				wp_send_json_error();
@@ -679,6 +696,38 @@ class Techno_Chatbot_Public {
 				return;
 			}
 		}
+
+		// Send email notification
+		$emails_option = get_option( 'techno_chatbot_emails', '' );
+		$recipients    = [];
+		if ( ! empty( $emails_option ) ) {
+			$emails = preg_split( '/[\r\n,]+/', $emails_option );
+			foreach ( $emails as $email ) {
+				$email = sanitize_email( trim( $email ) );
+				if ( is_email( $email ) ) {
+					$recipients[] = $email;
+				}
+			}
+		}
+		// Fallback to admin email
+		if ( empty( $recipients ) ) {
+			$admin_email = sanitize_email( get_option( 'admin_email' ) );
+			if ( is_email( $admin_email ) ) {
+				$recipients[] = $admin_email;
+			}
+		}
+		if ( ! empty( $recipients ) ) {
+			$subject = 'New Live Chat Request';
+			$message  = "A visitor has requested to transfer to Live Chat.\n\n";
+			$message .= "Session ID: {$session_id}\n";
+			if ( ! empty( $visitor_name ) ) {
+				$message .= "Visitor Name: {$visitor_name}\n";
+			}
+			$message .= "Date: " . current_time( 'mysql' ) . "\n\n";
+			$message .= "Please log in to your website to respond.";
+			wp_mail( $recipients, $subject, $message,['Content-Type: text/plain; charset=UTF-8',]);
+		}
+
 		wp_send_json_success();
 	}
 

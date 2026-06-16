@@ -77,3 +77,11 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-chatbot-disclaimer-container { border-radius: 5px; width: 700px; background: var(--techno-dsclaimer_bg); color: var(--techno-dsclaimer_txt); max-width: 90%; max-height: 90%; overflow: auto; }
 .techno-chatbot-disclaimer-content { padding: 20px; position: relative; }
 #techno-chatbot-disclaimer-modal .close-btn { position: absolute; right: 0; top: 0; border-radius: 100px; box-shadow: none; border: none; font-size: 30px; background: #fff; color: #000; cursor: pointer; }
+
+
+@media only screen and (max-width: 600px) {
+    .techno-chatbot-header{ font-size: calc(var(--techno-chatbot-headingsize) * 0.7); }
+    #techno-chatbot-floating-icon.icon_text { font-size: calc(var(--techno-chatbot-icontextsize) * 0.8); }
+    #techno-chatbot-floating-icon.icon_text img { width: calc(var(--techno-chatbot-iconwidth) * 0.7); height: calc(var(--techno-chatbot-iconheight) * 0.7); }
+    .techno-chatbot-menu ul a{ font-size: calc(var(--techno-chatbot-chatmenusize) * 0.8); }
+}
