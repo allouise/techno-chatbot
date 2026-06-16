@@ -235,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 action: 'techno_bot_to_live',
                 nonce: technoChatbot.nonce,
                 session_id: liveChatSessionId,
+                visitor_name: liveChatVisitorName,
                 history: history
             })
         })
