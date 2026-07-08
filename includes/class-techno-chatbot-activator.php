@@ -37,6 +37,7 @@ class Techno_Chatbot_Activator {
 		}
 
 		self::create_livechat_table();
+		self::create_chat_history_table();
 		self::techno_chatbot_add_role();
 		self::techno_chatbot_add_admin_capability();
 	}
@@ -60,6 +61,37 @@ class Techno_Chatbot_Activator {
 			message_type   ENUM('text','image','file','system') DEFAULT 'text',
 			viewed_at      DATETIME DEFAULT NULL,
 			user_agent 	   VARCHAR(255) DEFAULT NULL,
+			ip_address     VARCHAR(45) DEFAULT NULL,
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			INDEX idx_session (session_id),
+			INDEX idx_created (created_at)
+		) {$charset};";
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( $sql );
+	}
+
+	/**
+	 * Create the chat history DB table
+	 *
+	 * @since    1.0.0
+	 */
+	public static function create_chat_history_table() {
+		global $wpdb;
+
+		$table   = $wpdb->prefix . 'techno_chat_history';
+		$charset = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
+			id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			session_id     VARCHAR(64)     NOT NULL,
+			sender         ENUM('visitor','admin','bot') NOT NULL,
+			message        TEXT            NOT NULL,
+			name           VARCHAR(100)    DEFAULT NULL,
+			message_type   ENUM('text','image','file','system') DEFAULT 'text',
+			viewed_at      DATETIME DEFAULT NULL,
+			user_agent     VARCHAR(255) DEFAULT NULL,
 			ip_address     VARCHAR(45) DEFAULT NULL,
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
