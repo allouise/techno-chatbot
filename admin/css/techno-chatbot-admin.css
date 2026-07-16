@@ -94,3 +94,5 @@
 .tehcno-chat-marquee-inner { display: inline-flex; gap: 20px; padding-right: 40px; flex-shrink: 0; animation: marquee 15s linear infinite; } 
 .tehcno-chat-marquee span + span::before { content: ' · '; } 
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+.toplevel_page_techno-chatbot .form-table [name].disabled { pointer-events: none; }

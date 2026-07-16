@@ -144,9 +144,9 @@ class Techno_Chatbot_License_Manager {
 			$data = [];
 		}
 
-		if ($code !== 200 || !empty($data['error'])) {
+		if ( !isset($data['status']) || !empty($data['error']) ) {
 			delete_option('techno_chatbot_license_data');
-			return '';
+			return $license_key;
 		}
 
 		$status = sanitize_text_field($data['status'] ?? 'invalid');

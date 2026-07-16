@@ -2,7 +2,7 @@
 Plugin Name: Techno Chatbot
 Requires at least: 3.0.1
 Tested up to: 7.0
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 
 == Description ==
 Techno Chatbot is a real-time chatbot and live chat system built as a WordPress plugin by Technodream Webdesign. It allows automated bot responses and seamless transfer to human administrators for live chat.
@@ -55,32 +55,8 @@ The system includes the following security measures:
 
 == Changelog ==
 
-= 1.0.0 =
-* Initial release
-
-= 1.0.1 =
-* Test Updater release
-
-= 1.0.2 =
-* Updated default message
-* Made the FAQ answer field WYSIWYG
-* Allowed chatbot return bot answer with HTML
-
-= 1.0.3 =
-* Fixed AI Prompt for no response
-* Updated chatbot default replies
-* Fixed Licensing
-
-= 1.0.4 =
-* Fixed Licensing capabilities
-
-= 1.0.5 =
-* Updated text defaults
-* Fixed Css
-
-= 1.0.6 =
-* Fixed responsive Css
-* Added admin email notification for live transfer request
+= 1.0.8 =
+* Fixed Licensing Page
 
 = 1.0.7 =
 * Added Dashboard Chat history
@@ -90,3 +66,30 @@ The system includes the following security measures:
 * Added new end chat option for admin - for idle customer
 * Show other contact options if websocket server goes down
 * Show alert if websocket goes off for admin
+
+= 1.0.6 =
+* Fixed responsive Css
+* Added admin email notification for live transfer request
+
+= 1.0.5 =
+* Updated text defaults
+* Fixed Css
+
+= 1.0.4 =
+* Fixed Licensing capabilities
+
+= 1.0.3 =
+* Fixed AI Prompt for no response
+* Updated chatbot default replies
+* Fixed Licensing
+
+= 1.0.2 =
+* Updated default message
+* Made the FAQ answer field WYSIWYG
+* Allowed chatbot return bot answer with HTML
+
+= 1.0.1 =
+* Test Updater release
+
+= 1.0.0 =
+* Initial release
