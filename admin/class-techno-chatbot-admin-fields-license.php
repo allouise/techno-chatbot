@@ -233,15 +233,15 @@ class Techno_Chatbot_Admin_Fields_License {
 			}
 			if ( $type === 'password' && !empty($value) ) {
 				$display_value = '';
-				/* $display_value = str_repeat('*', 8); */
 			} else {
 				$display_value = $value;
 			}
-			echo '<input '.$disabled.'
+
+			echo '<input 
 					type="' . esc_attr($input_type) . '"
 					name="' . esc_attr( $option ) . '"
 					value="' . esc_attr( $display_value ) . '"
-					class="regular-text"
+					class="regular-text '.$disabled.'"
 					style="width:100%;"
 					placeholder="' . ( $type === 'password' && !empty($value)? '********' : esc_attr( $placeholder ) ) . '"
 					'.( $input_type == 'url'? 'pattern="https?://.*"' : '' ).'
@@ -257,14 +257,19 @@ class Techno_Chatbot_Admin_Fields_License {
 		if ($option === 'techno_chatbot_license') {
 			$license_data = get_option('techno_chatbot_license_data', [
 				'plan' => 'free',
-				'status' => 'inactive',
+				'status' => 'invalid',
 				'expires' => ''
 			]);
 			$status = ucfirst($license_data['status'] ?? 'Inactive');
 			$plan   = ucfirst($license_data['plan'] ?? 'Free');
 			$expires = !empty($license_data['expires']) ? date('M d, Y', strtotime($license_data['expires'])) : '—';
-			echo '<div class="license-details" style="margin-top:10px;"> Plan: <strong style="color: #0066ff;">' . esc_html($plan) . '</strong> Status: <strong style="color: '. ( $status == 'Active'? '#03a756' : '#f00' ) .';">' . esc_html($status) . '</strong> Expires: <strong>' . esc_html($expires) . '</strong>
+			if( $status == 'Active' ){
+				echo '<div class="license-details" style="margin-top:10px;"> Plan: <strong style="color: #0066ff;">' . esc_html($plan) . '</strong> Status: <strong style="color: #03a756;">' . esc_html($status) . '</strong> Expires: <strong>' . esc_html($expires) . '</strong>
 			</div>';
+			}else{
+				echo '<div class="license-details" style="margin-top:10px;">License Status: <strong style="color: #f00">' . esc_html($status) . '</strong></div>';
+			}
+			
 		}
 
 		if ( ! empty( $description ) && $type !== 'checkbox' ) {
