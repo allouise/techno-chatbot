@@ -5,8 +5,10 @@ const toggleLabel = document.getElementById('techno-toggle-label');
 const chatInput = document.getElementById('techno-admin-chat-input');
 const sendBtn = document.getElementById('techno-admin-chat-send');
 const endBtn = document.getElementById('techno-admin-chat-end');
+const endIdleBtn = document.getElementById('techno-admin-chat-end-idle');
 const chatOptions = document.getElementById('chat-options');
 const activeVisitors = document.getElementById('techno-active-visitors');
+const chatMsgWindow = document.getElementById('techno-livechat-admin-chatmsgs');
 const chatWindow = document.getElementById('techno-admin-chat-window');
 const chatToggle = document.getElementById('techno-support-switch');
 const notifToggle = document.getElementById('techno-notification-toggle');
@@ -41,20 +43,15 @@ function initAdminSocket() {
     /* On Error */
     socket.on("connect_error", () => {
         console.log("WebSocket server is OFF");
-        if (toggleInput) {
-            toggleInput.checked = false;
-            toggleInput.disabled = true;
-        }
-        if (chatToggle) chatToggle.classList.remove('active');
-        if (toggleLabel) toggleLabel.textContent = "Server Offline";
-
-        updateChatState(false);
-        updateSupportStatus(0);
+        socket.disconnect();
+        loadActiveVisitorsDB();
+        updateSupportStatus();
+        alert('Websocket is turned off, Please try refreshing the page. If Problem persists contact administrator.');
     });
 
     /* On Connect */
     socket.on("connect", () => {
-        loadActiveVisitors();
+        loadActiveVisitorsDB();
         chatToggle?.classList.add('active');
         toggleInput.disabled = false;
         if (toggleInput?.checked) {
@@ -84,32 +81,20 @@ function initAdminSocket() {
      * Server sends array of { session_id, visitor_name } (or legacy plain strings).
      */
     socket.on("active-sessions", (sessions) => {
-        const incoming = {};
-        const incomingMeta = {};
-        sessions.forEach(s => {
-            const sid  = typeof s === 'object' ? s.session_id : s;
-            const name = typeof s === 'object' ? (s.visitor_name || sid) : sid;
-            incoming[sid] = name;
-            incomingMeta[sid] = { active: s.active ?? true };
+        Object.keys(sessionMapMeta).forEach(sid => {
+            sessionMapMeta[sid].active = false;
         });
 
-        /* detect removed sessions */
-        Object.keys(sessionMap).forEach(oldSid => {
-            if (!incoming[oldSid]) {
-                console.log( "Visitor left:", oldSid );
-                handleVisitorLeft(oldSid);
+        sessions.forEach(chat => {
+            if (sessionMap[chat.session_id] && sessionMapMeta[chat.session_id]) {
+                sessionMapMeta[chat.session_id].active = chat.active;
+            } else {
+                sessionMap[chat.session_id] = chat.visitor_name || chat.session_id;
+                sessionMapMeta[chat.session_id] = {
+                    active: chat.active
+                };
             }
         });
-
-        if (initialLoadDone) {
-            Object.entries(incoming).forEach(([sid, name]) => {
-                if (!sessionMap[sid]) notifyNewSession(sid, name);
-            });
-        }
-
-        sessionMap = incoming;
-        sessionMapMeta = incomingMeta;
-        initialLoadDone = true; 
         renderActiveVisitors();
     });
 
@@ -133,25 +118,20 @@ function initAdminSocket() {
 }
 
 function updateChatState(isOnline) {
-    if (!chatInput || !sendBtn || !endBtn  || !chatWindow || !chatMessages || !chatHeader) return;
+    if (!chatInput || !sendBtn || !chatWindow || !chatMessages || !chatHeader) return;
     chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
     sendBtn.textContent = isOnline ? 'Send' : 'Offline';
     const opened = activeVisitors.querySelector('.open');
     if( isOnline && !opened ) isOnline = false;
     chatInput.disabled = !isOnline;
     sendBtn.disabled = !isOnline;
-    endBtn.disabled = !isOnline;
     chatWindow.classList.toggle('disabled', !isOnline);
-    if( !isOnline ){
-        chatMessages.innerHTML = "";
-    }
 }
 
 function updateSupportStatus(force = null) {
-    force = (force == 1)? 1 : 0;
+    force = (force === 1)? 1 : 0;
     const opened = activeVisitors.querySelector('.open');
     if( opened ){ 
-        opened.classList.remove('open');
         updateChatState(false);
     }
     fetch(technoLivechat.ajax_url, {
@@ -167,9 +147,18 @@ function updateSupportStatus(force = null) {
     .then(res => {
         if(res.success) {
             const online = res.data.online;
-            if (toggleInput) toggleInput.checked = online;
+            if (toggleInput){
+                toggleInput.checked = online ? true : false;
+            }
             if (toggleLabel) {
                 toggleLabel.textContent = online ? 'Online' : ( res.data.server_offline ? 'Server Offline' : 'Offline');
+            }
+            if (chatToggle) {
+                if(res.data.server_offline){
+                    chatToggle.classList.remove('active');
+                }else{
+                    chatToggle.classList.add('active');
+                }
             }
             updateChatState(online);
         }
@@ -180,6 +169,7 @@ function openSession(sessionId) {
     currentSession = sessionId;
     socket.emit('join-session', { session_id: sessionId });
     adminLastId = 0;
+    chatMsgWindow.style.display = 'flex';
 
     /* Update header with visitor's display name */
     if (chatHeader) {
@@ -259,7 +249,6 @@ function playNotification() {
     audio.play().catch(e => console.log("Audio error:", e));
 }
 function notifyNewSession(sessionId, visitorName) {
-    /* console.log("New visitor:", visitorName, "("+sessionId+")"); */
     if (document.visibilityState === 'visible') { 
         if (audioUnlocked) {
             playNotification();
@@ -344,9 +333,36 @@ function renderActiveVisitors() {
         activeVisitors.prepend(li);
     });
 }
-function loadActiveVisitors() {
-    if(!socket) return;
-    socket.emit("get-active-sessions");
+function loadActiveVisitorsDB() {
+    fetch(technoLivechat.ajax_url, {
+        method: "POST",
+        headers: {
+            "Content-Type":"application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+            action: "techno_get_active_livechats",
+            nonce: technoLivechat.nonce
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(!res.success) return;
+        sessionMap = {};
+        sessionMapMeta = {};
+
+        res.data.forEach(chat => {
+            sessionMap[chat.session_id] = chat.visitor_name;
+            sessionMapMeta[chat.session_id] = {
+                active: chat.active
+            };
+        });
+        if(socket){
+            socket.emit("get-active-sessions");
+        }else{
+            renderActiveVisitors();
+        }
+    })
+    .catch(console.error);
 }
 
 /* 
@@ -361,9 +377,9 @@ function escapeHtml(str) {
     div.textContent = str;
     return div.innerHTML;
 }
-function sendAdminMessage() {
+async function sendAdminMessage(save = true) {
     const msg = chatInput.value.trim();
-    if (!msg || !currentSession || !socket) return;
+    if (!msg || !currentSession || !socket) return false;
     chatInput.value = '';
 
     socket.emit("send-message", {
@@ -371,9 +387,12 @@ function sendAdminMessage() {
         message: msg,
         sender: 'admin'
     });
-    addAdminMessage({ sender: 'admin', message: msg });
+    if(save){
+        addAdminMessage({ sender: 'admin', message: msg });
+    }
+    return true;
 }
-function addAdminMessage(msg) {
+async function addAdminMessage(msg) {
     if (!chatMessages) return;
 
     /* Cache first so a tab-switch immediately after will show it */
@@ -443,10 +462,74 @@ function renderMessageBatch(messages) {
 /* 
  * End Chat
  */
-endBtn?.addEventListener('click', function(){
+async function endChat(_type = '/endchat') {
     if (!currentSession || !socket) return;
-    chatInput.value = '/endchat';
-    sendAdminMessage();
+    
+    chatInput.value = _type;
+    sendAdminMessage(false);
+
+    /* Save history */
+    const sessionId = currentSession;
+    fetch(technoLivechat.ajax_url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+            action: "techno_end_chat",
+            nonce: technoLivechat.nonce,
+            end_type: _type,
+            session_id: sessionId
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            finishEndChat(sessionId);
+        }else{
+            console.error(res.data)
+            return;
+        }
+    })
+    .catch(console.error);
+}
+function finishEndChat(sessionId) {
+    socket.emit("end-chat", { session_id: sessionId });
+    
+    delete sessionMessages[sessionId];
+    delete sessionMap[sessionId];
+    delete sessionMapMeta[sessionId];
+
+    currentSession = null;
+    adminLastId = 0;
+    chatInput.value = '';
+
+    updateChatState(false);
+    renderActiveVisitors();
+}
+endBtn?.addEventListener('click', () => {
+    const confirmed = confirm(
+        "Are you sure you want to end this chat?\n\nThis action is Irreversible and will archive the conversation and disconnect the visitor."
+    );
+    if (!confirmed) {
+        return;
+    }else{
+        chatMsgWindow.removeAttribute('style');
+        alert('Chat ended.');
+    }
+    endChat('/endchat');
+});
+endIdleBtn?.addEventListener('click', () => {
+    const confirmed = confirm(
+        "Are you sure you want to end this chat?\n\nThis action is Irreversible and will archive the conversation and disconnect the visitor."
+    );
+    if (!confirmed) {
+        return;
+    }else{
+        chatMsgWindow.removeAttribute('style');
+        alert('Chat ended due to inactivity.');
+    }
+    endChat('/endchat1');
 });
 
 /*
@@ -524,17 +607,10 @@ if(toggleInput) {
             requestNotificationPermission();
         } else {
             socket.emit("unregister-support");
-            updateSupportStatus(0);
+            updateSupportStatus();
         }
     });
 }
-
-/* ---------- Auto-offline if admin closes tab ---------- */
-/* window.addEventListener('beforeunload', () => {
-    if(socket) {
-        socket.emit("unregister-support");
-    }
-}); */
 
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {

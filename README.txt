@@ -81,3 +81,12 @@ The system includes the following security measures:
 = 1.0.6 =
 * Fixed responsive Css
 * Added admin email notification for live transfer request
+
+= 1.0.7 =
+* Added Dashboard Chat history
+* Improved Admin JS files init
+* Added history deletion
+* Added history export
+* Added new end chat option for admin - for idle customer
+* Show other contact options if websocket server goes down
+* Show alert if websocket goes off for admin

@@ -9,7 +9,7 @@
  * Plugin Name:       Techno Chatbot
  * Plugin URI:        https://technodreamwebdesign.com/techno-chatbot
  * Description:       Technodream Chatbot
- * Version:           1.0.6
+ * Version:           1.0.7
  * Author:            Technodream
  * Author URI:        https://technodreamwebdesign.com/techno-chatbot/
  * Text Domain:       techno-chatbot

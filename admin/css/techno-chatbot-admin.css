@@ -5,9 +5,9 @@
 .techno-chat-admin-loader{ display: none; }
 #techno-livechat-admin.loading .techno-chat-admin-loader { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 10; background: #ffffffc9; font-size: 1.2em; text-transform: uppercase; }
 #techno-livechat-admin-visitors{ flex:1; max-width:300px; background: #fafafa; border:1px solid #ddd; padding:10px; }
-#techno-livechat-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:flex; flex-direction:column; position: sticky; top: 30px; }
+#techno-livechat-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:none; flex-direction:column; position: sticky; top: 30px; }
 #techno-admin-chat-window { display: flex; flex-direction: column; padding-bottom: 10px; position: relative; }
-#techno-admin-chat-window.disabled { opacity: 0.2; pointer-events: none; }
+#techno-admin-chat-window.disabled { opacity: 0.6; }
 #techno-admin-chat-header { font-size: 1.3em; line-height: 100%; display: inline-flex ; align-self: flex-end; padding: 10px 15px; background: #f2f2f2; position: sticky; border: 1px solid #8c8f94; border-radius: 100px 30px 0 100px; top: 35px; margin: 0 0 -35px 0; z-index: 5; }
 #techno-admin-chat-header strong { color: #198b66; text-transform: capitalize; margin-left: 5px; font-weight: 900; text-transform: uppercase; }
 #techno-admin-chat-messages { background: #e9e9e9; border: 1px solid #8c8f94; border-radius: 5px; height: 500px; overflow-y: auto; display: flex; flex: 1; flex-direction: column; padding: 45px 10px 25px 10px; max-height: calc(100vh - 40vh); }
@@ -24,11 +24,10 @@
 #chat-options { display: flex; flex-direction: column; position: relative; }
 #chat-options .options-btn { background: #4caf8f; border: none; outline: none; font-size: 30px; height: 100%; border-left: 1px solid rgba(0, 0, 0, 0.2); border-radius: 0 5px 5px 0; padding: 0 20px; color: #fff; cursor: pointer; }
 #chat-options.active .options-btn { background: #278164; }
-#chat-options .options-menu { position: absolute; bottom: 50px; width: 200px; right: 5px; border-radius: 5px 5px 0 5px; overflow: hidden; max-height: 0; opacity: 0; transition: 0.3s all; }
+#chat-options .options-menu { position: absolute; bottom: 50px; width: 255px; right: 5px; border-radius: 5px 5px 0 5px; overflow: hidden; max-height: 0; opacity: 0; transition: 0.3s all; }
 #chat-options.active .options-menu { max-height: 9999px; opacity: 1; }
-#chat-options .options-menu button { cursor: pointer; width: 100%; display: block; border: none; outline: none; background: #4caf8f; color: #fff; padding: 10px 5px; font-size: 20px; line-height: 120%; border-bottom: 1px solid rgba(0, 0, 0, 0.2); }
-#chat-options .options-menu #techno-admin-chat-end { background: rgb(255, 34, 34); }
-#techno-admin-chat-window.disabled ~ .chat-controls #chat-options { opacity: 0.6; pointer-events: none; }
+#chat-options .options-menu button { cursor: pointer; width: 100%; display: block; border: none; outline: none; background: #fc4949; color: #fff; padding: 10px 5px; font-size: 20px; line-height: 120%; border-bottom: 1px solid rgba(0, 0, 0, 0.2); }
+#chat-options .options-menu button:hover{ background: #fc1b1b; }
 #techno-admin-chat-input { flex: 1; font-size: 18px; padding: 5px 15px; border-radius: 5px 0 0 5px; border-right: none; }
 #techno-admin-chat-input[disabled] { opacity: 0.6; pointer-events: none; }
 #techno-admin-chat-send { text-transform: uppercase; background: #4caf8f; color: #fff; border: none; border-radius: 0; font-size: 18px; display: inline-block; padding: 15px 30px; font-weight: bold; letter-spacing: 1px; cursor: pointer; }
@@ -45,7 +44,7 @@
 #techno-active-visitors [data-session] { background: #fafafa; cursor: pointer; color: #000; padding: 20px 15px; border-top: 1px solid #eaeaea; border-bottom: 1px solid #eaeaea; border-left: 15px solid #4caf50; border-right: 0px solid #4caf50; border-radius: 5px; transition: all 0.5s; max-width: calc(100% - 80px); position: relative; }
 #techno-active-visitors [data-session]:hover, #techno-active-visitors [data-session]:focus { border-right: 30px solid #4caf50; }
 #techno-active-visitors [data-session]:before { color: #fff; content: 'Online'; position: absolute; left: 5px; transform: rotateZ(-90deg); top: 0; bottom: 0; margin: auto; font-size: 0.8em; letter-spacing: 1px; }
-#techno-active-visitors [data-session]:after { text-transform: uppercase; content: 'Chat'; position: absolute; right: -30px; bottom: 0; top: 0; transform: rotateZ(270deg); color: #fff; font-weight: 500; line-height: 100%; height: 15px; margin: auto; transition: all 0.5s; opacity: 0; }
+#techno-active-visitors [data-session]:after { text-transform: uppercase; content: 'Open'; position: absolute; right: -30px; bottom: 0; top: 0; transform: rotateZ(270deg); color: #fff; font-weight: 500; line-height: 100%; height: 15px; margin: auto; transition: all 0.5s; opacity: 0; }
 #techno-active-visitors [data-session]:hover:after{ opacity: 1; }
 #techno-active-visitors [data-session].inactive { border-left: 15px solid #888; }
 #techno-active-visitors [data-session].inactive:before { content: 'Offline'; }
@@ -55,6 +54,41 @@
 #techno-active-visitors .techno-visitor-sid { text-overflow: ellipsis; max-width: 100px; display: inline-block; overflow: hidden; white-space: nowrap; }
 #notifHowTo { cursor: pointer; position: absolute; right: 10px; top: -40px; z-index: 1; font-size: 1em; background: #fbfbfb; padding: 10px 25px; border: 1px solid #ccc; }
 #techno-livechat-notifs { position: absolute; top: -40px; background: #fff; right: 370px; width: calc(60% - 370px); padding: 10px 25px; border: 1px solid #ccc; }
+
+#techno-history-admin{ display:flex; gap:1rem; align-items: flex-start; position: relative; }
+#techno-history-admin.loading .techno-chat-admin-loader { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 10; background: #ffffffc9; font-size: 1.2em; text-transform: uppercase; }
+#techno-history-admin-visitors{ flex:1; max-width:300px; background: #fafafa; border:1px solid #ddd; padding:10px; }
+#techno-history-admin-chatmsgs{ flex:3; background: #fafafa; border:1px solid #ddd; padding:10px; display:flex; flex-direction:column; position: sticky; top: 30px; }
+
+.techno-history-visitor { display: flex; align-items: center; gap: 15px; }
+.techno-history-visitor .open-history{ background: #fafafa; cursor: pointer; color: #000; padding: 20px 15px; border-top: 1px solid #eaeaea; border-bottom: 1px solid #eaeaea; border-left: 5px solid #888; border-right: 0px solid #4caf50; border-radius: 5px; transition: all 0.5s; max-width: calc(100% - 80px); position: relative; width: 100%; }
+.techno-history-visitor .open-history:hover, .techno-history-visitor .open-history:focus { border-right: 30px solid #4caf50; }
+.techno-history-visitor .open-history:before { color: #fff; content: ''; position: absolute; left: 5px; transform: rotateZ(-90deg); top: 0; bottom: 0; margin: auto; letter-spacing: 1px; }
+.techno-history-visitor .open-history:after { text-transform: uppercase; content: 'View'; position: absolute; right: -30px; bottom: 0; top: 0; transform: rotateZ(270deg); color: #fff; font-weight: 500; line-height: 100%; height: 15px; margin: auto; transition: all 0.5s; opacity: 0; }
+.techno-history-visitor .open-history:hover:after{ opacity: 1; }
+.techno-history-visitor .open-history.inactive { border-left: 15px solid #888; }
+.techno-history-visitor .open-history.inactive:before { content: 'Offline'; }
+.techno-history-visitor .open-history.active { background: #fff; border-right: 30px solid #4caf8f; box-shadow: 0 2px 25px #00000042; z-index: 2; position: sticky; top: 30px; }
+.techno-history-visitor .open-history.active:after { content: 'Opened'; opacity: 1; right: -38px; }
+.techno-history-visitor .open-history strong{ font-weight: 500; text-transform: capitalize; display: block; font-size: 1.2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.techno-history-visitor .open-history small { text-overflow: ellipsis; max-width: 100%; display: inline-block; overflow: hidden; white-space: nowrap; }
+
+#history-export-control { display: flex; gap: 5px; align-items: center; }
+#history-export-control.disabled { pointer-events: none; opacity: 0.5; }
+#history-export-control label { cursor: pointer; width: 120px; }
+#history-export-control #delete-history { cursor: pointer; width: 50%; padding: 10px; background: #f00; color: #fff; border: none; font-weight: bold; text-transform: uppercase; border-radius: 5px; }
+#history-export-control #export-history { cursor: pointer; width: 50%; padding: 10px; background: #01a3ee; color: #fff; border: none; font-weight: bold; text-transform: uppercase; border-radius: 5px; }
+
+.techno-history-msg{ margin-bottom: 25px; padding: 15px 15px; border-radius: 10px 10px 0; max-width: 80%; word-wrap: break-word; font-size: 17px; line-height: 100%; box-shadow: 1px 2px 5px #0000001a; position: relative; } 
+.techno-history-msg.bot { background: #0073aa; color: #fff; margin-left: auto; text-align: left; } 
+.techno-history-msg.admin { background: #4caf50; color: #fff; margin-left: auto; text-align: left; } 
+.techno-history-msg.visitor { background: #fff; border-radius: 10px 10px 10px 0; color: #333; margin-right: auto; }
+.techno-history-msg.system-error { display: block; text-align: center; color: #fff; background: #f00; font-weight: bold; }
+
+.techno-chathistory-picker{ display:flex; justify-content: space-between; align-items: flex-end; gap: 5px; }
+.techno-chathistory-picker label { width: 40%; }
+.techno-chathistory-picker input { width: 100%; height: 40px; }
+.techno-chathistory-picker button { width: 20%; height: 40px; font-size: 15px; font-weight: bold; }
 
 .tehcno-chat-marquee { white-space: nowrap; overflow: hidden; display: flex; }
 .tehcno-chat-marquee-inner { display: inline-flex; gap: 20px; padding-right: 40px; flex-shrink: 0; animation: marquee 15s linear infinite; } 

@@ -1,4 +1,4 @@
-<div id="techno-livechat-admin" class="<?php echo $online == 1 ? esc_attr('online') : ''; ?>">
+<div id="techno-livechat-admin">
     <a id="notifHowTo"><span>ℹ️</span> How to enable <strong>Desktop & Browser Notification</strong></a>
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
@@ -27,11 +27,10 @@
                 }else{
                     echo esc_html('Server Offline');
                 }
-                
                 ?>
             </span>
         </div>
-        <h3>Active Visitors</h3>
+        <h3>Chats</h3>
         <ul id="techno-active-visitors"></ul>
     </div>
 
@@ -47,7 +46,8 @@
             <div id="chat-options">
                 <button class="options-btn">&#8942;</button>
                 <div class="options-menu">
-                    <button class="menu-item" id="techno-admin-chat-end" type="button">End Chat</button>
+                    <button class="menu-item" id="techno-admin-chat-end" type="button">Send End Chat Options</button>
+                    <button class="menu-item" id="techno-admin-chat-end-idle" type="button">End Due To Inactivity</button>
                 </div>
             </div>
         </div>
