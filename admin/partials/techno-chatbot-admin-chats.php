@@ -18,17 +18,22 @@
         <a href="?page=techno-chatbot-livechat&tab=livechat" class="nav-tab <?php echo $active_tab === 'livechat' ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'Live Chat', 'techno-chatbot' ); ?>
         </a>
-        <!-- <a href="?page=techno-chatbot-livechat&tab=history" class="nav-tab <?php echo $active_tab === 'history' ? 'nav-tab-active' : ''; ?>">
+        <a href="?page=techno-chatbot-livechat&tab=history" class="nav-tab <?php echo $active_tab === 'history' ? 'nav-tab-active' : ''; ?>">
             <?php esc_html_e( 'History', 'techno-chatbot' ); ?>
-        </a> -->
+        </a>
     </h2>
 
     <?php $plans = techno_chatbot_feature('live_chat');
     if( $plans['allowed'] == true ){ ?>
 
-    <?php if( $active_tab === 'livechat' ){
-        include plugin_dir_path( __FILE__ ) . 'techno-chatbot-admin-livechat.php';
-    } ?>
+    <?php 
+        if( $active_tab === 'livechat' ){
+            include plugin_dir_path( __FILE__ ) . 'techno-chatbot-admin-livechat.php';
+        }
+        if( $active_tab === 'history' ){
+            include plugin_dir_path( __FILE__ ) . 'techno-chatbot-admin-history.php';
+        } 
+    ?>
 
     <?php } else { techno_chatbot_msgformat($plans['message']); } ?>
 </div>

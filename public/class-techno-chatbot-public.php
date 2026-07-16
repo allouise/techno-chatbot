@@ -115,6 +115,7 @@ class Techno_Chatbot_Public {
 			'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg'),
 			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
 			'end_msg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat'),
+			'end_msgidleguest' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
@@ -326,6 +327,33 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Get Live Chat History
+	 *
+	 * @since 1.0.7
+	 */
+	public function get_livechat_history() {
+		check_ajax_referer('techno_chatbot_nonce','nonce');
+
+		$session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+		if ( empty( $session_id ) ) wp_send_json_error('Missing session id');
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_chat_history';
+		$exists = (bool) $wpdb->get_var(
+			$wpdb->prepare("SELECT 1
+				FROM {$table}
+				WHERE session_id = %s
+				LIMIT 1",
+				$session_id )
+		);
+		if ($exists) {
+			wp_send_json_success(['has_history' => true]);
+		} else {
+			wp_send_json_success(['has_history' => false]);
+		}
+	}
+
+	/**
 	 * Get and Send History
 	 *
 	 * @since 1.0.0
@@ -385,12 +413,16 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Get and Send History
+	 * End live chat
 	 *
 	 * @since 1.0.0
 	 */
 	public function end_live_chat(){
 		check_ajax_referer('techno_chatbot_nonce','nonce');
+		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+		$session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
+		$end_type = isset($_POST['end_type']) ? sanitize_text_field($_POST['end_type']) : '';
+		if ( empty( $session_id ) ) wp_send_json_error('Missing session id');
 
 		// Rate limit per IP
 		$ip = $_SERVER['REMOTE_ADDR'];
@@ -400,19 +432,8 @@ class Techno_Chatbot_Public {
 		if( $count >= 10 ){
 			wp_send_json_error('Too many requests');
 		}
-
 		set_transient($transient_key, $count + 1, 60);
-		if( empty($_POST['history']) ){
-			wp_send_json_error();
-		}
-		$history = json_decode( stripslashes($_POST['history']), true );
 
-		if( !is_array($history) ){
-			wp_send_json_error();
-		}
-
-		// Limit messages to prevent abuse
-		$history = array_slice($history, -30);
 		$emails_option = get_option('techno_chatbot_emails');
 		$admin_email = sanitize_email(get_option('admin_email'));
 		if( !empty($emails_option) ){
@@ -420,22 +441,20 @@ class Techno_Chatbot_Public {
 			$admin_email = array_filter(array_map('sanitize_email', $emails));
 		}
 
+		$archive = $this->archive_chat($session_id, $email, $end_type);
+		$history = $this->get_chat_history($session_id);
 		$message = "Chatbot Conversation\n\n";
-		foreach($history as $msg){
-
-			if(!isset($msg['sender']) || !isset($msg['text'])){
-				continue;
-			}
-
-			$sender = sanitize_text_field($msg['sender']);
-			$text   = sanitize_textarea_field($msg['text']);
-			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
-			$message .= "{$label}: {$text}\n";
+		foreach ($history as $msg) {
+			$label = match ($msg['sender']) {
+				'visitor' => 'Visitor',
+				'admin'   => 'Support',
+				'bot'     => 'Bot',
+				default   => 'Unknown'
+			};
+			$message .= "{$label}: {$msg['message']}\n";
 		}
 
 		$admin_mail = wp_mail( $admin_email, 'New Chatbot Contact', $message );
-		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-
 		if( !$email && $admin_mail ){
 			wp_send_json_success();
 		}elseif( !$admin_mail ){
@@ -451,6 +470,163 @@ class Techno_Chatbot_Public {
 				wp_send_json_error('Email Error');
 			}
 		}
+	}
+
+	/**
+	 * Archive Chat
+	 *
+	 * @since 1.0.7
+	 */
+	private function archive_chat( $session_id, $email = '', $end_type = '' ) {
+		global $wpdb;
+
+		$user_id = get_current_user_id();
+		$user_id = $user_id ?: null;
+		$historySent = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent');
+		$endChatMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg');
+		$endIdleChatMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message');
+		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
+		$ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
+
+		$live_table    = $wpdb->prefix . 'techno_livechat_messages';
+		$history_table = $wpdb->prefix . 'techno_chat_history';
+		$wpdb->query( 'START TRANSACTION' );
+
+		try {
+			$insert = $wpdb->query(
+				$wpdb->prepare(
+					"INSERT INTO {$history_table}
+					(
+						session_id,
+						user_id,
+						sender,
+						message,
+						name,
+						message_type,
+						viewed_at,
+						user_agent,
+						ip_address,
+						created_at
+					)
+					SELECT
+						session_id,
+						user_id,
+						sender,
+						message,
+						name,
+						message_type,
+						viewed_at,
+						user_agent,
+						ip_address,
+						created_at
+					FROM {$live_table}
+					WHERE session_id = %s",
+					$session_id
+				)
+			);
+			if ( $insert === false ) throw new Exception( 'Failed to archive chat.' );
+
+			if ( $insert > 0 ) {
+				$delete = $wpdb->delete(
+					$live_table,
+					[ 'session_id' => $session_id ],
+					[ '%s' ]
+				);
+
+				if ( $delete === false ) {
+					error_log( sprintf( 'Delete Chats failed. Session: %s | Error: %s', $session_id, $wpdb->last_error ) );
+					throw new Exception( 'Failed to remove live messages.' );
+				}
+
+				$message = empty( $email ) ? $endChatMsg : $historySent;
+				if($end_type == 'idle'){
+					$message = $endIdleChatMsg;
+				}
+				
+				if ( ! empty( $email ) ) {
+					$result = $wpdb->insert(
+						$history_table,
+						[
+							'session_id'   => $session_id,
+							'user_id'	   => $user_id,
+							'sender'       => 'visitor',
+							'message'      => $email,
+							'message_type' => 'text',
+							'user_agent'   => $user_agent,
+							'ip_address'   => $ip_address,
+						],
+						[
+							'%s',
+							'%d',
+							'%s',
+							'%s',
+							'%s',
+							'%s',
+							'%s',
+						]
+					);
+
+					if ( $result === false ) {
+						throw new Exception( 'Failed to insert visitor email.' );
+					}
+				}
+				$result = $wpdb->insert(
+					$history_table,
+					[
+						'session_id'   => $session_id,
+						'user_id'	   => $user_id,
+						'sender'       => 'bot',
+						'message'      => $message,
+						'message_type' => 'text',
+						'user_agent'   => $user_agent,
+						'ip_address'   => $ip_address,
+					],
+					[
+						'%s',
+						'%d',
+						'%s',
+						'%s',
+						'%s',
+						'%s',
+						'%s',
+					]
+				);
+
+				if ( $result === false ) {
+					throw new Exception( 'Failed to insert final chat message.' );
+				}
+
+			}
+
+			$wpdb->query( 'COMMIT' );
+			return $insert;
+
+		} catch ( Exception $e ) {
+			error_log('Archive Chat Failed: ' . $e->getMessage());
+			$wpdb->query( 'ROLLBACK' );
+			throw $e;
+		}
+	}
+
+	/**
+	 * Get Archived Chat
+	 *
+	 * @since 1.0.7
+	 */
+	private function get_chat_history( $session_id ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_chat_history';
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sender, message, created_at
+				FROM {$table}
+				WHERE session_id = %s
+				ORDER BY created_at ASC, id ASC",
+				$session_id
+			),
+			ARRAY_A
+		);
 	}
 
 	/**
@@ -539,7 +715,9 @@ class Techno_Chatbot_Public {
 	 */
 	public function save_chat_message() {
         check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
- 
+
+		$user_id = get_current_user_id();
+		$user_id = $user_id ?: null;
         /* ---- rate limit: max 60 saves per minute per IP ---- */
         $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
         $rate_key = 'techno_chat_save_' . md5( $ip );
@@ -594,6 +772,7 @@ class Techno_Chatbot_Public {
         $table = $wpdb->prefix . 'techno_livechat_messages';
         $data = [
 			'session_id'   => $session_id,
+			'user_id'	   => $user_id,
 			'sender'       => $sender,
 			'message'      => $message,
 			'message_type' => $message_type,
@@ -602,6 +781,7 @@ class Techno_Chatbot_Public {
 		];
 		$format = [
 			'%s', // session_id
+			'%d', // user_id
 			'%s', // sender
 			'%s', // message
 			'%s', // message_type
@@ -631,6 +811,8 @@ class Techno_Chatbot_Public {
 	public function techno_bot_to_live(){
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
+		$user_id = get_current_user_id();
+		$user_id = $user_id ?: null;
 		$livechat_plan   = techno_chatbot_feature('live_chat');
     	$livechat_enabled = $livechat_plan['allowed'] === true;
 		if( $livechat_enabled != true ){
@@ -663,6 +845,7 @@ class Techno_Chatbot_Public {
 			if (!$text) continue;
 			$data = [
 				'session_id' => $session_id,
+				'user_id'	 => $user_id,
 				'sender'     => $sender,
 				'message'    => $text,
 				'user_agent' => $user_agent,
@@ -675,6 +858,7 @@ class Techno_Chatbot_Public {
 			}
 			$formats = [
 				'%s', // session_id
+				'%d', // user_id
 				'%s', // sender
 				'%s', // message
 				'%s', // user_agent

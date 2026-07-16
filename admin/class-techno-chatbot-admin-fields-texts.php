@@ -253,6 +253,15 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'description' => 'Message shown when agents gets disconnected while on live chat'
         ),
 
+        'techno_chatbot_idle_guests_message' => array(
+            'label'       => 'Guest Gets Idle',
+            'type'        => 'textarea',
+            'section'     => 'messages_section',
+            'rows'        => 4,
+            'default'     => 'Thank you for reaching out! Previous chat has been closed due to inactivity. If you still need assistance, simply start a new chat anytime. Our team will be happy to help you.',
+            'description' => 'Message shown when guests gets disconnected while on live chat due to inactivity'
+        ),
+
         'techno_chatbot_cphoneLabel' => array(
             'label'       => 'Contact Option Phone',
             'type'        => 'text',
@@ -321,7 +330,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'type'        => 'textarea',
             'section'     => 'messages_section',
             'rows'        => 2,
-            'default'     => 'A copy of this conversation has been sent successfully. Thank you for chatting with us!',
+            'default'     => 'A copy of the conversation has been sent successfully. Thank you for chatting with us!',
             'description' => 'Message shown after successful sending history to guest.'
         ),
 
