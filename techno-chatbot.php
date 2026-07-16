@@ -24,7 +24,7 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Current plugin version.
  */
-define( 'TECHNO_CHATBOT_VERSION', '1.0.6' );
+define( 'TECHNO_CHATBOT_VERSION', '1.0.7' );
 define( 'TECHNO_CHATBOT_FILEBASE', plugin_basename( __FILE__ ) );
 define( 'TECHNO_CHATBOT_FOLDER_URL', plugins_url( '', __FILE__ ) );
 
