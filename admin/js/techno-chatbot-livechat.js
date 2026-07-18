@@ -46,12 +46,17 @@ function initAdminSocket() {
         socket.disconnect();
         loadActiveVisitorsDB();
         updateSupportStatus();
+        if (!document.getElementById("ws-off-warning")) {
+            livechatPage.insertAdjacentHTML( "afterbegin",
+                '<div id="ws-off-warning" style="background:#ffe5e5;color:#a00000;padding:12px;border:1px solid #ffb3b3;border-radius:6px;font-weight:600;position:absolute;z-index:2;top:15vh;left:0;right:0;margin:auto;width:625px;max-width:100%;font-size:13px;">WebSocket is turned off. Please try refreshing the page. If the problem persists, contact the administrator.</div>' );
+        }
         alert('Websocket is turned off, Please try refreshing the page. If Problem persists contact administrator.');
     });
 
     /* On Connect */
     socket.on("connect", () => {
         loadActiveVisitorsDB();
+        document.getElementById("ws-off-warning")?.remove();
         chatToggle?.classList.add('active');
         toggleInput.disabled = false;
         if (toggleInput?.checked) {
@@ -313,7 +318,7 @@ function renderActiveVisitors() {
         const li = document.createElement('li');
         li.dataset.session = sid;
         li.onclick = () => openSession(sid);
-        if (sid === currentSession) li.classList.add('active');
+        if (sid === currentSession) li.classList.add('open');
 
         const sessionData = sessionMapMeta[sid];
         if (sessionData && !sessionData.active) li.classList.add('inactive');
@@ -465,6 +470,7 @@ function renderMessageBatch(messages) {
 async function endChat(_type = '/endchat') {
     if (!currentSession || !socket) return;
     
+    livechatPage.classList.add('loading');
     chatInput.value = _type;
     sendAdminMessage(false);
 
@@ -486,14 +492,17 @@ async function endChat(_type = '/endchat') {
     .then(res => {
         if (res.success) {
             finishEndChat(sessionId);
+            livechatPage.classList.remove('loading');
         }else{
             console.error(res.data)
+            livechatPage.classList.remove('loading');
             return;
         }
     })
     .catch(console.error);
 }
 function finishEndChat(sessionId) {
+    const _session = activeVisitors.querySelector('[data-session="'+ sessionId +'"]');
     socket.emit("end-chat", { session_id: sessionId });
     
     delete sessionMessages[sessionId];
@@ -514,10 +523,9 @@ endBtn?.addEventListener('click', () => {
     if (!confirmed) {
         return;
     }else{
+        endChat('/endchat');
         chatMsgWindow.removeAttribute('style');
-        alert('Chat ended.');
     }
-    endChat('/endchat');
 });
 endIdleBtn?.addEventListener('click', () => {
     const confirmed = confirm(
@@ -526,10 +534,9 @@ endIdleBtn?.addEventListener('click', () => {
     if (!confirmed) {
         return;
     }else{
+        endChat('/endchat1');
         chatMsgWindow.removeAttribute('style');
-        alert('Chat ended due to inactivity.');
     }
-    endChat('/endchat1');
 });
 
 /*

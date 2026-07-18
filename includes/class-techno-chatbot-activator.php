@@ -53,17 +53,18 @@ class Techno_Chatbot_Activator {
 		$charset = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
-			id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id     VARCHAR(64)     NOT NULL,
-			user_id        BIGINT UNSIGNED DEFAULT NULL,
-			sender         ENUM('visitor','admin','bot') NOT NULL,
-			message        TEXT            NOT NULL,
-			name           VARCHAR(100)    DEFAULT NULL,
-			message_type   ENUM('text','image','file','system') DEFAULT 'text',
-			viewed_at      DATETIME DEFAULT NULL,
-			user_agent 	   VARCHAR(255) DEFAULT NULL,
-			ip_address     VARCHAR(45) DEFAULT NULL,
-			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+			id             	  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			session_id     	  VARCHAR(64) NOT NULL,
+			user_id        	  BIGINT UNSIGNED DEFAULT NULL,
+			sender         	  ENUM('visitor','admin','bot') NOT NULL,
+			message        	  TEXT NOT NULL,
+			name           	  VARCHAR(100) DEFAULT NULL,
+			message_type	  ENUM('text','image','file','system') DEFAULT 'text',
+			tokens		 	  BIGINT UNSIGNED DEFAULT NULL,
+			viewed_at      	  DATETIME DEFAULT NULL,
+			user_agent 	   	  VARCHAR(255) DEFAULT NULL,
+			ip_address     	  VARCHAR(45) DEFAULT NULL,
+			created_at     	  DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			INDEX idx_session (session_id),
 			INDEX idx_created (created_at)
@@ -71,22 +72,6 @@ class Techno_Chatbot_Activator {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
-
-		// Ensure user_id exists
-		$column = $wpdb->get_var(
-			$wpdb->prepare(
-				"SHOW COLUMNS FROM {$table} LIKE %s",
-				'user_id'
-			)
-		);
-
-		if (!$column) {
-			$wpdb->query(
-				"ALTER TABLE {$table}
-				ADD COLUMN user_id BIGINT UNSIGNED DEFAULT NULL
-				AFTER session_id"
-			);
-		}
 	}
 
 	/**
@@ -101,17 +86,18 @@ class Techno_Chatbot_Activator {
 		$charset = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
-			id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id     VARCHAR(64)     NOT NULL,
-			user_id        BIGINT UNSIGNED DEFAULT NULL,
-			sender         ENUM('visitor','admin','bot') NOT NULL,
-			message        TEXT            NOT NULL,
-			name           VARCHAR(100)    DEFAULT NULL,
-			message_type   ENUM('text','image','file','system') DEFAULT 'text',
-			viewed_at      DATETIME DEFAULT NULL,
-			user_agent     VARCHAR(255) DEFAULT NULL,
-			ip_address     VARCHAR(45) DEFAULT NULL,
-			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+			id             	  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			session_id        VARCHAR(64) NOT NULL,
+			user_id           BIGINT UNSIGNED DEFAULT NULL,
+			sender            ENUM('visitor','admin','bot') NOT NULL,
+			message        	  TEXT NOT NULL,
+			name			  VARCHAR(100) DEFAULT NULL,
+			message_type   	  ENUM('text','image','file','system') DEFAULT 'text',
+			tokens		 	  BIGINT UNSIGNED DEFAULT NULL,
+			viewed_at      	  DATETIME DEFAULT NULL,
+			user_agent     	  VARCHAR(255) DEFAULT NULL,
+			ip_address     	  VARCHAR(45) DEFAULT NULL,
+			created_at     	  DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			INDEX idx_session (session_id),
 			INDEX idx_created (created_at)
@@ -119,22 +105,6 @@ class Techno_Chatbot_Activator {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
-
-		// Ensure user_id exists
-		$column = $wpdb->get_var(
-			$wpdb->prepare(
-				"SHOW COLUMNS FROM {$table} LIKE %s",
-				'user_id'
-			)
-		);
-
-		if (!$column) {
-			$wpdb->query(
-				"ALTER TABLE {$table}
-				ADD COLUMN user_id BIGINT UNSIGNED DEFAULT NULL
-				AFTER session_id"
-			);
-		}
 	}
 
 	/**

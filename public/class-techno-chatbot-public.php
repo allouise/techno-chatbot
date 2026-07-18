@@ -504,6 +504,7 @@ class Techno_Chatbot_Public {
 						message,
 						name,
 						message_type,
+						tokens,
 						viewed_at,
 						user_agent,
 						ip_address,
@@ -516,6 +517,7 @@ class Techno_Chatbot_Public {
 						message,
 						name,
 						message_type,
+						tokens,
 						viewed_at,
 						user_agent,
 						ip_address,
@@ -842,12 +844,15 @@ class Techno_Chatbot_Public {
 			$sender = isset($msg['sender']) ? sanitize_text_field($msg['sender']) : '';
 			$text = isset($msg['text']) ? sanitize_textarea_field($msg['text']) : '';
 			$created_at = isset($msg['created_at']) ? sanitize_textarea_field($msg['created_at']) : '';
+			$token = null;
+			if ( isset( $msg['token'] ) && $msg['token'] !== '' ) $token = max( 0, absint( $msg['token'] ) );
 			if (!$text) continue;
 			$data = [
 				'session_id' => $session_id,
 				'user_id'	 => $user_id,
 				'sender'     => $sender,
 				'message'    => $text,
+				'tokens'	 => $token,
 				'user_agent' => $user_agent,
 				'ip_address' => $ip_address,
 				'created_at' => $created_at,
@@ -861,6 +866,7 @@ class Techno_Chatbot_Public {
 				'%d', // user_id
 				'%s', // sender
 				'%s', // message
+				'%d', // token
 				'%s', // user_agent
 				'%s', // ip_address
 				'%s', // created_at
@@ -930,7 +936,7 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	private function get_embedding_cache($text) {
-		return get_transient('emb_' . md5($text));
+		return get_transient('techno_ai_emb_' . md5($text));
 	}
 
 	/**
@@ -939,7 +945,7 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	private function set_embedding_cache($text, $embedding) {
-		set_transient('emb_' . md5($text), $embedding, WEEK_IN_SECONDS);
+		set_transient('techno_ai_emb_' . md5($text), $embedding, WEEK_IN_SECONDS);
 	}
 
 	/**
@@ -948,48 +954,49 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	private function find_relevant_chunks($question, $limit = 3) {
-
 		$question_embedding = $this->create_embedding($question);
 
-		if (!$question_embedding) {
-			return [];
-		}
+		if (!$question_embedding) return [];
 
 		$results = [];
-
 		$posts = get_posts([
-			'post_type' => 'techno_chatbot_aidb',
+			'post_type'   => 'techno_chatbot_aidb',
 			'numberposts' => -1,
 			'post_status' => 'publish'
 		]);
 
 		foreach ($posts as $post) {
-
-			$stored = get_post_meta($post->ID, '_ai_embeddings', true);
-			$chunks = $stored;
-			if (is_string($chunks)) {
-				$chunks = maybe_unserialize($chunks);
-			}
-
-			if (!$chunks) continue;
+			$chunks = get_post_meta($post->ID, '_ai_embeddings', true);
+			
+			if (is_string($chunks)) $chunks = maybe_unserialize($chunks);
+			if (empty($chunks)) continue;
 
 			foreach ($chunks as $chunk) {
+				if ( empty($chunk['embedding']) || !is_array($chunk['embedding']) || empty($chunk['text']) ) continue;
 
-				if (empty($chunk['embedding']) || !is_array($chunk['embedding'])) continue;
-				if (!isset($chunk['embedding']) || !isset($chunk['text'])) continue;
-
-				$score = $this->cosine_similarity($question_embedding, $chunk['embedding']);
+				$similarity = $this->cosine_similarity(
+					$question_embedding,
+					$chunk['embedding']
+				);
 				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
-				$score = $score * $lengthPenalty;
-				// if ($score < 0.45) continue;
-
 				$results[] = [
-					'text' => $chunk['text'],
-					'score' => $score
+					'text'       => $chunk['text'],
+					'similarity' => $similarity,
+					'score'      => $similarity * $lengthPenalty,
 				];
 			}
 		}
 
+		if (empty($results)) return [];
+
+		/* Find highest similarity */
+		$bestSimilarity = max(array_column($results, 'similarity'));
+		/* Never allow threshold below 0.35 */
+		$threshold = max(0.35, $bestSimilarity * 0.90);
+		/* Keep only relevant chunks */
+		$results = array_filter($results, function ($chunk) use ($threshold) {
+			return $chunk['similarity'] >= $threshold;
+		});
 		usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
 		return array_slice($results, 0, $limit);
 	}
@@ -1004,11 +1011,21 @@ class Techno_Chatbot_Public {
 
 		if (!$api_key) {
 			error_log('TechnoChatbot OpenAI API key not configured.');
-			return 'NO_ANSWER';
+			return [
+				'answer' => 'NO_ANSWER',
+				'tokens' => 0,
+				'prompt_tokens' => 0,
+				'completion_tokens' => 0
+			];
 		}
 
 		if (empty($context_chunks)) {
-			return 'NO_ANSWER';
+			return [
+				'answer' => 'NO_ANSWER',
+				'tokens' => 0,
+				'prompt_tokens' => 0,
+				'completion_tokens' => 0
+			];
 		}
 
 		$context_text = '';
@@ -1017,55 +1034,74 @@ class Techno_Chatbot_Public {
 			$context_text .= "SOURCE:\n" . $text . "\n\n";
 		}
 
-		$prompt = "
-		You are a helpful customer support assistant.
+		/* AI Cache */
+		$cache_key = 'techno_ai_ans_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
+		$cached = get_transient($cache_key);
+		if ($cached !== false) {
+			$cached['cached'] = true;
+			return $cached;
+		}
 
-		Use the provided context to answer the user's question naturally and conversationally.
-
+		$prompt = "You are a helpful customer support assistant.
 		Instructions:
-		- Answer directly using the context.
+		- Use the provided context to answer the user's question naturally and conversationally.
 		- Always produce a complete, self-contained answer.
+		- Keep answers direct, concise, informative, and avoid repeating information.
 		- Do NOT assume the user has seen previous messages or context.
-		- Do NOT refer to 'previous answers', 'above', 'earlier', or 'context'.
-		- Do NOT use phrases that depend on follow-up continuity (like 'as mentioned', 'that', 'it', unless clearly defined in the current question).
-		- If multiple facts are relevant, merge them into one clear explanation.
-		- Keep answers direct, informative, and independent.
-		- Keep the tone friendly and concise.
-		- Avoid conversational dependency or implied follow-up context.
-		- Build your answer with HTML for better view, use only these allowed tags '<p>,<strong>,<em>,<ul>,<ol>'
-		- Use the allowed tags like <strong> & <em> for word that need emphasizing. <ul> & <ol> if the answer has information that needs to be listed for better readability.
-		- Do not mention 'the context says' or 'according to the context.'
-		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response
-
+		- Do NOT refer to previous answers, earlier messages, or the provided context.
+		- Do NOT use wording that depends on prior conversation unless the current question clearly defines it.
+		- If multiple facts are relevant, combine them into one clear explanation.
+		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>.
+		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
+		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
 		Context:
 		$context_text
-
 		Question:
-		$question
-		";
+		$question";
 	
-		$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
-			'headers' => [
-				'Authorization' => 'Bearer ' . $api_key,
-				'Content-Type'  => 'application/json',
-			],
-			'body' => json_encode([
-				'model' => 'gpt-4o-mini',
-				'messages' => [
-					['role' => 'user', 'content' => $prompt]
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/chat/completions',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
 				],
-				'temperature' => 0.3
-			]),
-			'timeout' => 20
-		]);
+				'body' => wp_json_encode([
+					'model' => 'gpt-4o-mini',
+					'messages' => [
+						[
+							'role' => 'user',
+							'content' => $prompt
+						]
+					],
+					'temperature' => 0
+				]),
+				'timeout' => 20
+			]
+		);
 
 		if (is_wp_error($response)) {
 			error_log('TechnoChatbot Error contacting AI.');
-			return 'NO_ANSWER';
+			return [
+				'answer' => 'NO_ANSWER',
+				'tokens' => 0,
+				'prompt_tokens' => 0,
+				'completion_tokens' => 0
+			];
 		}
 
 		$body = json_decode(wp_remote_retrieve_body($response), true);
-		return $body['choices'][0]['message']['content'] ?? 'NO_ANSWER';
+		$result = [
+			'answer' => $body['choices'][0]['message']['content'] ?? 'NO_ANSWER',
+			'tokens' => $body['usage']['total_tokens'] ?? 0,
+			'prompt_tokens' => $body['usage']['prompt_tokens'] ?? 0,
+			'completion_tokens' => $body['usage']['completion_tokens'] ?? 0,
+			'cached' => false,
+		];
+
+		/* Cache for 30 days */
+		set_transient( $cache_key, $result, 30 * DAY_IN_SECONDS );
+		return $result;
 	}
 
 	/**
@@ -1152,12 +1188,91 @@ class Techno_Chatbot_Public {
 		if (!$question) {
 			wp_send_json_error('Empty question');
 		}
-		// 1. Get relevant chunks
 		$chunks = $this->find_relevant_chunks($question);
-		// 2. Ask OpenAI
-		$answer = $this->ask_openai($question, $chunks);
+		$result = $this->ask_openai($question, $chunks);
+
 		wp_send_json_success([
-			'answer' => $answer
+			'answer' => $result['answer'],
+			'tokens' => $result['tokens'],
+			/* 'results' => $result, */
 		]);
+	}
+
+	/**
+	 * Check AI-assisted chat usage and send notifications when the limit is reached.
+	 *
+	 * @since 1.0.9
+	 */
+	public function get_ai_assisted_history() {
+
+		$limit = 2;
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_chat_history';
+		$count = (int) $wpdb->get_var(
+			"SELECT COUNT(*)
+			FROM {$table}
+			WHERE tokens > 0"
+		);
+
+		// Limit not reached.
+		if ( $count < $limit ) return false;
+		delete_option( 'techno_chatbot_aireplies' );
+
+		/*
+		* Get recipient emails.
+		*/
+		$emails_option = get_option( 'techno_chatbot_emails', '' );
+		$recipients    = [];
+
+		if ( ! empty( $emails_option ) ) {
+			$emails = preg_split( '/[\r\n,]+/', $emails_option );
+
+			foreach ( $emails as $email ) {
+				$email = sanitize_email( trim( $email ) );
+
+				if ( is_email( $email ) ) {
+					$recipients[] = $email;
+				}
+			}
+		}
+
+		// Fallback to admin email.
+		if ( empty( $recipients ) ) {
+			$admin_email = sanitize_email( get_option( 'admin_email' ) );
+
+			if ( is_email( $admin_email ) ) {
+				$recipients[] = $admin_email;
+			}
+		}
+
+		/*
+		* Notify site admin.
+		*/
+		if ( ! empty( $recipients ) ) {
+
+			wp_mail(
+				$recipients,
+				'AI Chat Limit Reached',
+				'Your limit has reached ....'
+			);
+		}
+
+		/*
+		* Notify Techno.
+		*/
+		$site_url = home_url();
+
+		wp_mail(
+			'contact@techno.com',
+			'Client AI Chat Limit Reached',
+			sprintf(
+				'Our client has reached the AI-assisted chat limit.%sSite: %s',
+				PHP_EOL . PHP_EOL,
+				$site_url
+			)
+		);
+
+		return true;
 	}
 }
