@@ -147,14 +147,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         socket.on("connect", () => {
-            console.log("WS connected:", socket.id);
+            /* console.log("WS connected:", socket.id); */
             clearIdleDisconnectTimer();
             liveChatSessionId = localStorage.getItem(LIVECHAT_SESSION);
             checkArchived(liveChatSessionId);
         });
         socket.on("connect_error", async () => {
-            console.log("WebSocket server is OFF");
-            if (!document.querySelector('.techno-chatbot-contact-options')) {
+            /* console.log("WebSocket server is OFF"); */
+            if (!document.querySelector('.techno-chatbot-contact-options') && liveChatSessionId) {
                 await botReply(technoChatbot.idleSupport);
                 showNoAnswerOptions();
             }
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         socket.on("disconnect", () => {
-            console.log("WS disconnected");
+            /* console.log("WS disconnected"); */
             updateStatusDot(false);
             startIdleDisconnectTimer();
         });
@@ -374,20 +374,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* ---------- Histories ---------- */
-    function saveLocalHistory(text, sender){
+    function saveLocalHistory(text, sender, token = null){
         if (sender !== 'admin' && sender !== 'bot') {
             text = sanitizeText(text);
         }
         if (!text) return;
-        chatHistory.push({ text, sender, created_at: new Date().toISOString() });
+        chatHistory.push({ text, sender, created_at: new Date().toISOString(), token });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
     }
-    function saveHistory(text, sender) {
+    function saveHistory(text, sender, token = null) {
         if (sender !== 'admin' && sender !== 'bot') {
             text = sanitizeText(text);
         }
         if (!text) return;
-        saveLocalHistory(text, sender);
+        saveLocalHistory(text, sender, token);
         const state = getState();
         if ( (state >= 5 || idleDisconnectTimer ) && liveChatSessionId && sender != 'admin' ){
             saveMessageToDB(liveChatSessionId, sender, text);
@@ -411,9 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function clearHistory(prependMsg = null) {
         if (socket) {
-            if (liveChatSessionId) {
+            /* if (liveChatSessionId) {
                 socket.emit("restarted-leave", { session_id: liveChatSessionId });
-            }
+            } */
             socket.off("disconnect");
             socket.disconnect();
             socket = null;
@@ -517,10 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
         })
         .catch(err =>
-            console.error(
-                '[Chatbot] History transfer failed:',
-                err
-            )
+            console.error(err)
         );
     }
     function sendTranscriptToEmail(email){
@@ -633,12 +630,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             typing.remove();
             if (data.success && data.data.answer) {
-                return data.data.answer;
+                return data.data;
             }
             return null;
 
         } catch (e) {
-            console.error("AI error:", e);
+            console.error(e);
             typing.remove();
             return null;
         }
@@ -779,13 +776,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /* Answer Via AI */
         if (technoChatbot.aiEnabled == 1) {
-            const aiAnswer = await askAI(userMessage);
+            const aiResponse = await askAI(userMessage);
+            const aiAnswer = aiResponse?.answer;
+            const tokens = aiResponse?.tokens || 0;
             const failLimit = parseInt(technoChatbot.noAnswerTrigger) || 0;
             let failCount = parseInt(localStorage.getItem(FAIL_COUNT_KEY) || '0');
 
             if (aiAnswer && aiAnswer !== "NO_ANSWER") {
                 localStorage.setItem(FAIL_COUNT_KEY, 0);
-                await botReply(aiAnswer);
+                await botReply(aiAnswer, tokens);
             }else {
                 failCount++;
                 localStorage.setItem(FAIL_COUNT_KEY, failCount);
@@ -793,13 +792,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     await botReply(
                         technoChatbot.noAnswerFinalDefault ||
                         technoChatbot.noAnswer ||
-                        '...'
+                        '...',
+                        tokens
                     );
                     showNoAnswerOptions();
                     localStorage.setItem(FAIL_COUNT_KEY, 0);
                 } else {
                     await botReply(
-                        technoChatbot.noAnswer || '...'
+                        technoChatbot.noAnswer || '...', tokens
                     );
                 }
             }
@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         isProcessing = false;
     };
-    function addMessage(text, sender, save = true) {
+    function addMessage(text, sender, save = true, token = null) {
         const message = document.createElement('div');
         let cssClass = sender;
         if (sender === 'bot') cssClass = 'bot';
@@ -836,9 +836,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         el.messages.appendChild(message);
         scrollToBottom();
-        if (save) saveHistory(text, sender);
+        if (save) saveHistory(text, sender, token);
     }
-    function botReply(text) {
+    function botReply(text, token = null) {
         if(!text) return Promise.resolve();
         disableInput(true);
         el.input.placeholder = 'Please wait...';
@@ -847,7 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise(resolve => {
             setTimeout(() => {
                 typing.remove();
-                addMessage(text, 'bot');
+                addMessage(text, 'bot', true, token);
                 resolve();
                 disableInput(false);
                 el.input.placeholder = technoChatbot.inputtxt;
@@ -871,7 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body:    body,
             keepalive: true,
-        }).catch(err => console.error('[Techno Chatbot] DB save failed:', err));
+        }).catch(err => console.error(err));
     }
     function sendChatToAdmin(){
         const started = parseInt(localStorage.getItem(CHAT_START_KEY));

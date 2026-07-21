@@ -286,8 +286,6 @@ class Techno_Chatbot_Admin {
 				$online = !$server? false : $online;
 			break;
 			case 'history':
-				global $wpdb;
-				$table = $wpdb->prefix . 'techno_chat_history';
 				$today = current_time('Y-m-d');
 				$from  = date('Y-m-d', strtotime('-29 days', strtotime($today)));
 			break;
@@ -518,6 +516,7 @@ class Techno_Chatbot_Admin {
 						message,
 						name,
 						message_type,
+						tokens,
 						viewed_at,
 						user_agent,
 						ip_address,
@@ -530,6 +529,7 @@ class Techno_Chatbot_Admin {
 						message,
 						name,
 						message_type,
+						tokens,
 						viewed_at,
 						user_agent,
 						ip_address,
@@ -702,6 +702,7 @@ class Techno_Chatbot_Admin {
 					sender,
 					message,
 					message_type,
+					tokens,
 					viewed_at,
 					ip_address,
 					user_agent,
