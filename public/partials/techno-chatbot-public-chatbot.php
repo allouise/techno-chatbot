@@ -73,3 +73,10 @@
 		</div>
 	</div>
 <?php } ?>
+
+<div id="techno-chatbot"></div>
+
+<noscript>
+    <style>#techno-chatbot { display: none !important; }</style>
+    <!-- <p>Your browser must have JavaScript enabled to use this live chat.</p> -->
+</noscript>

@@ -236,15 +236,25 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		$this->loader->add_action( 'wp_footer', $plugin_public, 'render_chatbot_icon' );
-		$this->loader->add_action( 'wp_ajax_nopriv_send_history_admin', $plugin_public, 'send_history_admin' );
-		$this->loader->add_action( 'wp_ajax_send_history_admin', $plugin_public, 'send_history_admin' );
+		
 		$this->loader->add_action( 'techno_chatbot_daily_license_check', $plugin_public, 'validate_license' );
 
 		$this->loader->add_action( 'wp_ajax_techno_check_support_online', $plugin_public, 'check_support_online' );
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_check_support_online', $plugin_public, 'check_support_online' );
 
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_new_conversation', $plugin_public, 'create_conversation' );
+		$this->loader->add_action( 'wp_ajax_techno_new_conversation', $plugin_public, 'create_conversation' );
+
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_end_conversation', $plugin_public, 'end_conversation' );
+		$this->loader->add_action( 'wp_ajax_techno_end_conversation', $plugin_public, 'end_conversation' );
+
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_get_conversation', $plugin_public, 'get_conversation' );
+		$this->loader->add_action( 'wp_ajax_techno_get_conversation', $plugin_public, 'get_conversation' );
+
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_save_chat_message', $plugin_public, 'save_chat_message' );
 		$this->loader->add_action( 'wp_ajax_techno_save_chat_message', $plugin_public, 'save_chat_message' );
+
+
 
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_bot_to_live', $plugin_public, 'techno_bot_to_live' );
 		$this->loader->add_action( 'wp_ajax_techno_bot_to_live', $plugin_public, 'techno_bot_to_live' );

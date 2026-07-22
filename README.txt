@@ -55,6 +55,12 @@ The system includes the following security measures:
 
 == Changelog ==
 
+= 1.1.0 =
+* MAJOR RELEASE
+* Adjusted DB structure
+* Adjusted public php & js
+* Adjusted admin php & js
+
 = 1.0.9 =
 * Fix on socket connection
 * Improved socket connection
