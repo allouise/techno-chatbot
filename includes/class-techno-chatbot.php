@@ -245,6 +245,9 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_new_conversation', $plugin_public, 'create_conversation' );
 		$this->loader->add_action( 'wp_ajax_techno_new_conversation', $plugin_public, 'create_conversation' );
 
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_update_conversation', $plugin_public, 'update_conversation' );
+		$this->loader->add_action( 'wp_ajax_techno_update_conversation', $plugin_public, 'update_conversation' );
+
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_end_conversation', $plugin_public, 'end_conversation' );
 		$this->loader->add_action( 'wp_ajax_techno_end_conversation', $plugin_public, 'end_conversation' );
 

@@ -12,13 +12,16 @@ class TechnoChatbot {
         this.socket = null;
         this.idleDisconnectTimer = null;
         this.conversationId = null;
-        this.livechat = false;
+        this.sessionId = null;
+        this.socketId = null;
+        this.socketName = null;
         this.supportOnline = false;
         this.requireInput = '';
         this.failedAnswer = 0;
         this.isProcessing = false;
         this.lastSendTime = 0;
         this.minSendInterval = 2000;
+        this.hasHandledConnectError = false;
 
         this.init();
     }
@@ -43,7 +46,8 @@ class TechnoChatbot {
 
         await this.getConversation();
 
-        console.log("Active Conversation ID:", this.conversationId);
+        console.log("Active Conversation & Session ID:", this.conversationId + ' ' + this.sessionId);
+        console.log('socketId and name', this.socketId + ' ' + this.socketName);
     }
 
     cacheElements() {
@@ -68,7 +72,6 @@ class TechnoChatbot {
 
         this.storageKeys = Object.freeze({
             session: 'techno_chatbot_session',
-            livechat: 'techno_livechat_status',
             failedanswer: 'techno_chatbot_fail_count'
         });
 
@@ -85,7 +88,8 @@ class TechnoChatbot {
         this.config = Object.freeze({
             failLimit: parseInt(this.botData.noAnswerTrigger) || 0,
             supportIdleTime: parseInt(this.botData.idleTimer) || 0,
-            allowed_types: ['phone_input', 'email_input', 'time_input'],
+            liveChatEnabled: Boolean(this.botData.liveChatEnabled),
+            allowed_types: ['phone_input', 'email_input', 'time_input', 'name_input'],
             timeFormatter: new Intl.DateTimeFormat('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -108,25 +112,43 @@ class TechnoChatbot {
     }
 
     initState() {
-        this.livechat = this.getLiveChatStatus();
         this.failedAnswer = this.getFailCount();
+        this.sessionId = this.getSession();
     }
 
-    startIdleDisconnectTimer() {
-        if (!this.config.supportIdleTime) return;
+    async socketIdleCheck(socket_error = false) {
+        if(!this.config.liveChatEnabled) return;
+        
+        const idleTime = this.config.supportIdleTime;
         this.clearIdleDisconnectTimer();
+        
+        /* Update existing options on support status change */
+        let existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
+        if (existingOptions) {
+            existingOptions.remove();
+            this.showOptions(this.optionType.noAnswer);
+            existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
+        }
 
-        this.idleDisconnectTimer = setTimeout(async () => {
-            if (!this.socket?.connected || !this.supportOnline) {
-                const existingOptions = this.el.messages?.querySelector('.techno-chatbot-contact-options');
-                if (!existingOptions) {
-                    if (this.botData.idleSupport) {
-                        await this.addMessage(this.botData.idleSupport, 'bot', true, 'system');
-                    }
+        /* If socket id or currently livechatting and socket got disconnected due to error */
+        if (socket_error && this.socketId != null) {
+            if (!existingOptions) {
+                await this.addMessage(this.botData.idleSupport, 'bot', true, 'system');
+                this.showOptions(this.optionType.noAnswer);
+            }
+            return;
+        }
+
+        /* If idleTime is setup and socket id or currently livechatting and support got disconnected */
+        if (idleTime > 0 && this.socketId != null && !this.supportOnline) {
+            this.idleDisconnectTimer = setTimeout(async () => {
+                const currentOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
+                if (!currentOptions) {
+                    await this.addMessage(this.botData.idleSupport, 'bot', true, 'system');
                     this.showOptions(this.optionType.noAnswer);
                 }
-            }
-        }, this.config.supportIdleTime * 1000);
+            }, idleTime * 1000);
+        }
     }
 
     clearIdleDisconnectTimer() {
@@ -166,6 +188,7 @@ class TechnoChatbot {
         });
         /* Reset */
         this.el.reset?.forEach(btn => btn.addEventListener('click', async () => {
+            await this.addMessage(this.botData.menuReset, 'visitor');
             await this.reset();
             this.toggleMenu(false);
         }));
@@ -262,19 +285,16 @@ class TechnoChatbot {
         wrapper.className = 'techno-chatbot-contact-options';
         const options = [];
 
-        if (this.botData.liveChatEnabled && this.supportOnline) {
+        if (this.config.liveChatEnabled && this.supportOnline) {
             options.push({ action: 'livechat', label: this.botData.menuLivechat });
         }
 
         if (type === this.optionType.noAnswer) {
             options.push(
                 { action: 'phone', label: this.botData.menuCall },
-                { action: 'email', label: this.botData.menuEmail }
+                { action: 'email', label: this.botData.menuEmail },
+                { action: 'restart', label: this.botData.menuReset }
             );
-        }
-
-        if (!this.idleDisconnectTimer) {
-            options.push({ action: 'restart', label: this.botData.menuReset });
         }
 
         if (options.length === 0) return;
@@ -301,7 +321,6 @@ class TechnoChatbot {
     }
 
     async chooseOption(method) {
-
         this.el.messages.querySelector('.techno-chatbot-contact-options')?.remove();
         this.disableInput(false);
         this.el.input.placeholder = this.inputPlaceholders.default;
@@ -322,12 +341,13 @@ class TechnoChatbot {
         switch (method) {
             case 'livechat':
                 await this.addMessage(this.botData.menuLivechat, 'visitor');
-                // await this.checkAndTransferToLiveChat();
-                break;
+                await this.transferLiveChat();
+            break;
 
             case 'restart':
-                // await this.clearHistory();
-                break;
+                await this.addMessage(this.botData.menuReset, 'visitor');
+                await this.reset();
+            break;
         }
     }
 
@@ -358,6 +378,44 @@ class TechnoChatbot {
         return text.replace(/<[^>]+>/g, '').replace(/[\0-\x1F]/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000);
     }
 
+    async transferLiveChat(name = '') {
+        const isLive = this.config.liveChatEnabled && this.supportOnline;
+
+        if (!isLive) {
+            await this.addMessage(this.botData.offlineSupport, 'bot', true, 'system');
+            this.showOptions(this.optionType.noAnswer);
+            return;
+        }
+
+        const requiresName = Number(this.botData.liveChatGetName) === 1;
+
+        /* If user is new and a name is required, but none was provided yet */
+        if (!this.socketId && requiresName && !name.trim()) {
+            await this.addMessage(this.botData.getName, 'bot', true, 'name_input');
+            this.requireInput = `name_input`;
+            return;
+        }
+
+        /* If user is new (and has either provided a name or name isn't required) */
+        if (!this.socketId) {
+            const makeId = () => Math.random().toString(36).substring(2, 6).padEnd(4, '0');
+            this.socketId = `sess_${Date.now()}_${makeId()}`;
+            const visitorName = name.trim() !== '' ? name.trim() : this.socketId;
+            await this.addMessage(this.botData.transferredToSupport, 'bot', true);
+            this.socket.emit("visitor-join", { 
+                session_id: this.socketId, 
+                visitor_name: visitorName 
+            });
+            this.updateConversation(visitorName);
+        }else if(this.socketId){
+            await this.addMessage(this.botData.transferredToSupport, 'bot', true);
+            this.socket.emit("visitor-join", { 
+                session_id: this.socketId, 
+                visitor_name: this.socketName 
+            });
+        }
+    }
+
     /* ==========================================================================
        Storage & Local State
        ========================================================================== */
@@ -372,11 +430,11 @@ class TechnoChatbot {
             await this.stopConversation();
 
             localStorage.removeItem(this.storageKeys.session);
-            localStorage.removeItem(this.storageKeys.livechat);
             localStorage.removeItem(this.storageKeys.failedanswer);
             
             this.conversationId = null;
-            this.livechat = false;
+            this.socketId = null;
+            this.socketName = null;
             this.requireInput = '';
             this.failedAnswer = 0;
             this.isProcessing = false;
@@ -392,10 +450,6 @@ class TechnoChatbot {
 
     getSession() {
         return localStorage.getItem(this.storageKeys.session) || null;
-    }
-
-    getLiveChatStatus() {
-        return localStorage.getItem(this.storageKeys.livechat) === 'true';
     }
 
     getFailCount() {
@@ -479,8 +533,7 @@ class TechnoChatbot {
        ========================================================================== */
 
     async getConversation() {
-        const sessionId = this.getSession();
-        if (!sessionId){
+        if (this.sessionId == null){
             if (this.botData.welcomeMessage) {
                 this.addMessage(this.botData.welcomeMessage, 'bot', false);
             }
@@ -495,7 +548,7 @@ class TechnoChatbot {
         try {
             const formData = new FormData();
             formData.append("action", "techno_get_conversation");
-            formData.append("session_id", sessionId);
+            formData.append("session_id", this.sessionId);
             formData.append("nonce", this.botData.nonce);
 
             const res = await fetch(this.botData.ajax_url, {
@@ -509,8 +562,14 @@ class TechnoChatbot {
                 throw new Error("Failed to get conversation");
             }
 
-            this.conversationId = data.data?.id ?? null;
+            this.conversationId = data.data?.conversation ?? null;
+            this.socketId = data.data?.socket ?? null;
+            this.socketName = data.data?.visitor_name ?? this.socketId;
             const messages = data.data?.messages;
+            this.socket.emit("visitor-join", { 
+                session_id: this.socketId, 
+                visitor_name: this.socketName
+            });
 
             if (Array.isArray(messages) && messages.length > 0) {
                 hasOptions = this.renderHistory(messages);
@@ -529,7 +588,7 @@ class TechnoChatbot {
     }
 
     async startConversation() {
-        if (this.conversationId) return this.conversationId;
+        if (this.conversationId != null) return this.conversationId;
 
         const sessionId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const formData = new FormData();
@@ -551,18 +610,53 @@ class TechnoChatbot {
         }
 
         this.conversationId = data.data.id;
+        this.sessionId = sessionId;
         localStorage.setItem(this.storageKeys.session, sessionId);
 
         return this.conversationId;
     }
 
+    async updateConversation(name = '') {
+        if (this.conversationId == null || this.sessionId == null || this.socketId == null ) {
+            console.warn("Cannot update conversation: Missing required session data.");
+            return false;
+        }
+
+        const formData = new FormData();
+        formData.append("action", "techno_update_conversation");
+        formData.append("session_id", String(this.sessionId).trim());
+        formData.append("conversation_id", String(this.conversationId).trim());
+        formData.append("socket_id", String(this.socketId).trim());
+        formData.append("nonce", this.botData?.nonce || '');
+        formData.append("name", typeof name === 'string' ? name.trim() : '');
+
+        try {
+            const res = await fetch(this.botData.ajax_url, {
+                method: "POST",
+                credentials: "same-origin",
+                body: formData
+            });
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`Server returned status ${res.status}: ${errorText}`);
+            }
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.data?.message || "Failed to update conversation");
+            }
+            return true;
+        } catch (err) {
+            console.error("Error updating conversation:", err);
+            return false;
+        }
+    }
+
     async stopConversation() {
-        const sessionId = this.getSession();
-        if (!this.conversationId || !sessionId) return;
+        if (this.conversationId == null || this.sessionId == null) return;
 
         const formData = new FormData();
         formData.append("action", "techno_end_conversation");
-        formData.append("session_id", sessionId);
+        formData.append("session_id", this.sessionId);
         formData.append("conversation_id", this.conversationId);
         formData.append("nonce", this.botData.nonce);
 
@@ -579,6 +673,9 @@ class TechnoChatbot {
 
             localStorage.removeItem(this.storageKeys.session);
             this.conversationId = null;
+            this.sessionId = null;
+            this.socketId = null;
+            this.socketName = null;
 
             return true;
         } catch (err) {
@@ -611,7 +708,7 @@ class TechnoChatbot {
     }
 
     async addMessage(text, sender, save = true, type = 'text', token = null) {
-        if( save === true && !this.conversationId ) return;
+        if( save === true && ( this.conversationId == null || this.sessionId == null ) ) return;
 
         const message = document.createElement('div');
         message.className = `techno-chatbot-message ${sender}`;
@@ -635,6 +732,7 @@ class TechnoChatbot {
             action: 'techno_save_chat_message',
             nonce: this.botData.nonce,
             conversation_id: this.conversationId,
+            session_id: this.sessionId,
             sender,
             message: text,
             message_type: type,
@@ -651,12 +749,16 @@ class TechnoChatbot {
             keepalive: true
         });
         if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if( data.data.message ){
+                this.addMessage(data.data.message, 'bot', false);
+            }
             throw new Error(`Failed to save message (${res.status})`);
         }
     }
 
     async finishInput(){
-        if( !this.conversationId ) return;
+        if( this.conversationId == null ) return;
         await this.addMessage(this.botData.getContactThxMsg, 'bot');
 
         try {
@@ -748,30 +850,32 @@ class TechnoChatbot {
             this.lastSendTime = Date.now();
             this.el.input.value = '';
 
-            if (!this.conversationId) {
+            if (this.conversationId == null) {
                 await this.startConversation();
             }
 
-            const normalizedText = this.normalizeText(userMessage);
-            const matchesKeyword = (keywords) => Array.isArray(keywords) && keywords.some(k => k && normalizedText.includes(this.normalizeText(k)));
+            if( this.botData.transferLiveChatKeywords.length > 0 || this.botData.transferKeywords.length > 0 ){
+                const normalizedText = this.normalizeText(userMessage);
+                const matchesKeyword = (keywords) => Array.isArray(keywords) && keywords.some(k => k && normalizedText.includes(this.normalizeText(k)));
 
-            /* Live Chat Trigger */
-            if (matchesKeyword(this.botData.transferLiveChatKeywords)) {
-                await this.addMessage(userMessage, 'visitor');
-                this.resetFailCount();
-                // await this.checkAndTransferToLiveChat();
-                return;
-            }
+                /* Live Chat Trigger */
+                if (matchesKeyword(this.botData.transferLiveChatKeywords)) {
+                    await this.addMessage(userMessage, 'visitor');
+                    this.resetFailCount();
+                    await this.transferLiveChat();
+                    return;
+                }
 
-            /* Next Step / Option Transfer Trigger */
-            if (matchesKeyword(this.botData.transferKeywords)) {
-                await this.addMessage(userMessage, 'visitor');
-                this.resetFailCount();
-                
-                const replyMsg = this.botData.nextStepMsg || this.botData.noAnswerFinalDefault || this.botData.noAnswer || '...';
-                await this.addMessage(replyMsg, 'bot', true, 'system');
-                this.showOptions(this.optionType.noAnswer);
-                return;
+                /* Next Step / Option Transfer Trigger */
+                if (matchesKeyword(this.botData.transferKeywords)) {
+                    await this.addMessage(userMessage, 'visitor');
+                    this.resetFailCount();
+                    
+                    const replyMsg = this.botData.nextStepMsg || this.botData.noAnswerFinalDefault || this.botData.noAnswer || '...';
+                    await this.addMessage(replyMsg, 'bot', true, 'system');
+                    this.showOptions(this.optionType.noAnswer);
+                    return;
+                }
             }
 
             /* Requires Input */
@@ -816,13 +920,30 @@ class TechnoChatbot {
                     this.requireInput = '';
                     return;
                 }
+
+                if (currentType === 'name_input') {
+                    await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
+                    await this.transferLiveChat(userMessage);
+                    this.requireInput = '';
+                    return;
+                }
             }
-            
+
             /* Usual Add Message */
             await this.addMessage(userMessage, 'visitor');
-            
-            /* FAQ/AI Answers */
-            await this.handleFaqReply(userMessage);
+
+            /* Transferred to Live Chat Message */
+            if(this.socket && this.socket.connected && this.socketId != null){
+                this.socket.emit("send-message", {
+                    session_id: this.socketId,
+                    message: userMessage,
+                    sender: "visitor"
+                });
+                return;
+            }else{
+                /* FAQ/AI Answers */
+                await this.handleFaqReply(userMessage);
+            }
 
         } finally {
             this.isProcessing = false;
@@ -854,36 +975,35 @@ class TechnoChatbot {
             }
         });
 
+        this.socket.removeAllListeners();
+
         /* ---- Event Listeners ---- */
         this.socket.on("connect", () => {
+            this.hasHandledConnectError = false;
             this.clearIdleDisconnectTimer();
-            /* const liveChatSessionId = this.getSession();
-            if (liveChatSessionId) {
-                this.checkArchived(liveChatSessionId);
-            } */
         });
 
-        this.socket.on("connect_error", async () => {
-            const options = !!this.el.messages.querySelector('.techno-chatbot-contact-options');
-            if (!options && this.conversationId) {
-                if (this.botData.idleSupport) {
-                    await this.addMessage(this.botData.idleSupport, 'bot', true, 'system');
-                }
-                this.showNoAnswerOptions();
+        this.socket.on("connect_error", () => {
+            if (!this.hasHandledConnectError) {
+                this.hasHandledConnectError = true;
+                console.log("Handling initial connection error...");
+                
+                this.supportOnline = false;
+                this.socketIdleCheck(true);
             }
         });
 
-        this.socket.on("receive-message", async (msg) => {
-            const currentSession = this.getSession();
-            if (!msg || msg.session_id !== currentSession) return;
+        this.socket.on("receive-message", (msg) => {
+            // const currentSession = this.getSession();
+            if (!msg || msg.session_id !== this.sessionId) return;
 
             if (msg.sender === 'admin') {
                 const cleanMessage = (msg.message || '').trim();
 
-                if (['/endchat', '/endchat1'].includes(cleanMessage)) {
-                    await this.handleEndChatCommand(cleanMessage);
-                    return;
-                }
+                // if (['/endchat', '/endchat1'].includes(cleanMessage)) {
+                //     await this.handleEndChatCommand(cleanMessage);
+                //     return;
+                // }
 
                 // Render live message from support agent (don't re-save via AJAX)
                 this.addMessage(msg.message, 'admin', false);
@@ -892,32 +1012,22 @@ class TechnoChatbot {
 
         this.socket.on("support-status", (data) => {
             if (typeof data?.online === 'boolean') {
-                this.updateStatusDot(data.online);
-
-                if (data.online) {
-                    this.clearIdleDisconnectTimer();
-                } else {
-                    this.startIdleDisconnectTimer();
-                }
-
                 this.supportOnline = data.online;
-                
-                const existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
-                if (existingOptions) {
-                    existingOptions.remove();  
-                    this.showOptions(this.optionType.noAnswer); 
-                }
+                this.updateStatusDot(data.online);
+                this.socketIdleCheck();
             }
         });
 
-        this.socket.on("unregister-support", () => {
+        this.socket.on("unregister-support", (data) => {
+            this.supportOnline = false;
             this.updateStatusDot(false);
-            this.startIdleDisconnectTimer();
+            this.socketIdleCheck();
         });
 
-        this.socket.on("disconnect", () => {
+        this.socket.on("disconnect", (data) => {
+            this.supportOnline = false;
             this.updateStatusDot(false);
-            this.startIdleDisconnectTimer();
+            this.socketIdleCheck();
         });
     }
 }

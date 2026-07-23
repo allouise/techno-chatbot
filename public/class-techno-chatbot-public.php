@@ -60,9 +60,11 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	public function enqueue_styles() {
+		$enabled = get_option( 'techno_chatbot_enabled', 1 );
+		$basic_chat = techno_chatbot_feature('basic_chat');
+		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/techno-chatbot-public.css', array(), $this->version, 'all' );
-
 		$custom_css = $this->generate_dynamic_css();
 		wp_add_inline_style( $this->plugin_name, $custom_css );
 
@@ -74,6 +76,9 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		$enabled = get_option( 'techno_chatbot_enabled', 1 );
+		$basic_chat = techno_chatbot_feature('basic_chat');
+		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-public.js', array(), $this->version, true );
 
@@ -790,6 +795,53 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Update conversation
+	 *
+	 * @since    1.1.0
+	 */
+	public function update_conversation() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
+		/* ---- Rate Limit: Max 60 saves per minute per IP ---- */
+		$ip         = $this->get_client_ip();
+		$rate_key   = 'techno_update_convo_' . md5( $ip );
+		$rate_count = (int) get_transient( $rate_key );
+		if ( $rate_count >= 60 ) {
+			wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+		}
+		set_transient( $rate_key, $rate_count + 1, 60 );
+
+		/* ---- Check Conversation & Session ID ---- */
+		$conversation_id = isset( $_POST['conversation_id'] ) ? absint( $_POST['conversation_id'] ) : 0;
+		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+		$socket_id = isset( $_POST['socket_id'] ) ? sanitize_text_field( wp_unslash( $_POST['socket_id'] ) ) : '';
+		$name = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : null;
+		if ( ! $conversation_id || empty( $session_id ) || empty( $socket_id ) ) {
+			wp_send_json_error( [ 'message' => 'Missing Parameters' ], 400 );
+		}
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) || ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $socket_id ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid session formats' ], 400 );
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_cb_conversations';
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table} SET socket_id = %s, name = %s WHERE id = %d AND session_id = %s AND ended_at IS NULL",
+				$socket_id,
+				$name,
+				$conversation_id,
+				$session_id
+			)
+		);
+
+		if ( false === $updated ) wp_send_json_error( [ 'message' => 'Database error while updating conversation' ], 500 );
+		if ( 0 === $updated ) wp_send_json_error( [ 'message' => 'Conversation not found or already updated' ], 404 );
+
+		wp_send_json_success( [ 'message' => 'Conversation updated successfully' ] );
+	}
+	
+	/**
 	 * End conversation
 	 *
 	 * @since    1.1.0
@@ -859,16 +911,29 @@ class Techno_Chatbot_Public {
 		global $wpdb;
 		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
 		$table_messages = $wpdb->prefix . 'techno_cb_messages';
-		$conversation_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table_conversations} WHERE session_id = %s LIMIT 1", $session_id ) );
-		if ( $wpdb->last_error ) wp_send_json_error( [ 'message' => 'Conversation not found' ], 400 );
 
-		$messages = $wpdb->get_results(
-			$wpdb->prepare( "SELECT sender, message, message_type, created_at FROM {$table_messages} WHERE conversation_id = %d ORDER BY created_at ASC", $conversation_id ), ARRAY_A
-		);
-		wp_send_json_success( [
-			'id' => $conversation_id,
-			'messages' => $messages ?: []
-		] );
+		$conversation = $wpdb->get_row( 
+            $wpdb->prepare( "SELECT id, socket_id, name FROM {$table_conversations} WHERE session_id = %s AND ended_at IS NULL LIMIT 1", $session_id ) 
+        );
+        if ( ! $conversation || $wpdb->last_error ) {
+            wp_send_json_error( [ 'message' => 'Conversation not found' ], 400 );
+        }
+
+        $conversation_id = $conversation->id;
+        $socket_id = $conversation->socket_id;
+		$name = $conversation->name;
+
+        $messages = $wpdb->get_results(
+            $wpdb->prepare( "SELECT sender, message, message_type, created_at FROM {$table_messages} WHERE conversation_id = %d ORDER BY created_at ASC", $conversation_id ), 
+            ARRAY_A
+        );
+
+        wp_send_json_success( [
+            'conversation' => $conversation_id,
+            'socket' => $socket_id,
+			'visitor_name' => $name,
+            'messages' => $messages ?: []
+        ] );
 	}
 
 	/**
@@ -889,12 +954,17 @@ class Techno_Chatbot_Public {
         set_transient( $rate_key, $rate_count + 1, 60 );
  
         /* ---- validate inputs ---- */
-        $conversation_id = isset($_POST['conversation_id'])? sanitize_text_field($_POST['conversation_id']) : null;
+		$session_id = isset( $_POST['session_id'] )? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : null;
+		$conversation_id = ! empty( $_POST['conversation_id'] ) ? absint( wp_unslash( $_POST['conversation_id'] ) ) : null;
 		$sender = isset($_POST['sender'])? sanitize_text_field($_POST['sender']) : '';
 		$type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
 		$raw_message = isset( $_POST['message'] ) ? trim( wp_unslash( $_POST['message'] ) ) : '';
-        if ( ! $conversation_id || ! $sender || ! $raw_message ) {
+        if ( ! $conversation_id || ! $sender || ! $raw_message || ! $session_id ) {
             wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
+        }
+        /* session_id must be alphanumeric + dash/underscore only */
+        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
         }
  
         /* sender must be one of the allowed enum values */
@@ -903,8 +973,8 @@ class Techno_Chatbot_Public {
         }
 
 		/* type must be one of the allowed enum values */
-        if ( ! in_array( $type, [ 'text', 'phone_input', 'email_input', 'time_input', 'phone_input_answer', 'email_input_answer', 'time_input_answer', 'system' ], true ) ) {
-            wp_send_json_error( [ 'message' => 'Invalid sender' ], 400 );
+        if ( ! in_array( $type, [ 'text', 'phone_input', 'email_input', 'time_input', 'name_input', 'phone_input_answer', 'email_input_answer', 'time_input_answer', 'name_input_answer', 'system' ], true ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid message type' ], 400 );
         }
 
 		/* Check sender and allow html for bot messages */
@@ -933,15 +1003,27 @@ class Techno_Chatbot_Public {
             wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
         }
 
-		/* message type validation */
-		/* $allowed_types = ['text','image','file','system'];
-		if ( ! in_array($message_type, $allowed_types, true) ) {
-			$message_type = 'text';
-		} */
 		$tokens = null;
 		if ( ! empty( $_POST['token'] ) ) $tokens = json_decode( wp_unslash( $_POST['token'] ), true );
  
         global $wpdb;
+
+        /* ---- Ownership & Active Status Check ---- */
+        $conversations_table = $wpdb->prefix . 'techno_cb_conversations';
+		$conversation = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT ended_at FROM {$conversations_table} WHERE id = %d AND session_id = %s",
+				$conversation_id,
+				$session_id
+			)
+		);
+        if ( null === $conversation ) {
+            wp_send_json_error( [ 'message' => 'Invalid conversation or session mismatch' ], 403 );
+        }
+        if ( isset($conversation->ended_at) ) {
+            wp_send_json_error( [ 'message' => 'Conversation has already ended. Please start a new session.' ], 400 );
+        }
+
         $result = $wpdb->insert( $wpdb->prefix . 'techno_cb_messages', [
 			'conversation_id' => $conversation_id,
 			'sender' => $sender,
@@ -950,7 +1032,7 @@ class Techno_Chatbot_Public {
 			'prompt_tokens' => $tokens !== null ? (int) ( $tokens['prompt_tokens'] ?? 0 ) : null,
 			'completion_tokens' => $tokens !== null ? (int) ( $tokens['completion_tokens'] ?? 0 ) : null,
 		], [
-			'%s', // conversation_id
+			'%d', // conversation_id
 			'%s', // sender
 			'%s', // message
 			'%s', // message_type
