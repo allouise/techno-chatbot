@@ -356,8 +356,8 @@ function loadActiveVisitorsDB() {
         sessionMapMeta = {};
 
         res.data.forEach(chat => {
-            sessionMap[chat.session_id] = chat.visitor_name;
-            sessionMapMeta[chat.session_id] = {
+            sessionMap[chat.socket_id] = chat.name;
+            sessionMapMeta[chat.socket_id] = {
                 active: chat.active
             };
         });
@@ -407,24 +407,29 @@ async function addAdminMessage(msg) {
     }
 
     /* Save TO DB */
-    const body = new URLSearchParams({
-        action: 'techno_save_admin_chat_message',
-        nonce: technoLivechat.nonce,
-        session_id: currentSession,
-        sender: msg.sender,
-        message: msg.message
-    });
-
     fetch(technoLivechat.ajax_url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body,
-        keepalive: true,
-    }).catch(err =>
-        console.error('[Techno Chatbot] DB save failed:', err)
-    );
-
-    renderMessage(msg);
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+            action: "techno_save_admin_chat_message",
+            nonce: technoLivechat.nonce,
+            session_id: currentSession,
+            sender: msg.sender,
+            message: msg.message
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            renderMessage(msg);
+        }else{
+            
+        }
+    })
+    .catch(console.error);
+    
 }
 function renderMessage(msg) {
     if (!chatMessages) return;
@@ -585,8 +590,8 @@ function loadSessionHistory(sessionId) {
     })
     .then(data => {
         livechatPage.classList.remove('loading');
-        if (!data.success || !Array.isArray(data.data)) return;
-        const messages = data.data.map(row => ({
+        if (!data.success || !Array.isArray(data.data.messages)) return;
+        const messages = data.data.messages.map(row => ({
             sender:  row.sender  || 'visitor',
             message: row.message || '',
             created_at: row.created_at || ''

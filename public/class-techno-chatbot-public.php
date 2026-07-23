@@ -365,65 +365,6 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * End bot chat
-	 *
-	 * @since 1.0.7
-	 */
-	public function end_bot_chat(){
-		check_ajax_referer('techno_chatbot_nonce','nonce');
-
-		/* ---- rate limit: max 60 saves per minute per IP ---- */
-        $ip = $this->get_client_ip();
-        $rate_key = 'techno_end_botchat_' . md5( $ip );
-        $rate_count = (int) get_transient( $rate_key );
-        if ( $rate_count >= 60 ) {
-            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
-        }
-        set_transient( $rate_key, $rate_count + 1, 60 );
-
-		set_transient($transient_key, $count + 1, 60);
-		if( empty($_POST['history']) ){
-			wp_send_json_error();
-		}
-		$history = json_decode( stripslashes($_POST['history']), true );
-
-		if( !is_array($history) ){
-			wp_send_json_error();
-		}
-
-		// Limit messages to prevent abuse
-		$history = array_slice($history, -30);
-		$emails_option = get_option('techno_chatbot_emails');
-		$admin_email = sanitize_email(get_option('admin_email'));
-		if( !empty($emails_option) ){
-			$emails = array_map('trim', explode(',', $emails_option));
-			$admin_email = array_filter(array_map('sanitize_email', $emails));
-		}
-
-		$message = "Chatbot Conversation\n\n";
-		foreach($history as $msg){
-
-			if(!isset($msg['sender']) || !isset($msg['text'])){
-				continue;
-			}
-
-			$sender = sanitize_text_field($msg['sender']);
-			$text   = sanitize_textarea_field($msg['text']);
-			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
-			$message .= "{$label}: {$text}\n";
-		}
-
-		wp_mail(
-			$admin_email,
-			'New Chatbot Contact',
-			$message
-		);
-
-		wp_send_json_success();
-
-	}
-
-	/**
 	 * End live chat
 	 *
 	 * @since 1.0.0
@@ -637,6 +578,34 @@ class Techno_Chatbot_Public {
 		if ( false === $updated ) wp_send_json_error( [ 'message' => 'Database error while ending conversation' ], 500 );
 		if ( 0 === $updated ) wp_send_json_error( [ 'message' => 'Conversation not found or already ended' ], 404 );
 
+		// --- Retrieve messages to send transcript ---
+		$chat_data = $this->get_chat_messages( $session_id );
+		if ( ! empty( $chat_data['success'] ) && ! empty( $chat_data['messages'] ) ) {
+			$messages = $chat_data['messages'];
+			// Extract all message_types present in this chat
+			$message_types = array_column( $messages, 'message_type' );
+			// Check if either 'email_input_answer' OR 'phone_input_answer' exists
+			$required_types = [ 'email_input_answer', 'phone_input_answer' ];
+
+			$has_contact_info = ! empty( array_intersect( $required_types, $message_types ) );
+			if ( $has_contact_info ) {
+				// Resolve admin email list
+				$emails_option = get_option( 'techno_chatbot_emails' );
+				$admin_emails  = [ sanitize_email( get_option( 'admin_email' ) ) ];
+
+				if ( ! empty( $emails_option ) ) {
+					$parsed_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( ',', $emails_option ) ) ) );
+					if ( ! empty( $parsed_emails ) ) {
+						$admin_emails = $parsed_emails;
+					}
+				}
+				// Custom subject line for admin notice
+				$subject = sprintf( __( '[New Lead] Chat Conversation #%d Transcript', 'techno-chatbot' ), $conversation_id );
+				// Send to admin
+				$this->send_email_transcript( $admin_emails, $messages, $subject );
+			}
+		}
+
 		wp_send_json_success( [ 'message' => 'Conversation ended successfully' ] );
 	}
 
@@ -667,32 +636,17 @@ class Techno_Chatbot_Public {
             wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
         }
 
-		global $wpdb;
-		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
-		$table_messages = $wpdb->prefix . 'techno_cb_messages';
+    	$data = $this->get_chat_messages( $session_id );
+		if ( empty( $data['success'] ) || ! is_null( $data['ended_at'] ) ) {
+			wp_send_json_error( [ 'message' => 'Conversation not found or has ended' ], 400 );
+		}
 
-		$conversation = $wpdb->get_row( 
-            $wpdb->prepare( "SELECT id, socket_id, name FROM {$table_conversations} WHERE session_id = %s AND ended_at IS NULL LIMIT 1", $session_id ) 
-        );
-        if ( ! $conversation || $wpdb->last_error ) {
-            wp_send_json_error( [ 'message' => 'Conversation not found' ], 400 );
-        }
-
-        $conversation_id = $conversation->id;
-        $socket_id = $conversation->socket_id;
-		$name = $conversation->name;
-
-        $messages = $wpdb->get_results(
-            $wpdb->prepare( "SELECT sender, message, message_type, created_at FROM {$table_messages} WHERE conversation_id = %d ORDER BY created_at ASC", $conversation_id ), 
-            ARRAY_A
-        );
-
-        wp_send_json_success( [
-            'conversation' => $conversation_id,
-            'socket' => $socket_id,
-			'visitor_name' => $name,
-            'messages' => $messages ?: []
-        ] );
+		wp_send_json_success( [
+			'conversation' => $data['conversation_id'],
+			'socket'       => $data['socket_id'],
+			'visitor_name' => $data['visitor_name'],
+			'messages'     => $data['messages']
+		] );
 	}
 
 	/**
@@ -812,14 +766,19 @@ class Techno_Chatbot_Public {
 	 */
 	private function get_chat_messages( $session_id ) {
 		global $wpdb;
-		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
-		$table_messages      = $wpdb->prefix . 'techno_cb_messages';
 
-		$conversation_id = $wpdb->get_var( 
-			$wpdb->prepare( "SELECT id FROM {$table_conversations} WHERE session_id = %s LIMIT 1", $session_id ) 
+		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
+		$table_messages = $wpdb->prefix . 'techno_cb_messages';
+
+		// Query full conversation details in a single query
+		$conversation = $wpdb->get_row( 
+			$wpdb->prepare( 
+				"SELECT id, socket_id, name, ended_at FROM {$table_conversations} WHERE session_id = %s LIMIT 1", 
+				$session_id 
+			) 
 		);
 
-		if ( ! $conversation_id || $wpdb->last_error ) {
+		if ( ! $conversation || $wpdb->last_error ) {
 			return [ 
 				'success' => false, 
 				'message' => 'Conversation not found' 
@@ -829,15 +788,18 @@ class Techno_Chatbot_Public {
 		$messages = $wpdb->get_results(
 			$wpdb->prepare( 
 				"SELECT sender, message, message_type, created_at FROM {$table_messages} WHERE conversation_id = %d ORDER BY created_at ASC", 
-				$conversation_id 
+				$conversation->id 
 			), 
 			ARRAY_A
 		); 
 
 		return [ 
 			'success' => true, 
-			'conversation_id' => $conversation_id,
-			'messages' => $messages 
+			'conversation_id' => (int) $conversation->id,
+			'socket_id' => $conversation->socket_id,
+			'visitor_name' => $conversation->name,
+			'ended_at' => $conversation->ended_at,
+			'messages' => $messages ?: []
 		];
 	}
 
@@ -850,7 +812,7 @@ class Techno_Chatbot_Public {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
 		/* ---- Rate Limit: Max 60 requests per minute per IP ---- */
-		$ip         = $this->get_client_ip();
+		$ip = $this->get_client_ip();
 		$rate_key   = 'techno_sendtranscript_' . md5( $ip );
 		$rate_count = (int) get_transient( $rate_key );
 		if ( $rate_count >= 60 ) {
@@ -890,27 +852,71 @@ class Techno_Chatbot_Public {
 			wp_send_json_error( [ 'message' => "No valid email found for conversation #{$conversation_id}" ], 400 );
 		}
 
-		// Build the plain-text email transcript
-		$site_name   = get_bloginfo( 'name' );
-		$email_body  = "Chatbot Conversation Transcript\n";
+		$sent = $this->send_email_transcript( $target_email, $messages );
+		if ( $sent ) {
+			wp_send_json_success( [ 'message' => 'Transcript sent successfully' ] );
+		} else {
+			wp_send_json_error( [ 'message' => 'Email sending error' ], 500 );
+		}
+	}
+
+	/**
+	 * Send chat messages
+	 *
+	 * @since 1.1.0
+	 */
+	private function send_email_transcript( $target_email, array $messages, $subject = '' ) {
+		// 1. Sanitize and filter target emails into a valid list
+		$recipients = [];
+		
+		if ( is_array( $target_email ) ) {
+			foreach ( $target_email as $email ) {
+				$sanitized = sanitize_email( $email );
+				if ( is_email( $sanitized ) ) {
+					$recipients[] = $sanitized;
+				}
+			}
+		} else {
+			$sanitized = sanitize_email( $target_email );
+			if ( is_email( $sanitized ) ) {
+				$recipients[] = $sanitized;
+			}
+		}
+
+		// Fail early if no valid recipients or messages exist
+		if ( empty( $recipients ) || empty( $messages ) ) {
+			return false;
+		}
+
+		// Remove duplicates
+		$recipients = array_unique( $recipients );
+
+		// 2. Build or fallback the subject line
+		$site_name = get_bloginfo( 'name' );
+		
+		if ( empty( trim( $subject ) ) ) {
+			$subject = sprintf( __( 'Your %s Chat Transcript', 'techno-chatbot' ), $site_name );
+		} else {
+			$subject = sanitize_text_field( $subject );
+		}
+
+		// 3. Build plain-text email body
+		$email_body = "Chatbot Conversation Transcript\n";
 		$email_body .= "----------------------------------------\n\n";
 
 		foreach ( $messages as $msg ) {
-			if ( empty( $msg['sender'] ) || ! isset( $msg['message'] ) ) continue;
+			if ( empty( $msg['sender'] ) || ! isset( $msg['message'] ) ) {
+				continue;
+			}
+
 			$sender = ucfirst( sanitize_text_field( $msg['sender'] ) );
 			$text = sanitize_textarea_field( $msg['message'] );
 			$timestamp = ! empty( $msg['created_at'] ) ? " [{$msg['created_at']}]" : '';
 			$email_body .= "{$sender}{$timestamp}:\n{$text}\n\n";
 		}
 
-		$subject = sprintf( __( 'Your %s Chat Transcript', 'techno-chatbot' ), $site_name );
-		$sent = wp_mail( $target_email, $subject, $email_body );
-
-		if ( $sent ) {
-			wp_send_json_success( [ 'message' => 'Transcript sent successfully' ] );
-		} else {
-			wp_send_json_error( [ 'message' => 'Email sending error' ], 500 );
-		}
+		// 4. Send email (wp_mail handles array of recipients natively)
+		return wp_mail( $recipients, $subject, $email_body );
 	}
 
 	/**

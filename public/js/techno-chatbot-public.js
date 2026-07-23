@@ -732,7 +732,12 @@ class TechnoChatbot {
                 throw new Error(data.data?.message || "Failed to end conversation");
             }
 
+            if( this.socketId != null ){
+                this.socket.emit("end-chat", { session_id: this.socketId });
+            }
             localStorage.removeItem(this.storageKeys.session);
+            localStorage.removeItem(this.storageKeys.failedanswer);
+            this.failedAnswer = 0;
             this.conversationId = null;
             this.sessionId = null;
             this.socketId = null;
