@@ -14,7 +14,7 @@
 #techno-chatbot-window.techno-chatbot-hidden { display: none; } 
 
 /* Chat option buttons */
-.techno-chatbot-contact-options { display: flex; gap: 5px; flex-direction: column; }
+.techno-chatbot-contact-options { display: flex; gap: 5px; flex-direction: column; margin-bottom: 8px; }
 .techno-chatbot-contact-options button { background: var(--techno-chatoptionbtn-bg); color: var(--techno-chatoptionbtn-txt); border: none; padding: 10px 20px; border-radius: 100px; cursor: pointer; font-weight: bold; }
 
 /* Chat end option buttons */
@@ -41,6 +41,7 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-chatbot-menu ul li { margin: 0; }
 .techno-chatbot-menu > a.active + ul { max-height: 9999px; opacity: 1; }
 .techno-chatbot-menu ul a { text-decoration: none; color: var(--techno-header-text); display: block; padding: 10px 15px; cursor: pointer; border-bottom: 1px solid rgba(0, 0, 0, 0.2); font-weight: 400; font-size: var(--techno-chatbot-chatmenusize); }
+.techno-chatbot-menu ul a.techno-cb-hide{ display: none; }
 .techno-chatbot-menu ul a:hover, .techno-chatbot-menu ul a:not([href]):not([tabindex]):focus, .techno-chatbot-menu ul a:not([href]):not([tabindex]):hover{ background: var(--techno-header-text); color: var(--techno-header-bg); }
 .techno-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; flex-shrink: 0; transition: background-color 0.3s ease; } 
 .techno-status-dot.online { background-color: #22c55e; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25); } 
