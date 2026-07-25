@@ -159,7 +159,60 @@ class Techno_Chatbot_Public {
 	 * @since    1.1.0
 	 */
 	private function get_client_ip() {
-		return $_SERVER['HTTP_CF_CONNECTING_IP'] ?? explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '')[0] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+		if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) return trim($_SERVER['HTTP_CF_CONNECTING_IP']);
+
+		if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+			$ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+			$first_ip = trim($ips[0]);
+			if (!empty($first_ip)) {
+				return $first_ip;
+			}
+		}
+
+		return $_SERVER['REMOTE_ADDR'] ?? '';
+	}
+
+	/**
+	 * Detect Browser, OS, and Device Type without external libraries.
+	 *
+	 * @since    1.1.0
+	 */
+	private function parse_user_agent( $ua_string = '' ) {
+		$browser = 'Unknown';
+		$os      = 'Unknown';
+		$device  = 'Desktop';
+
+		if ( empty( $ua_string ) ) {
+			return compact('browser', 'os', 'device');
+		}
+
+		// Browser
+		if ( preg_match( '/Edg/i', $ua_string ) )           { $browser = 'Microsoft Edge'; }
+		elseif ( preg_match( '/OPR|Opera/i', $ua_string ) )  { $browser = 'Opera'; }
+		elseif ( preg_match( '/Vivaldi/i', $ua_string ) )    { $browser = 'Vivaldi'; }
+		elseif ( preg_match( '/Brave/i', $ua_string ) )      { $browser = 'Brave'; }
+		elseif ( preg_match( '/Chrome/i', $ua_string ) )     { $browser = 'Google Chrome'; }
+		elseif ( preg_match( '/Safari/i', $ua_string ) )     { $browser = 'Safari'; }
+		elseif ( preg_match( '/Firefox/i', $ua_string ) )    { $browser = 'Mozilla Firefox'; }
+		elseif ( preg_match( '/MSIE|Trident/i', $ua_string ) ) { $browser = 'Internet Explorer'; }
+
+		// OS
+		if ( preg_match( '/iphone/i', $ua_string ) )         { $os = 'iOS (iPhone)'; }
+		elseif ( preg_match( '/ipad/i', $ua_string ) )       { $os = 'iOS (iPad)'; }
+		elseif ( preg_match( '/android/i', $ua_string ) )    { $os = 'Android'; }
+		elseif ( preg_match( '/win/i', $ua_string ) )        { $os = 'Windows'; }
+		elseif ( preg_match( '/mac/i', $ua_string ) )        { $os = 'macOS'; }
+		elseif ( preg_match( '/linux/i', $ua_string ) )      { $os = 'Linux'; }
+		elseif ( preg_match( '/cros/i', $ua_string ) )       { $os = 'ChromeOS'; }
+
+		// Device Type
+		if ( preg_match( '/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i', $ua_string ) ) {
+			$device = 'Tablet';
+		} elseif ( preg_match( '/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/i', $ua_string ) ) {
+			$device = 'Mobile';
+		}
+
+		return compact('browser', 'os', 'device');
 	}
 
 	/**
@@ -401,14 +454,21 @@ class Techno_Chatbot_Public {
 		$user_id = get_current_user_id();
 		$user_id = $user_id ?: null;
 
+		$raw_user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 ) : '';
+		$device_info = $this->parse_user_agent( $raw_user_agent );
+		$metas_data = [
+			'ip'         => $this->get_client_ip(),
+			'user_agent' => $raw_user_agent,
+			'browser'    => $device_info['browser'],
+			'os'         => $device_info['os'],
+			'device'     => $device_info['device'],
+		];
+
         global $wpdb;
         $result = $wpdb->insert( $wpdb->prefix . 'techno_cb_conversations', [
 			'session_id' => $session_id,
 			'user_id' => $user_id,
-			'metas' => wp_json_encode([
-				'ip' => $ip,
-				'user_agent' => isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 ) : null,
-			]),
+			'metas' => wp_json_encode( $metas_data ),
 		], [
 			'%s', // session_id
 			'%d', // user_id
