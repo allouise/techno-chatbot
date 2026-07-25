@@ -79,7 +79,22 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-chatbot-disclaimer-content { padding: 20px; position: relative; }
 #techno-chatbot-disclaimer-modal .close-btn { position: absolute; right: 0; top: 0; border-radius: 100px; box-shadow: none; border: none; font-size: 30px; background: #fff; color: #000; cursor: pointer; }
 
+/* Loader */
+#techno-chatbot-loader { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: var(--techno-loader-bg); z-index: 2; }
+.techno-chatbot-loader { width: 17px; aspect-ratio: 1; border-radius: 50%; background: var(--techno-loader-icon); display: grid; animation: technocb-loader-0 2s infinite linear; } 
+.techno-chatbot-loader:before, .techno-chatbot-loader:after { content: ""; grid-area: 1/1; margin: 15%; border-radius: 50%; background: inherit; transform: rotate(0deg) translate(150%); animation: technocb-loader-1 1s infinite; } 
+.techno-chatbot-loader:after { animation-delay: -.5s }
+@keyframes technocb-loader-0 { 100% {transform: rotate(1turn)} }
+@keyframes technocb-loader-1 { 100% {transform: rotate(1turn) translate(150%)} }
 
+/* Animations */
+.techno-cbfade-in, .techno-cbfade-out { animation-duration: 0.5s; animation-timing-function: ease-in-out; animation-fill-mode: forwards; } 
+.techno-cbfade-in { animation-name: fadeIn; } 
+.techno-cbfade-out { animation-name: fadeOut; } 
+@keyframes fadeIn { 0% { opacity: 0; visibility: hidden; } 100% { opacity: 1; visibility: visible; } } 
+@keyframes fadeOut { 0% { opacity: 1; visibility: visible; } 100% { opacity: 0; visibility: hidden; } }
+
+/* Responsive */
 @media only screen and (max-width: 600px) {
     .techno-chatbot-header{ font-size: calc(var(--techno-chatbot-headingsize) * 0.7); }
     #techno-chatbot-floating-icon.icon_text { font-size: calc(var(--techno-chatbot-icontextsize) * 0.8); }

@@ -44,6 +44,19 @@ function deactivate_techno_chatbot() {
 	Techno_Chatbot_Deactivator::deactivate();
 }
 
+/**
+ * Check if the plugin database/settings need an update on load.
+ */
+function techno_chatbot_check_for_updates() {
+    $installed_version = get_option( 'techno_chatbot_version' );
+
+    if ( $installed_version !== TECHNO_CHATBOT_VERSION ) {
+        require_once plugin_dir_path( __FILE__ ) . 'includes/class-techno-chatbot-activator.php';
+        Techno_Chatbot_Activator::activate();
+    }
+}
+add_action( 'plugins_loaded', 'techno_chatbot_check_for_updates' );
+
 register_activation_hook( __FILE__, 'activate_techno_chatbot' );
 register_deactivation_hook( __FILE__, 'deactivate_techno_chatbot' );
 

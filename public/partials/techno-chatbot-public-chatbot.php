@@ -61,6 +61,7 @@
 	<?php if($disclaimer != ''){ ?>
 		<div class="techno-chatbot-disclaimer-short"><?php echo $disclaimer; ?></div>
 	<?php } ?>
+	<div id="techno-chatbot-loader" class="techno-cbfade-in"><div class="techno-chatbot-loader"></div></div>
 </div>
 
 <?php if( $disclaimerEnabled && $disclaimerFullMsg != '' ){ ?>

@@ -40,6 +40,10 @@ class Techno_Chatbot_Activator {
 		self::create_cb_conversation_table();
 		self::techno_chatbot_add_role();
 		self::techno_chatbot_add_admin_capability();
+
+		if ( defined( 'TECHNO_CHATBOT_VERSION' ) ) {
+			update_option( 'techno_chatbot_version', TECHNO_CHATBOT_VERSION );
+		}
 	}
 
 	/**
@@ -57,7 +61,7 @@ class Techno_Chatbot_Activator {
 			conversation_id   BIGINT UNSIGNED DEFAULT NULL,
 			sender            ENUM('visitor','admin','bot') NOT NULL,
 			message           TEXT NOT NULL,
-			message_type      VARCHAR(20) NOT NULL DEFAULT 'text',
+			message_type      VARCHAR(64) NOT NULL DEFAULT 'text',
 			prompt_tokens 	  INT UNSIGNED DEFAULT NULL,
 			completion_tokens INT UNSIGNED DEFAULT NULL,
 			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,

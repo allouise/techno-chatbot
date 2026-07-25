@@ -200,6 +200,8 @@ class Techno_Chatbot_Public {
 	 */
 	private function generate_dynamic_css() {
 
+		$loader_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_loader_bg_color');
+		$loader_icon = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_loader_icon_color');
 		$chaticon_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chaticon_bg_color');
 		$chaticon_text = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chaticon_text_color');
 		$floatingtxt_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_floatingtxt_bg_color');
@@ -263,6 +265,8 @@ class Techno_Chatbot_Public {
 
 		$css = "
 		:root{
+			--techno-loader-bg: {$loader_bg};
+			--techno-loader-icon: {$loader_icon};
 			--techno-chaticon-bg: {$chaticon_bg};
 			--techno-chaticon-text: {$chaticon_text};
 			--techno-floatingtxt-bg: {$floatingtxt_bg};
@@ -365,66 +369,6 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * End live chat
-	 *
-	 * @since 1.0.0
-	 */
-	public function end_live_chat(){
-		check_ajax_referer('techno_chatbot_nonce','nonce');
-		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-		$session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
-		$end_type = isset($_POST['end_type']) ? sanitize_text_field($_POST['end_type']) : '';
-		if ( empty( $session_id ) ) wp_send_json_error('Missing session id');
-
-		// Rate limit per IP
-		$ip = $_SERVER['REMOTE_ADDR'];
-		$transient_key = 'techno_endchat_' . md5($ip);
-		$count = (int) get_transient($transient_key);
-
-		if( $count >= 10 ){
-			wp_send_json_error('Too many requests');
-		}
-		set_transient($transient_key, $count + 1, 60);
-
-		$emails_option = get_option('techno_chatbot_emails');
-		$admin_email = sanitize_email(get_option('admin_email'));
-		if( !empty($emails_option) ){
-			$emails = array_map('trim', explode(',', $emails_option));
-			$admin_email = array_filter(array_map('sanitize_email', $emails));
-		}
-
-		$archive = $this->archive_chat($session_id, $email, $end_type);
-		$history = $this->get_chat_history($session_id);
-		$message = "Chatbot Conversation\n\n";
-		foreach ($history as $msg) {
-			$label = match ($msg['sender']) {
-				'visitor' => 'Visitor',
-				'admin'   => 'Support',
-				'bot'     => 'Bot',
-				default   => 'Unknown'
-			};
-			$message .= "{$label}: {$msg['message']}\n";
-		}
-
-		$admin_mail = wp_mail( $admin_email, 'New Chatbot Contact', $message );
-		if( !$email && $admin_mail ){
-			wp_send_json_success();
-		}elseif( !$admin_mail ){
-			wp_send_json_error('Admin Email Error');
-		}
-		
-		$site_name = get_bloginfo('name');
-		if( $email ){
-			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
-			if( $client_mail ){
-				wp_send_json_success();
-			}else{
-				wp_send_json_error('Email Error');
-			}
-		}
-	}
-
-	/**
 	 * Create new conversation
 	 *
 	 * @since    1.1.0
@@ -471,7 +415,7 @@ class Techno_Chatbot_Public {
 			'%s', // metas
 		] );
         if ( $result === false ) {
-            wp_send_json_error( [ 'message' => 'DB error' ], 500 );
+            wp_send_json_error( [ 'message' => 'Failed to create conversation. Please contact administrator.' ], 500 );
         }
 		$conversation_id = $wpdb->insert_id;
 
@@ -582,14 +526,13 @@ class Techno_Chatbot_Public {
 		$chat_data = $this->get_chat_messages( $session_id );
 		if ( ! empty( $chat_data['success'] ) && ! empty( $chat_data['messages'] ) ) {
 			$messages = $chat_data['messages'];
-			// Extract all message_types present in this chat
 			$message_types = array_column( $messages, 'message_type' );
-			// Check if either 'email_input_answer' OR 'phone_input_answer' exists
-			$required_types = [ 'email_input_answer', 'phone_input_answer' ];
 
+			// 1. Send lead notification to Admin if contact info exists
+			$required_types = [ 'email_input_answer', 'phone_input_answer' ];
 			$has_contact_info = ! empty( array_intersect( $required_types, $message_types ) );
+
 			if ( $has_contact_info ) {
-				// Resolve admin email list
 				$emails_option = get_option( 'techno_chatbot_emails' );
 				$admin_emails  = [ sanitize_email( get_option( 'admin_email' ) ) ];
 
@@ -599,10 +542,22 @@ class Techno_Chatbot_Public {
 						$admin_emails = $parsed_emails;
 					}
 				}
-				// Custom subject line for admin notice
 				$subject = sprintf( __( '[New Lead] Chat Conversation #%d Transcript', 'techno-chatbot' ), $conversation_id );
-				// Send to admin
 				$this->send_email_transcript( $admin_emails, $messages, $subject );
+			}
+
+			// 2. Send transcript to user if they provided an end-of-chat email
+			foreach ( $messages as $msg ) {
+				if ( isset( $msg['message_type'] ) && 'email_end_input_answer' === $msg['message_type'] ) {
+					// Adjust 'message' key to match wherever the email string is stored in your array
+					$user_email = sanitize_email( $msg['message'] ?? $msg['content'] ?? '' );
+
+					if ( is_email( $user_email ) ) {
+						// Omitting the 3rd parameter lets send_email_transcript use its default subject
+						$this->send_email_transcript( [ $user_email ], $messages );
+					}
+					break; // Stop after finding the first matching message
+				}
 			}
 		}
 
@@ -637,8 +592,8 @@ class Techno_Chatbot_Public {
         }
 
     	$data = $this->get_chat_messages( $session_id );
-		if ( empty( $data['success'] ) || ! is_null( $data['ended_at'] ) ) {
-			wp_send_json_error( [ 'message' => 'Conversation not found or has ended' ], 400 );
+		if ( empty( $data['success'] ) || ( !is_null( $data['ended_at'] ) && $data['ended_at'] !== '0000-00-00 00:00:00' ) ) {
+			wp_send_json_error( [ 'message' => 'Conversation not found or has ended. Please start a new session.' ], 400 );
 		}
 
 		wp_send_json_success( [
@@ -686,7 +641,7 @@ class Techno_Chatbot_Public {
         }
 
 		/* type must be one of the allowed enum values */
-        if ( ! in_array( $type, [ 'text', 'phone_input', 'email_input', 'time_input', 'name_input', 'phone_input_answer', 'email_input_answer', 'time_input_answer', 'name_input_answer', 'system' ], true ) ) {
+        if ( !in_array( $type, [ 'text', 'phone_input', 'email_input', 'time_input', 'name_input', 'email_end_input', 'email_end_input_answer', 'phone_input_answer', 'email_input_answer', 'time_input_answer', 'name_input_answer', 'system' ], true ) ) {
             wp_send_json_error( [ 'message' => 'Invalid message type' ], 400 );
         }
 
@@ -733,7 +688,7 @@ class Techno_Chatbot_Public {
         if ( null === $conversation ) {
             wp_send_json_error( [ 'message' => 'Invalid conversation or session mismatch' ], 403 );
         }
-        if ( isset($conversation->ended_at) ) {
+        if ( isset($conversation->ended_at) && $conversation->ended_at !== '0000-00-00 00:00:00' ) {
             wp_send_json_error( [ 'message' => 'Conversation has already ended. Please start a new session.' ], 400 );
         }
 
@@ -754,7 +709,7 @@ class Techno_Chatbot_Public {
 		] );
  
         if ( $result === false ) {
-            wp_send_json_error( [ 'message' => 'DB error' ], 500 );
+            wp_send_json_error( [ 'message' => $wpdb->last_error ], 500 );
         }
         wp_send_json_success( [ 'id' => $wpdb->insert_id ] );
     }
@@ -929,21 +884,69 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Get Embed Cache
+	 * Cosine Similarity
 	 *
 	 * @since    1.0.0
 	 */
-	private function get_embedding_cache($text) {
-		return get_transient('techno_ai_emb_' . md5($text));
+	private function cosine_similarity($a, $b) {
+
+		$dot = 0;
+		$normA = 0;
+		$normB = 0;
+		$len = min(count($a), count($b));
+		if ($len === 0) {
+			return 0;
+		}
+
+		for ($i = 0; $i < $len; $i++) {
+			$dot += $a[$i] * $b[$i];
+			$normA += $a[$i] * $a[$i];
+			$normB += $b[$i] * $b[$i];
+		}
+
+		if ($normA == 0 || $normB == 0) {
+			return 0;
+		}
+
+		return $dot / (sqrt($normA) * sqrt($normB));
 	}
 
 	/**
-	 * Set Embed Cache
+	 * Create Embedding
 	 *
 	 * @since    1.0.0
 	 */
-	private function set_embedding_cache($text, $embedding) {
-		set_transient('techno_ai_emb_' . md5($text), $embedding, WEEK_IN_SECONDS);
+	private function create_embedding($text) {
+		$api_key = get_option('techno_chatbot_openai_secret');
+		if (!$api_key) return false;
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/embeddings',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				],
+				'body' => wp_json_encode([
+					'model' => 'text-embedding-3-small',
+					'input' => $text
+				]),
+				'timeout' => 60
+			]
+		);
+
+		if (is_wp_error($response)) {
+			error_log( 'Embedding Error: ' . $response->get_error_message());
+			return false;
+		}
+
+		$body = json_decode( wp_remote_retrieve_body($response), true );
+		if (!isset($body['data'][0]['embedding'])) {
+			error_log( 'Embedding API Response: ' . print_r($body, true) );
+			return false;
+		}
+
+		return $body['data'][0]['embedding'];
 	}
 
 	/**
@@ -984,13 +987,14 @@ class Techno_Chatbot_Public {
 				];
 			}
 		}
-
 		if (empty($results)) return [];
 
 		/* Find highest similarity */
 		$bestSimilarity = max(array_column($results, 'similarity'));
-		/* Never allow threshold below 0.35 */
-		$threshold = max(0.35, $bestSimilarity * 0.90);
+		/* Set Threshold 
+		Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
+		$minimumFloor = 0.12; 
+		$threshold = max($minimumFloor, $bestSimilarity * 0.80);
 		/* Keep only relevant chunks */
 		$results = array_filter($results, function ($chunk) use ($threshold) {
 			return $chunk['similarity'] >= $threshold;
@@ -1074,12 +1078,12 @@ class Techno_Chatbot_Public {
 					],
 					'temperature' => 0
 				]),
-				'timeout' => 20
+				'timeout' => 60
 			]
 		);
 
 		if (is_wp_error($response)) {
-			error_log('TechnoChatbot Error contacting AI.');
+			error_log('TechnoChatbot Error contacting AI.' . $response->get_error_message());
 			return [
 				'answer' => 'NO_ANSWER',
 				'tokens' => 0,
@@ -1100,77 +1104,6 @@ class Techno_Chatbot_Public {
 		/* Cache for 30 days */
 		set_transient( $cache_key, $result, 30 * DAY_IN_SECONDS );
 		return $result;
-	}
-
-	/**
-	 * Cosine Similarity
-	 *
-	 * @since    1.0.0
-	 */
-	private function cosine_similarity($a, $b) {
-
-		$dot = 0;
-		$normA = 0;
-		$normB = 0;
-		$len = min(count($a), count($b));
-		if ($len === 0) {
-			return 0;
-		}
-
-		for ($i = 0; $i < $len; $i++) {
-			$dot += $a[$i] * $b[$i];
-			$normA += $a[$i] * $a[$i];
-			$normB += $b[$i] * $b[$i];
-		}
-
-		if ($normA == 0 || $normB == 0) {
-			return 0;
-		}
-
-		return $dot / (sqrt($normA) * sqrt($normB));
-	}
-
-	/**
-	 * Create Embedding
-	 *
-	 * @since    1.0.0
-	 */
-	private function create_embedding($text) {
-		$api_key = get_option('techno_chatbot_openai_secret');
-		if (!$api_key) return false;
-
-		$cached = $this->get_embedding_cache($text);
-		if ($cached) return $cached;
-
-		$response = wp_remote_post(
-			'https://api.openai.com/v1/embeddings',
-			[
-				'headers' => [
-					'Authorization' => 'Bearer ' . $api_key,
-					'Content-Type'  => 'application/json',
-				],
-				'body' => wp_json_encode([
-					'model' => 'text-embedding-3-small',
-					'input' => $text
-				]),
-				'timeout' => 30
-			]
-		);
-
-		if (is_wp_error($response)) {
-			error_log( 'Embedding Error: ' . $response->get_error_message());
-			return false;
-		}
-
-		$body = json_decode( wp_remote_retrieve_body($response), true );
-		if (!isset($body['data'][0]['embedding'])) {
-			error_log( 'Embedding API Response: ' . print_r($body, true) );
-			return false;
-		}
-
-		$embedding = $body['data'][0]['embedding'];
-		$this->set_embedding_cache($text, $embedding);
-		return $embedding;
 	}
 
 	/**
@@ -1198,25 +1131,37 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Check AI-assisted chat usage and send notifications when the limit is reached.
+	 * Check AI usage on every page load.
 	 *
-	 * @since 1.0.9
+	 * @since 1.1.0
 	 */
 	public function get_ai_assisted_history() {
 
 		$limit = 2;
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'techno_chat_history';
+		$table = $wpdb->prefix . 'techno_cb_messages';
+		
+		// Count messages where AI was used
 		$count = (int) $wpdb->get_var(
 			"SELECT COUNT(*)
 			FROM {$table}
-			WHERE tokens > 0"
+			WHERE prompt_tokens > 0 OR completion_tokens > 0"
 		);
 
-		// Limit not reached.
-		if ( $count < $limit ) return false;
-		delete_option( 'techno_chatbot_aireplies' );
+		// If limit is NOT reached, ensure notification flag is cleared and exit early
+		if ( $count < $limit ) {
+			delete_option( 'techno_chatbot_limit_notified' );
+			return false;
+		}
+
+		// 1. Set AI replies option to 0 (instead of deleting)
+		update_option( 'techno_chatbot_aireplies', 0 );
+
+		// 2. Check if we already sent the notifications
+		if ( get_option( 'techno_chatbot_limit_notified' ) ) {
+			return true; // Limit is reached, but emails were already sent once
+		}
 
 		/*
 		* Get recipient emails.
@@ -1249,7 +1194,6 @@ class Techno_Chatbot_Public {
 		* Notify site admin.
 		*/
 		if ( ! empty( $recipients ) ) {
-
 			wp_mail(
 				$recipients,
 				'AI Chat Limit Reached',
@@ -1272,6 +1216,22 @@ class Techno_Chatbot_Public {
 			)
 		);
 
+		// 3. Mark notification as sent so it only runs ONCE
+		update_option( 'techno_chatbot_limit_notified', 1 );
+
 		return true;
+	}
+
+	public function testAI(){
+		$test = wp_remote_get( 'https://api.openai.com/v1/models', [
+			'headers' => [ 'Authorization' => 'Bearer ' . get_option('techno_chatbot_openai_secret') ],
+			'timeout' => 10,
+		] );
+
+		if ( is_wp_error( $test ) ) {
+			error_log( 'OpenAI Direct Test Failed: ' . $test->get_error_message() );
+		} else {
+			error_log( 'OpenAI Direct Test Succeeded!' );
+		}
 	}
 }

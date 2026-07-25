@@ -215,9 +215,9 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_ajax_techno_save_admin_chat_message', $plugin_admin, 'save_admin_chat_message' );
 		$this->loader->add_action( 'wp_ajax_techno_get_chat_history', $plugin_admin, 'get_chat_history' );
 		$this->loader->add_action( 'wp_ajax_techno_end_chat', $plugin_admin, 'end_chat' );
-		$this->loader->add_action( 'wp_ajax_techno_chat_history_list', $plugin_admin, 'get_archived_chat_list' );
-		$this->loader->add_action( 'wp_ajax_techno_chat_history_messages', $plugin_admin, 'get_archived_chat' );
-		$this->loader->add_action( 'wp_ajax_techno_delete_chat_history', $plugin_admin, 'delete_chat_history' );
+		$this->loader->add_action( 'wp_ajax_techno_chat_history_list', $plugin_admin, 'get_ended_conversation' );
+		$this->loader->add_action( 'wp_ajax_techno_chat_history_messages', $plugin_admin, 'get_conversation_messages' );
+		$this->loader->add_action( 'wp_ajax_techno_delete_chat_history', $plugin_admin, 'delete_conversation' );
 		$this->loader->add_action( 'wp_ajax_techno_export_chat_history', $plugin_admin, 'export_chat_history' );
 
 		$this->loader->add_action( 'wp_ajax_techno_chatbot_crawl_page', $plugin_admin, 'crawl_page' );
@@ -232,7 +232,7 @@ class Techno_Chatbot {
 	private function define_public_hooks() {
 
 		$plugin_public = new Techno_Chatbot_Public( $this->get_plugin_name(), $this->get_version() );
-
+		// $this->loader->add_action( 'init', $plugin_public, 'get_ai_assisted_history' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		$this->loader->add_action( 'wp_footer', $plugin_public, 'render_chatbot_icon' );
@@ -262,12 +262,6 @@ class Techno_Chatbot {
 
 		$this->loader->add_action( 'wp_ajax_techno_chatbot_ask_ai', $plugin_public, 'ask_ai' );
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_chatbot_ask_ai', $plugin_public, 'ask_ai' );
-
-
-
-
-		/* $this->loader->add_action( 'wp_ajax_nopriv_end_live_chat', $plugin_public, 'end_live_chat' );
-		$this->loader->add_action( 'wp_ajax_end_live_chat', $plugin_public, 'end_live_chat' ); */
 
 	}
 
