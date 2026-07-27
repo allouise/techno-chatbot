@@ -60,9 +60,11 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	public function enqueue_styles() {
+		$enabled = get_option( 'techno_chatbot_enabled', 1 );
+		$basic_chat = techno_chatbot_feature('basic_chat');
+		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/techno-chatbot-public.css', array(), $this->version, 'all' );
-
 		$custom_css = $this->generate_dynamic_css();
 		wp_add_inline_style( $this->plugin_name, $custom_css );
 
@@ -74,6 +76,9 @@ class Techno_Chatbot_Public {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		$enabled = get_option( 'techno_chatbot_enabled', 1 );
+		$basic_chat = techno_chatbot_feature('basic_chat');
+		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-public.js', array(), $this->version, true );
 
@@ -149,6 +154,68 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Get Client IP
+	 *
+	 * @since    1.1.0
+	 */
+	private function get_client_ip() {
+		if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) return trim($_SERVER['HTTP_CF_CONNECTING_IP']);
+
+		if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+			$ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+			$first_ip = trim($ips[0]);
+			if (!empty($first_ip)) {
+				return $first_ip;
+			}
+		}
+
+		return $_SERVER['REMOTE_ADDR'] ?? '';
+	}
+
+	/**
+	 * Detect Browser, OS, and Device Type without external libraries.
+	 *
+	 * @since    1.1.0
+	 */
+	private function parse_user_agent( $ua_string = '' ) {
+		$browser = 'Unknown';
+		$os      = 'Unknown';
+		$device  = 'Desktop';
+
+		if ( empty( $ua_string ) ) {
+			return compact('browser', 'os', 'device');
+		}
+
+		// Browser
+		if ( preg_match( '/Edg/i', $ua_string ) )           { $browser = 'Microsoft Edge'; }
+		elseif ( preg_match( '/OPR|Opera/i', $ua_string ) )  { $browser = 'Opera'; }
+		elseif ( preg_match( '/Vivaldi/i', $ua_string ) )    { $browser = 'Vivaldi'; }
+		elseif ( preg_match( '/Brave/i', $ua_string ) )      { $browser = 'Brave'; }
+		elseif ( preg_match( '/Chrome/i', $ua_string ) )     { $browser = 'Google Chrome'; }
+		elseif ( preg_match( '/Safari/i', $ua_string ) )     { $browser = 'Safari'; }
+		elseif ( preg_match( '/Firefox/i', $ua_string ) )    { $browser = 'Mozilla Firefox'; }
+		elseif ( preg_match( '/MSIE|Trident/i', $ua_string ) ) { $browser = 'Internet Explorer'; }
+
+		// OS
+		if ( preg_match( '/iphone/i', $ua_string ) )         { $os = 'iOS (iPhone)'; }
+		elseif ( preg_match( '/ipad/i', $ua_string ) )       { $os = 'iOS (iPad)'; }
+		elseif ( preg_match( '/android/i', $ua_string ) )    { $os = 'Android'; }
+		elseif ( preg_match( '/win/i', $ua_string ) )        { $os = 'Windows'; }
+		elseif ( preg_match( '/mac/i', $ua_string ) )        { $os = 'macOS'; }
+		elseif ( preg_match( '/linux/i', $ua_string ) )      { $os = 'Linux'; }
+		elseif ( preg_match( '/cros/i', $ua_string ) )       { $os = 'ChromeOS'; }
+
+		// Device Type
+		if ( preg_match( '/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i', $ua_string ) ) {
+			$device = 'Tablet';
+		} elseif ( preg_match( '/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/i', $ua_string ) ) {
+			$device = 'Mobile';
+		}
+
+		return compact('browser', 'os', 'device');
+	}
+
+	/**
 	 * Render the floating chatbot icon on the frontend.
 	 *
 	 * Hooked into wp_footer
@@ -186,6 +253,8 @@ class Techno_Chatbot_Public {
 	 */
 	private function generate_dynamic_css() {
 
+		$loader_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_loader_bg_color');
+		$loader_icon = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_loader_icon_color');
 		$chaticon_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chaticon_bg_color');
 		$chaticon_text = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chaticon_text_color');
 		$floatingtxt_bg = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_floatingtxt_bg_color');
@@ -249,6 +318,8 @@ class Techno_Chatbot_Public {
 
 		$css = "
 		:root{
+			--techno-loader-bg: {$loader_bg};
+			--techno-loader-icon: {$loader_icon};
 			--techno-chaticon-bg: {$chaticon_bg};
 			--techno-chaticon-text: {$chaticon_text};
 			--techno-floatingtxt-bg: {$floatingtxt_bg};
@@ -327,366 +398,6 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Get Live Chat History
-	 *
-	 * @since 1.0.7
-	 */
-	public function get_livechat_history() {
-		check_ajax_referer('techno_chatbot_nonce','nonce');
-
-		$session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
-		if ( empty( $session_id ) ) wp_send_json_error('Missing session id');
-
-		global $wpdb;
-		$table = $wpdb->prefix . 'techno_chat_history';
-		$exists = (bool) $wpdb->get_var(
-			$wpdb->prepare("SELECT 1
-				FROM {$table}
-				WHERE session_id = %s
-				LIMIT 1",
-				$session_id )
-		);
-		if ($exists) {
-			wp_send_json_success(['has_history' => true]);
-		} else {
-			wp_send_json_success(['has_history' => false]);
-		}
-	}
-
-	/**
-	 * Get and Send History
-	 *
-	 * @since 1.0.0
-	 */
-	public function send_history_admin(){
-		check_ajax_referer('techno_chatbot_nonce','nonce');
-
-		// Rate limit per IP
-		$ip = $_SERVER['REMOTE_ADDR'];
-		$transient_key = 'techno_chatbot_rate_' . md5($ip);
-		$count = (int) get_transient($transient_key);
-
-		if( $count >= 10 ){
-			wp_send_json_error('Too many requests');
-		}
-
-		set_transient($transient_key, $count + 1, 60);
-		if( empty($_POST['history']) ){
-			wp_send_json_error();
-		}
-		$history = json_decode( stripslashes($_POST['history']), true );
-
-		if( !is_array($history) ){
-			wp_send_json_error();
-		}
-
-		// Limit messages to prevent abuse
-		$history = array_slice($history, -30);
-		$emails_option = get_option('techno_chatbot_emails');
-		$admin_email = sanitize_email(get_option('admin_email'));
-		if( !empty($emails_option) ){
-			$emails = array_map('trim', explode(',', $emails_option));
-			$admin_email = array_filter(array_map('sanitize_email', $emails));
-		}
-
-		$message = "Chatbot Conversation\n\n";
-		foreach($history as $msg){
-
-			if(!isset($msg['sender']) || !isset($msg['text'])){
-				continue;
-			}
-
-			$sender = sanitize_text_field($msg['sender']);
-			$text   = sanitize_textarea_field($msg['text']);
-			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
-			$message .= "{$label}: {$text}\n";
-		}
-
-		wp_mail(
-			$admin_email,
-			'New Chatbot Contact',
-			$message
-		);
-
-		wp_send_json_success();
-
-	}
-
-	/**
-	 * End live chat
-	 *
-	 * @since 1.0.0
-	 */
-	public function end_live_chat(){
-		check_ajax_referer('techno_chatbot_nonce','nonce');
-		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-		$session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : '';
-		$end_type = isset($_POST['end_type']) ? sanitize_text_field($_POST['end_type']) : '';
-		if ( empty( $session_id ) ) wp_send_json_error('Missing session id');
-
-		// Rate limit per IP
-		$ip = $_SERVER['REMOTE_ADDR'];
-		$transient_key = 'techno_endchat_' . md5($ip);
-		$count = (int) get_transient($transient_key);
-
-		if( $count >= 10 ){
-			wp_send_json_error('Too many requests');
-		}
-		set_transient($transient_key, $count + 1, 60);
-
-		$emails_option = get_option('techno_chatbot_emails');
-		$admin_email = sanitize_email(get_option('admin_email'));
-		if( !empty($emails_option) ){
-			$emails = array_map('trim', explode(',', $emails_option));
-			$admin_email = array_filter(array_map('sanitize_email', $emails));
-		}
-
-		$archive = $this->archive_chat($session_id, $email, $end_type);
-		$history = $this->get_chat_history($session_id);
-		$message = "Chatbot Conversation\n\n";
-		foreach ($history as $msg) {
-			$label = match ($msg['sender']) {
-				'visitor' => 'Visitor',
-				'admin'   => 'Support',
-				'bot'     => 'Bot',
-				default   => 'Unknown'
-			};
-			$message .= "{$label}: {$msg['message']}\n";
-		}
-
-		$admin_mail = wp_mail( $admin_email, 'New Chatbot Contact', $message );
-		if( !$email && $admin_mail ){
-			wp_send_json_success();
-		}elseif( !$admin_mail ){
-			wp_send_json_error('Admin Email Error');
-		}
-		
-		$site_name = get_bloginfo('name');
-		if( $email ){
-			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
-			if( $client_mail ){
-				wp_send_json_success();
-			}else{
-				wp_send_json_error('Email Error');
-			}
-		}
-	}
-
-	/**
-	 * Archive Chat
-	 *
-	 * @since 1.0.7
-	 */
-	private function archive_chat( $session_id, $email = '', $end_type = '' ) {
-		global $wpdb;
-
-		$user_id = get_current_user_id();
-		$user_id = $user_id ?: null;
-		$historySent = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent');
-		$endChatMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg');
-		$endIdleChatMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message');
-		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
-		$ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
-
-		$live_table    = $wpdb->prefix . 'techno_livechat_messages';
-		$history_table = $wpdb->prefix . 'techno_chat_history';
-		$wpdb->query( 'START TRANSACTION' );
-
-		try {
-			$insert = $wpdb->query(
-				$wpdb->prepare(
-					"INSERT INTO {$history_table}
-					(
-						session_id,
-						user_id,
-						sender,
-						message,
-						name,
-						message_type,
-						tokens,
-						viewed_at,
-						user_agent,
-						ip_address,
-						created_at
-					)
-					SELECT
-						session_id,
-						user_id,
-						sender,
-						message,
-						name,
-						message_type,
-						tokens,
-						viewed_at,
-						user_agent,
-						ip_address,
-						created_at
-					FROM {$live_table}
-					WHERE session_id = %s",
-					$session_id
-				)
-			);
-			if ( $insert === false ) throw new Exception( 'Failed to archive chat.' );
-
-			if ( $insert > 0 ) {
-				$delete = $wpdb->delete(
-					$live_table,
-					[ 'session_id' => $session_id ],
-					[ '%s' ]
-				);
-
-				if ( $delete === false ) {
-					error_log( sprintf( 'Delete Chats failed. Session: %s | Error: %s', $session_id, $wpdb->last_error ) );
-					throw new Exception( 'Failed to remove live messages.' );
-				}
-
-				$message = empty( $email ) ? $endChatMsg : $historySent;
-				if($end_type == 'idle'){
-					$message = $endIdleChatMsg;
-				}
-				
-				if ( ! empty( $email ) ) {
-					$result = $wpdb->insert(
-						$history_table,
-						[
-							'session_id'   => $session_id,
-							'user_id'	   => $user_id,
-							'sender'       => 'visitor',
-							'message'      => $email,
-							'message_type' => 'text',
-							'user_agent'   => $user_agent,
-							'ip_address'   => $ip_address,
-						],
-						[
-							'%s',
-							'%d',
-							'%s',
-							'%s',
-							'%s',
-							'%s',
-							'%s',
-						]
-					);
-
-					if ( $result === false ) {
-						throw new Exception( 'Failed to insert visitor email.' );
-					}
-				}
-				$result = $wpdb->insert(
-					$history_table,
-					[
-						'session_id'   => $session_id,
-						'user_id'	   => $user_id,
-						'sender'       => 'bot',
-						'message'      => $message,
-						'message_type' => 'text',
-						'user_agent'   => $user_agent,
-						'ip_address'   => $ip_address,
-					],
-					[
-						'%s',
-						'%d',
-						'%s',
-						'%s',
-						'%s',
-						'%s',
-						'%s',
-					]
-				);
-
-				if ( $result === false ) {
-					throw new Exception( 'Failed to insert final chat message.' );
-				}
-
-			}
-
-			$wpdb->query( 'COMMIT' );
-			return $insert;
-
-		} catch ( Exception $e ) {
-			error_log('Archive Chat Failed: ' . $e->getMessage());
-			$wpdb->query( 'ROLLBACK' );
-			throw $e;
-		}
-	}
-
-	/**
-	 * Get Archived Chat
-	 *
-	 * @since 1.0.7
-	 */
-	private function get_chat_history( $session_id ) {
-		global $wpdb;
-		$table = $wpdb->prefix . 'techno_chat_history';
-		return $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT sender, message, created_at
-				FROM {$table}
-				WHERE session_id = %s
-				ORDER BY created_at ASC, id ASC",
-				$session_id
-			),
-			ARRAY_A
-		);
-	}
-
-	/**
-	 * Get and Send History to Customer
-	 *
-	 * @since 1.0.0
-	 */
-	public function send_transcript(){
-		check_ajax_referer('techno_chatbot_nonce','nonce');
-
-		// Rate limit per IP
-		$ip = $_SERVER['REMOTE_ADDR'];
-		$transient_key = 'techno_send_transcript_' . md5($ip);
-		$count = (int) get_transient($transient_key);
-
-		if( $count >= 10 ){
-			wp_send_json_error('Too many requests');
-		}
-
-		set_transient($transient_key, $count + 1, 60);
-		if( empty($_POST['history']) ){
-			wp_send_json_error();
-		}
-		$history = json_decode( stripslashes($_POST['history']), true );
-		if( !is_array($history) ){
-			wp_send_json_error();
-		}
-		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-		if( !$email || empty($email) || $email == '' ){
-			wp_send_json_error();
-		}
-
-		$history = array_slice($history, -30);
-		$message = "Chatbot Conversation\n\n";
-		foreach($history as $msg){
-
-			if(!isset($msg['sender']) || !isset($msg['text'])){
-				continue;
-			}
-
-			$sender = sanitize_text_field($msg['sender']);
-			$text   = sanitize_textarea_field($msg['text']);
-			$label = $sender === 'visitor' ? 'Visitor' : 'Bot';
-			$message .= "{$label}: {$text}\n";
-		}
-
-		$site_name = get_bloginfo('name');
-		if( $email ){
-			$client_mail = wp_mail( $email, "$site_name Chat Transcript", $message );
-			if( $client_mail ){
-				wp_send_json_success();
-			}else{
-				wp_send_json_error('Email Error');
-			}
-		}
-	}
-
-	/**
 	 * Scheduled Validate License
 	 *
 	 * @since    1.0.0
@@ -711,18 +422,16 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Save chat message
+	 * Create new conversation
 	 *
-	 * @since    1.0.0
+	 * @since    1.1.0
 	 */
-	public function save_chat_message() {
-        check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+	public function create_conversation() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
-		$user_id = get_current_user_id();
-		$user_id = $user_id ?: null;
-        /* ---- rate limit: max 60 saves per minute per IP ---- */
-        $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-        $rate_key = 'techno_chat_save_' . md5( $ip );
+		/* ---- rate limit: max 60 saves per minute per IP ---- */
+        $ip = $this->get_client_ip();
+        $rate_key = 'techno_create_convo_' . md5( $ip );
         $rate_count = (int) get_transient( $rate_key );
         if ( $rate_count >= 60 ) {
             wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
@@ -731,194 +440,498 @@ class Techno_Chatbot_Public {
  
         /* ---- validate inputs ---- */
         $session_id = isset($_POST['session_id'])? sanitize_text_field($_POST['session_id']) : '';
-		$sender = isset($_POST['sender'])? sanitize_text_field($_POST['sender']) : '';
-		$message = isset($_POST['message'])? trim( sanitize_textarea_field($_POST['message']) ) : '';
-		$visitor_name = isset($_POST['visitor_name'])? sanitize_text_field($_POST['visitor_name']) : null;
-		$message_type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
- 
-        if ( ! $session_id || ! $sender || ! $message ) {
-            wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
+		$message = isset($_POST['message'])? trim( sanitize_textarea_field( wp_unslash( $_POST['message'] ) ) ) : null;
+
+		/* Check Session ID */
+        if ( ! $session_id ) {
+            wp_send_json_error( [ 'message' => 'Missing Session' ], 400 );
+        }
+        /* session_id must be alphanumeric + dash/underscore only */
+        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
+        }
+	
+		$user_id = get_current_user_id();
+		$user_id = $user_id ?: null;
+
+		$raw_user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 255 ) : '';
+		$device_info = $this->parse_user_agent( $raw_user_agent );
+		$metas_data = [
+			'ip'         => $this->get_client_ip(),
+			'user_agent' => $raw_user_agent,
+			'browser'    => $device_info['browser'],
+			'os'         => $device_info['os'],
+			'device'     => $device_info['device'],
+		];
+
+        global $wpdb;
+        $result = $wpdb->insert( $wpdb->prefix . 'techno_cb_conversations', [
+			'session_id' => $session_id,
+			'user_id' => $user_id,
+			'metas' => wp_json_encode( $metas_data ),
+		], [
+			'%s', // session_id
+			'%d', // user_id
+			'%s', // metas
+		] );
+        if ( $result === false ) {
+            wp_send_json_error( [ 'message' => 'Failed to create conversation. Please contact administrator.' ], 500 );
+        }
+		$conversation_id = $wpdb->insert_id;
+
+		/* If has message */
+		if( $message ){
+			$welcome_msg = $wpdb->insert( $wpdb->prefix . 'techno_cb_messages', [
+				'conversation_id' => $conversation_id,
+				'sender' => 'bot',
+				'message' => $message,
+			], [
+				'%d', // conversation_id
+				'%s', // sender
+				'%s', // message
+			] );
+			if ( $welcome_msg === false ) {
+				error_log( 'Failed to add Welcome Message: ' . $wpdb->last_error );
+			}
+		}
+
+        wp_send_json_success( [ 'id' => $conversation_id ] );
+	}
+
+	/**
+	 * Update conversation
+	 *
+	 * @since    1.1.0
+	 */
+	public function update_conversation() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
+		/* ---- Rate Limit: Max 60 saves per minute per IP ---- */
+		$ip         = $this->get_client_ip();
+		$rate_key   = 'techno_update_convo_' . md5( $ip );
+		$rate_count = (int) get_transient( $rate_key );
+		if ( $rate_count >= 60 ) {
+			wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+		}
+		set_transient( $rate_key, $rate_count + 1, 60 );
+
+		/* ---- Check Conversation & Session ID ---- */
+		$conversation_id = isset( $_POST['conversation_id'] ) ? absint( $_POST['conversation_id'] ) : 0;
+		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+		$socket_id = isset( $_POST['socket_id'] ) ? sanitize_text_field( wp_unslash( $_POST['socket_id'] ) ) : '';
+		$name = isset( $_POST['name'] ) ? sanitize_text_field( $_POST['name'] ) : null;
+		if ( ! $conversation_id || empty( $session_id ) || empty( $socket_id ) ) {
+			wp_send_json_error( [ 'message' => 'Missing Parameters' ], 400 );
+		}
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) || ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $socket_id ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid session formats' ], 400 );
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_cb_conversations';
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table} SET socket_id = %s, name = %s WHERE id = %d AND session_id = %s AND ended_at IS NULL",
+				$socket_id,
+				$name,
+				$conversation_id,
+				$session_id
+			)
+		);
+
+		if ( false === $updated ) wp_send_json_error( [ 'message' => 'Database error while updating conversation' ], 500 );
+		if ( 0 === $updated ) wp_send_json_error( [ 'message' => 'Conversation not found or already updated' ], 404 );
+
+		wp_send_json_success( [ 'message' => 'Conversation updated successfully' ] );
+	}
+	
+	/**
+	 * End conversation
+	 *
+	 * @since    1.1.0
+	 */
+	public function end_conversation() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
+		/* ---- rate limit: max 60 saves per minute per IP ---- */
+        $ip = $this->get_client_ip();
+        $rate_key = 'techno_end_convo_' . md5( $ip );
+        $rate_count = (int) get_transient( $rate_key );
+        if ( $rate_count >= 60 ) {
+            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+        }
+        set_transient( $rate_key, $rate_count + 1, 60 );
+
+		/* Check Conversation & Session ID */
+		$conversation_id = isset($_POST['conversation_id'])? sanitize_text_field($_POST['conversation_id']) : null;
+		$session_id = isset( $_POST['session_id'] )? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+        if ( ! $conversation_id || ! $session_id ) {
+			wp_send_json_error( [ 'message' => 'Missing session or conversation parameters' ], 400 );
+		}
+        /* session_id must be alphanumeric + dash/underscore only */
+        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
         }
 
-		if (strlen($message) < 1) {
-			wp_send_json_error(['message' => 'Empty message'], 400);
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_cb_conversations';
+		$updated = $wpdb->query(
+			$wpdb->prepare( "UPDATE {$table} SET ended_at = %s WHERE id = %d AND session_id = %s", current_time( 'mysql' ), $conversation_id, $session_id )
+		);
+
+		if ( false === $updated ) wp_send_json_error( [ 'message' => 'Database error while ending conversation' ], 500 );
+		if ( 0 === $updated ) wp_send_json_error( [ 'message' => 'Conversation not found or already ended' ], 404 );
+
+		// --- Retrieve messages to send transcript ---
+		$chat_data = $this->get_chat_messages( $session_id );
+		if ( ! empty( $chat_data['success'] ) && ! empty( $chat_data['messages'] ) ) {
+			$messages = $chat_data['messages'];
+			$message_types = array_column( $messages, 'message_type' );
+
+			// 1. Send lead notification to Admin if contact info exists
+			$required_types = [ 'email_input_answer', 'phone_input_answer' ];
+			$has_contact_info = ! empty( array_intersect( $required_types, $message_types ) );
+
+			if ( $has_contact_info ) {
+				$emails_option = get_option( 'techno_chatbot_emails' );
+				$admin_emails  = [ sanitize_email( get_option( 'admin_email' ) ) ];
+
+				if ( ! empty( $emails_option ) ) {
+					$parsed_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( ',', $emails_option ) ) ) );
+					if ( ! empty( $parsed_emails ) ) {
+						$admin_emails = $parsed_emails;
+					}
+				}
+				$subject = sprintf( __( '[New Lead] Chat Conversation #%d Transcript', 'techno-chatbot' ), $conversation_id );
+				$this->send_email_transcript( $admin_emails, $messages, $subject );
+			}
+
+			// 2. Send transcript to user if they provided an end-of-chat email
+			foreach ( $messages as $msg ) {
+				if ( isset( $msg['message_type'] ) && 'email_end_input_answer' === $msg['message_type'] ) {
+					// Adjust 'message' key to match wherever the email string is stored in your array
+					$user_email = sanitize_email( $msg['message'] ?? $msg['content'] ?? '' );
+
+					if ( is_email( $user_email ) ) {
+						// Omitting the 3rd parameter lets send_email_transcript use its default subject
+						$this->send_email_transcript( [ $user_email ], $messages );
+					}
+					break; // Stop after finding the first matching message
+				}
+			}
 		}
+
+		wp_send_json_success( [ 'message' => 'Conversation ended successfully' ] );
+	}
+
+	/**
+	 * Get conversation
+	 *
+	 * @since    1.1.0
+	 */
+	public function get_conversation() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
+		/* ---- rate limit: max 60 saves per minute per IP ---- */
+        $ip = $this->get_client_ip();
+        $rate_key = 'techno_get_convo_' . md5( $ip );
+        $rate_count = (int) get_transient( $rate_key );
+        if ( $rate_count >= 60 ) {
+            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+        }
+        set_transient( $rate_key, $rate_count + 1, 60 );
+
+		/* Check Session ID */
+		$session_id = isset( $_POST['session_id'] )? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+        if ( ! $session_id || $session_id == '' ) {
+            wp_send_json_error( [ 'message' => 'Missing Session' ], 400 );
+        }
+        /* session_id must be alphanumeric + dash/underscore only */
+        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
+        }
+
+    	$data = $this->get_chat_messages( $session_id );
+		if ( empty( $data['success'] ) || ( !is_null( $data['ended_at'] ) && $data['ended_at'] !== '0000-00-00 00:00:00' ) ) {
+			wp_send_json_error( [ 'message' => 'Conversation not found or has ended. Please start a new session.' ], 400 );
+		}
+
+		wp_send_json_success( [
+			'conversation' => $data['conversation_id'],
+			'socket'       => $data['socket_id'],
+			'visitor_name' => $data['visitor_name'],
+			'messages'     => $data['messages']
+		] );
+	}
+
+	/**
+	 * Save chat message
+	 *
+	 * @since    1.1.0
+	 */
+	public function save_chat_message() {
+        check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
+        /* ---- rate limit: max 60 saves per minute per IP ---- */
+        $ip = $this->get_client_ip();
+        $rate_key = 'techno_chat_save_' . md5( $ip );
+        $rate_count = (int) get_transient( $rate_key );
+        if ( $rate_count >= 60 ) {
+            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+        }
+        set_transient( $rate_key, $rate_count + 1, 60 );
  
+        /* ---- validate inputs ---- */
+		$session_id = isset( $_POST['session_id'] )? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : null;
+		$conversation_id = ! empty( $_POST['conversation_id'] ) ? absint( wp_unslash( $_POST['conversation_id'] ) ) : null;
+		$sender = isset($_POST['sender'])? sanitize_text_field($_POST['sender']) : '';
+		$type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
+		$raw_message = isset( $_POST['message'] ) ? trim( wp_unslash( $_POST['message'] ) ) : '';
+        if ( ! $conversation_id || ! $sender || ! $raw_message || ! $session_id ) {
+            wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
+        }
         /* session_id must be alphanumeric + dash/underscore only */
         if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
             wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
         }
  
         /* sender must be one of the allowed enum values */
-        $allowed_senders = [ 'visitor', 'bot' ];
-        if ( ! in_array( $sender, $allowed_senders, true ) ) {
+        if ( ! in_array( $sender, [ 'visitor', 'bot' ], true ) ) {
             wp_send_json_error( [ 'message' => 'Invalid sender' ], 400 );
         }
+
+		/* type must be one of the allowed enum values */
+        if ( !in_array( $type, [ 'text', 'phone_input', 'email_input', 'time_input', 'name_input', 'email_end_input', 'email_end_input_answer', 'phone_input_answer', 'email_input_answer', 'time_input_answer', 'name_input_answer', 'system' ], true ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid message type' ], 400 );
+        }
+
+		/* Check sender and allow html for bot messages */
+		if ( $sender === 'bot' ) {
+			$allowed_html = [
+				'p'      => [],
+				'strong' => [],
+				'b'      => [],
+				'em'     => [],
+				'i'      => [],
+				'ul'     => [],
+				'ol'     => [],
+				'li'     => [],
+				'br'     => [],
+			];
+			$message = wp_kses( $raw_message, $allowed_html );
+		} else {
+			$message = sanitize_textarea_field( $raw_message );
+		}
  
         /* message length guard */
+		if (strlen($message) <= 1) {
+			wp_send_json_error(['message' => 'Empty message'], 400);
+		}
         if ( mb_strlen( $message ) > 2000 ) {
             wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
         }
 
-		/* message type validation */
-		$allowed_types = ['text','image','file','system'];
-		if ( ! in_array($message_type, $allowed_types, true) ) {
-			$message_type = 'text';
-		}
-
-		/* metadata */
-		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
-		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
+		$tokens = null;
+		if ( ! empty( $_POST['token'] ) ) $tokens = json_decode( wp_unslash( $_POST['token'] ), true );
  
         global $wpdb;
-        $table = $wpdb->prefix . 'techno_livechat_messages';
-        $data = [
-			'session_id'   => $session_id,
-			'user_id'	   => $user_id,
-			'sender'       => $sender,
-			'message'      => $message,
-			'message_type' => $message_type,
-			'user_agent'   => $user_agent,
-			'ip_address'   => $ip_address,
-		];
-		$format = [
-			'%s', // session_id
-			'%d', // user_id
+
+        /* ---- Ownership & Active Status Check ---- */
+        $conversations_table = $wpdb->prefix . 'techno_cb_conversations';
+		$conversation = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT ended_at FROM {$conversations_table} WHERE id = %d AND session_id = %s",
+				$conversation_id,
+				$session_id
+			)
+		);
+        if ( null === $conversation ) {
+            wp_send_json_error( [ 'message' => 'Invalid conversation or session mismatch' ], 403 );
+        }
+        if ( isset($conversation->ended_at) && $conversation->ended_at !== '0000-00-00 00:00:00' ) {
+            wp_send_json_error( [ 'message' => 'Conversation has already ended. Please start a new session.' ], 400 );
+        }
+
+        $result = $wpdb->insert( $wpdb->prefix . 'techno_cb_messages', [
+			'conversation_id' => $conversation_id,
+			'sender' => $sender,
+			'message' => $message,
+			'message_type' => $type,
+			'prompt_tokens' => $tokens !== null ? (int) ( $tokens['prompt_tokens'] ?? 0 ) : null,
+			'completion_tokens' => $tokens !== null ? (int) ( $tokens['completion_tokens'] ?? 0 ) : null,
+		], [
+			'%d', // conversation_id
 			'%s', // sender
 			'%s', // message
 			'%s', // message_type
-			'%s', // user_agent
-			'%s', // ip_address
-		];
- 
-        /* attach visitor_name when provided (visitor messages only) */
-        if ( $visitor_name !== null && $sender === 'visitor' ) {
-            $data['name'] = $visitor_name;
-            $format[] = '%s';
-        }
-        $result = $wpdb->insert( $table, $data, $format );
+			'%d', // prompt_tokens
+			'%d', // completion_tokens
+		] );
  
         if ( $result === false ) {
-            wp_send_json_error( [ 'message' => 'DB error' ], 500 );
+            wp_send_json_error( [ 'message' => $wpdb->last_error ], 500 );
         }
- 
         wp_send_json_success( [ 'id' => $wpdb->insert_id ] );
     }
 
 	/**
-	 * Save chat message
+	 * Get chat history
 	 *
-	 * @since    1.0.0
+	 * @since 1.1.0
 	 */
-	public function techno_bot_to_live(){
+	private function get_chat_messages( $session_id ) {
+		global $wpdb;
+
+		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
+		$table_messages = $wpdb->prefix . 'techno_cb_messages';
+
+		// Query full conversation details in a single query
+		$conversation = $wpdb->get_row( 
+			$wpdb->prepare( 
+				"SELECT id, socket_id, name, ended_at FROM {$table_conversations} WHERE session_id = %s LIMIT 1", 
+				$session_id 
+			) 
+		);
+
+		if ( ! $conversation || $wpdb->last_error ) {
+			return [ 
+				'success' => false, 
+				'message' => 'Conversation not found' 
+			];
+		}
+
+		$messages = $wpdb->get_results(
+			$wpdb->prepare( 
+				"SELECT sender, message, message_type, created_at FROM {$table_messages} WHERE conversation_id = %d ORDER BY created_at ASC", 
+				$conversation->id 
+			), 
+			ARRAY_A
+		); 
+
+		return [ 
+			'success' => true, 
+			'conversation_id' => (int) $conversation->id,
+			'socket_id' => $conversation->socket_id,
+			'visitor_name' => $conversation->name,
+			'ended_at' => $conversation->ended_at,
+			'messages' => $messages ?: []
+		];
+	}
+
+	/**
+	 * Get and Send History to Customer
+	 *
+	 * @since 1.1.0
+	 */
+	public function send_transcript() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
-		$user_id = get_current_user_id();
-		$user_id = $user_id ?: null;
-		$livechat_plan   = techno_chatbot_feature('live_chat');
-    	$livechat_enabled = $livechat_plan['allowed'] === true;
-		if( $livechat_enabled != true ){
-			wp_send_json_error();
+		/* ---- Rate Limit: Max 60 requests per minute per IP ---- */
+		$ip = $this->get_client_ip();
+		$rate_key   = 'techno_sendtranscript_' . md5( $ip );
+		$rate_count = (int) get_transient( $rate_key );
+		if ( $rate_count >= 60 ) {
+			wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
+		}
+		set_transient( $rate_key, $rate_count + 1, 60 );
+
+		/* Check Session ID */
+		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+		if ( empty( $session_id ) ) {
+			wp_send_json_error( [ 'message' => 'Missing Session' ], 400 );
+		}
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
 		}
 
-		global $wpdb;
-		$table = $wpdb->prefix . 'techno_livechat_messages';
-		$session_id = sanitize_text_field( $_POST['session_id'] ?? '' );
-		$visitor_name = sanitize_text_field( $_POST['visitor_name'] ?? '' );
-		$history = wp_unslash( $_POST['history'] ?? '' );
-		if (!$session_id || !$history){
-			wp_send_json_error();
+		$chat_data = $this->get_chat_messages( $session_id );
+		if ( empty( $chat_data['success'] ) ) {
+			wp_send_json_error( [ 'message' => 'Conversation not found' ], 400 );
 		}
 
-		$messages = json_decode( $history, true );
-		if (!is_array($messages)){
-			wp_send_json_error();
-		}
+		$messages = $chat_data['messages'];
+		$conversation_id = $chat_data['conversation_id'];
+		$target_email = '';
 
-		/* metadata */
-		$user_agent = isset($_SERVER['HTTP_USER_AGENT'])? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
-		$ip = $_SERVER['HTTP_CF_CONNECTING_IP']?? $_SERVER['HTTP_X_FORWARDED_FOR']?? $_SERVER['REMOTE_ADDR']?? '';
-		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
-
-		foreach ($messages as $msg){
-			$sender = isset($msg['sender']) ? sanitize_text_field($msg['sender']) : '';
-			$text = isset($msg['text']) ? sanitize_textarea_field($msg['text']) : '';
-			$created_at = isset($msg['created_at']) ? sanitize_textarea_field($msg['created_at']) : '';
-			$token = null;
-			if ( isset( $msg['token'] ) && $msg['token'] !== '' ) $token = max( 0, absint( $msg['token'] ) );
-			if (!$text) continue;
-			$data = [
-				'session_id' => $session_id,
-				'user_id'	 => $user_id,
-				'sender'     => $sender,
-				'message'    => $text,
-				'tokens'	 => $token,
-				'user_agent' => $user_agent,
-				'ip_address' => $ip_address,
-				'created_at' => $created_at,
-			];
-			// Save visitor name only for visitor messages
-			if ( ! empty( $visitor_name ) && $sender === 'visitor' ) {
-				$data['name'] = $visitor_name;
-			}
-			$formats = [
-				'%s', // session_id
-				'%d', // user_id
-				'%s', // sender
-				'%s', // message
-				'%d', // token
-				'%s', // user_agent
-				'%s', // ip_address
-				'%s', // created_at
-			];
-			if ( isset( $data['name'] ) ) {
-				$formats[] = '%s';
-			}
-			$result = $wpdb->insert(
-				$table,
-				$data,
-				$formats
-			);
-			if ($result === false) {
-				wp_send_json_error();
-				error_log('DB INSERT FAILED: ' . $wpdb->last_error);
-				error_log(print_r($wpdb->last_query, true));
-				return;
-			}
-		}
-
-		// Send email notification
-		$emails_option = get_option( 'techno_chatbot_emails', '' );
-		$recipients    = [];
-		if ( ! empty( $emails_option ) ) {
-			$emails = preg_split( '/[\r\n,]+/', $emails_option );
-			foreach ( $emails as $email ) {
-				$email = sanitize_email( trim( $email ) );
-				if ( is_email( $email ) ) {
-					$recipients[] = $email;
+		// Search backward for the latest 'email_input_answer' message type
+		for ( $i = count( $messages ) - 1; $i >= 0; $i-- ) {
+			if ( isset( $messages[$i]['message_type'] ) && 'email_input_answer' === $messages[$i]['message_type'] ) {
+				$sanitized_email = sanitize_email( $messages[$i]['message'] );
+				if ( is_email( $sanitized_email ) ) {
+					$target_email = $sanitized_email;
+					break;
 				}
 			}
 		}
-		// Fallback to admin email
-		if ( empty( $recipients ) ) {
-			$admin_email = sanitize_email( get_option( 'admin_email' ) );
-			if ( is_email( $admin_email ) ) {
-				$recipients[] = $admin_email;
-			}
-		}
-		if ( ! empty( $recipients ) ) {
-			$subject = 'New Live Chat Request';
-			$message  = "A visitor has requested to transfer to Live Chat.\n\n";
-			$message .= "Session ID: {$session_id}\n";
-			if ( ! empty( $visitor_name ) ) {
-				$message .= "Visitor Name: {$visitor_name}\n";
-			}
-			$message .= "Date: " . current_time( 'mysql' ) . "\n\n";
-			$message .= "Please log in to your website to respond.";
-			wp_mail( $recipients, $subject, $message,['Content-Type: text/plain; charset=UTF-8',]);
+		if ( empty( $target_email ) ) {
+			wp_send_json_error( [ 'message' => "No valid email found for conversation #{$conversation_id}" ], 400 );
 		}
 
-		wp_send_json_success();
+		$sent = $this->send_email_transcript( $target_email, $messages );
+		if ( $sent ) {
+			wp_send_json_success( [ 'message' => 'Transcript sent successfully' ] );
+		} else {
+			wp_send_json_error( [ 'message' => 'Email sending error' ], 500 );
+		}
+	}
+
+	/**
+	 * Send chat messages
+	 *
+	 * @since 1.1.0
+	 */
+	private function send_email_transcript( $target_email, array $messages, $subject = '' ) {
+		// 1. Sanitize and filter target emails into a valid list
+		$recipients = [];
+		
+		if ( is_array( $target_email ) ) {
+			foreach ( $target_email as $email ) {
+				$sanitized = sanitize_email( $email );
+				if ( is_email( $sanitized ) ) {
+					$recipients[] = $sanitized;
+				}
+			}
+		} else {
+			$sanitized = sanitize_email( $target_email );
+			if ( is_email( $sanitized ) ) {
+				$recipients[] = $sanitized;
+			}
+		}
+
+		// Fail early if no valid recipients or messages exist
+		if ( empty( $recipients ) || empty( $messages ) ) {
+			return false;
+		}
+
+		// Remove duplicates
+		$recipients = array_unique( $recipients );
+
+		// 2. Build or fallback the subject line
+		$site_name = get_bloginfo( 'name' );
+		
+		if ( empty( trim( $subject ) ) ) {
+			$subject = sprintf( __( 'Your %s Chat Transcript', 'techno-chatbot' ), $site_name );
+		} else {
+			$subject = sanitize_text_field( $subject );
+		}
+
+		// 3. Build plain-text email body
+		$email_body = "Chatbot Conversation Transcript\n";
+		$email_body .= "----------------------------------------\n\n";
+
+		foreach ( $messages as $msg ) {
+			if ( empty( $msg['sender'] ) || ! isset( $msg['message'] ) ) {
+				continue;
+			}
+
+			$sender = ucfirst( sanitize_text_field( $msg['sender'] ) );
+			$text = sanitize_textarea_field( $msg['message'] );
+			$timestamp = ! empty( $msg['created_at'] ) ? " [{$msg['created_at']}]" : '';
+			$email_body .= "{$sender}{$timestamp}:\n{$text}\n\n";
+		}
+
+		// 4. Send email (wp_mail handles array of recipients natively)
+		return wp_mail( $recipients, $subject, $email_body );
 	}
 
 	/**
@@ -931,21 +944,69 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Get Embed Cache
+	 * Cosine Similarity
 	 *
 	 * @since    1.0.0
 	 */
-	private function get_embedding_cache($text) {
-		return get_transient('techno_ai_emb_' . md5($text));
+	private function cosine_similarity($a, $b) {
+
+		$dot = 0;
+		$normA = 0;
+		$normB = 0;
+		$len = min(count($a), count($b));
+		if ($len === 0) {
+			return 0;
+		}
+
+		for ($i = 0; $i < $len; $i++) {
+			$dot += $a[$i] * $b[$i];
+			$normA += $a[$i] * $a[$i];
+			$normB += $b[$i] * $b[$i];
+		}
+
+		if ($normA == 0 || $normB == 0) {
+			return 0;
+		}
+
+		return $dot / (sqrt($normA) * sqrt($normB));
 	}
 
 	/**
-	 * Set Embed Cache
+	 * Create Embedding
 	 *
 	 * @since    1.0.0
 	 */
-	private function set_embedding_cache($text, $embedding) {
-		set_transient('techno_ai_emb_' . md5($text), $embedding, WEEK_IN_SECONDS);
+	private function create_embedding($text) {
+		$api_key = get_option('techno_chatbot_openai_secret');
+		if (!$api_key) return false;
+
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/embeddings',
+			[
+				'headers' => [
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				],
+				'body' => wp_json_encode([
+					'model' => 'text-embedding-3-small',
+					'input' => $text
+				]),
+				'timeout' => 60
+			]
+		);
+
+		if (is_wp_error($response)) {
+			error_log( 'Embedding Error: ' . $response->get_error_message());
+			return false;
+		}
+
+		$body = json_decode( wp_remote_retrieve_body($response), true );
+		if (!isset($body['data'][0]['embedding'])) {
+			error_log( 'Embedding API Response: ' . print_r($body, true) );
+			return false;
+		}
+
+		return $body['data'][0]['embedding'];
 	}
 
 	/**
@@ -986,13 +1047,14 @@ class Techno_Chatbot_Public {
 				];
 			}
 		}
-
 		if (empty($results)) return [];
 
 		/* Find highest similarity */
 		$bestSimilarity = max(array_column($results, 'similarity'));
-		/* Never allow threshold below 0.35 */
-		$threshold = max(0.35, $bestSimilarity * 0.90);
+		/* Set Threshold 
+		Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
+		$minimumFloor = 0.12; 
+		$threshold = max($minimumFloor, $bestSimilarity * 0.80);
 		/* Keep only relevant chunks */
 		$results = array_filter($results, function ($chunk) use ($threshold) {
 			return $chunk['similarity'] >= $threshold;
@@ -1076,12 +1138,12 @@ class Techno_Chatbot_Public {
 					],
 					'temperature' => 0
 				]),
-				'timeout' => 20
+				'timeout' => 60
 			]
 		);
 
 		if (is_wp_error($response)) {
-			error_log('TechnoChatbot Error contacting AI.');
+			error_log('TechnoChatbot Error contacting AI.' . $response->get_error_message());
 			return [
 				'answer' => 'NO_ANSWER',
 				'tokens' => 0,
@@ -1105,77 +1167,6 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
-	 * Cosine Similarity
-	 *
-	 * @since    1.0.0
-	 */
-	private function cosine_similarity($a, $b) {
-
-		$dot = 0;
-		$normA = 0;
-		$normB = 0;
-		$len = min(count($a), count($b));
-		if ($len === 0) {
-			return 0;
-		}
-
-		for ($i = 0; $i < $len; $i++) {
-			$dot += $a[$i] * $b[$i];
-			$normA += $a[$i] * $a[$i];
-			$normB += $b[$i] * $b[$i];
-		}
-
-		if ($normA == 0 || $normB == 0) {
-			return 0;
-		}
-
-		return $dot / (sqrt($normA) * sqrt($normB));
-	}
-
-	/**
-	 * Create Embedding
-	 *
-	 * @since    1.0.0
-	 */
-	private function create_embedding($text) {
-		$api_key = get_option('techno_chatbot_openai_secret');
-		if (!$api_key) return false;
-
-		$cached = $this->get_embedding_cache($text);
-		if ($cached) return $cached;
-
-		$response = wp_remote_post(
-			'https://api.openai.com/v1/embeddings',
-			[
-				'headers' => [
-					'Authorization' => 'Bearer ' . $api_key,
-					'Content-Type'  => 'application/json',
-				],
-				'body' => wp_json_encode([
-					'model' => 'text-embedding-3-small',
-					'input' => $text
-				]),
-				'timeout' => 30
-			]
-		);
-
-		if (is_wp_error($response)) {
-			error_log( 'Embedding Error: ' . $response->get_error_message());
-			return false;
-		}
-
-		$body = json_decode( wp_remote_retrieve_body($response), true );
-		if (!isset($body['data'][0]['embedding'])) {
-			error_log( 'Embedding API Response: ' . print_r($body, true) );
-			return false;
-		}
-
-		$embedding = $body['data'][0]['embedding'];
-		$this->set_embedding_cache($text, $embedding);
-		return $embedding;
-	}
-
-	/**
 	 * OpeanAI request
 	 *
 	 * @since    1.0.0
@@ -1193,31 +1184,44 @@ class Techno_Chatbot_Public {
 
 		wp_send_json_success([
 			'answer' => $result['answer'],
-			'tokens' => $result['tokens'],
+			'prompt_tokens' => $result['prompt_tokens'],
+			'completion_tokens' => $result['completion_tokens'],
 			/* 'results' => $result, */
 		]);
 	}
 
 	/**
-	 * Check AI-assisted chat usage and send notifications when the limit is reached.
+	 * Check AI usage on every page load.
 	 *
-	 * @since 1.0.9
+	 * @since 1.1.0
 	 */
 	public function get_ai_assisted_history() {
 
 		$limit = 2;
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'techno_chat_history';
+		$table = $wpdb->prefix . 'techno_cb_messages';
+		
+		// Count messages where AI was used
 		$count = (int) $wpdb->get_var(
 			"SELECT COUNT(*)
 			FROM {$table}
-			WHERE tokens > 0"
+			WHERE prompt_tokens > 0 OR completion_tokens > 0"
 		);
 
-		// Limit not reached.
-		if ( $count < $limit ) return false;
-		delete_option( 'techno_chatbot_aireplies' );
+		// If limit is NOT reached, ensure notification flag is cleared and exit early
+		if ( $count < $limit ) {
+			delete_option( 'techno_chatbot_limit_notified' );
+			return false;
+		}
+
+		// 1. Set AI replies option to 0 (instead of deleting)
+		update_option( 'techno_chatbot_aireplies', 0 );
+
+		// 2. Check if we already sent the notifications
+		if ( get_option( 'techno_chatbot_limit_notified' ) ) {
+			return true; // Limit is reached, but emails were already sent once
+		}
 
 		/*
 		* Get recipient emails.
@@ -1250,7 +1254,6 @@ class Techno_Chatbot_Public {
 		* Notify site admin.
 		*/
 		if ( ! empty( $recipients ) ) {
-
 			wp_mail(
 				$recipients,
 				'AI Chat Limit Reached',
@@ -1273,6 +1276,22 @@ class Techno_Chatbot_Public {
 			)
 		);
 
+		// 3. Mark notification as sent so it only runs ONCE
+		update_option( 'techno_chatbot_limit_notified', 1 );
+
 		return true;
+	}
+
+	public function testAI(){
+		$test = wp_remote_get( 'https://api.openai.com/v1/models', [
+			'headers' => [ 'Authorization' => 'Bearer ' . get_option('techno_chatbot_openai_secret') ],
+			'timeout' => 10,
+		] );
+
+		if ( is_wp_error( $test ) ) {
+			error_log( 'OpenAI Direct Test Failed: ' . $test->get_error_message() );
+		} else {
+			error_log( 'OpenAI Direct Test Succeeded!' );
+		}
 	}
 }

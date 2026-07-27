@@ -150,6 +150,8 @@ class Techno_Chatbot_Admin_Fields_Styles {
 		),
 
 		// Colors
+		'techno_loader_bg_color'=>array('label'=>'Loader BG','type'=>'color','section'=>'colors_section','default'=>'#ffffff9e'),
+		'techno_loader_icon_color'=>array('label'=>'Loader Icon','type'=>'color','section'=>'colors_section','default'=>'#0073aa'),
 		'techno_chaticon_bg_color'=>array('label'=>'Chat Icon BG','type'=>'color','section'=>'colors_section','default'=>'#0073aa'),
 		'techno_chaticon_text_color'=>array('label'=>'Chat Icon Text','type'=>'color','section'=>'colors_section','default'=>'#ffffff'),
 		'techno_floatingtxt_bg_color'=>array('label'=>'Floating BG','type'=>'color','section'=>'colors_section','default'=>'#0073aa'),

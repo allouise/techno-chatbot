@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const confirmed = prompt(`You are about to permanently delete ${sessions.length} chat histor${sessions.length === 1 ? 'y' : 'ies'}.\nThis action cannot be undone.` + `\n\nType DELETE to confirm.`);
+            const confirmed = prompt(`You are about to permanently delete ${sessions.length} chat histor${sessions.length === 1 ? 'y' : 'ies'}. This will affect getting statistics.\nThis action cannot be undone.` + `\n\nType DELETE to confirm.`);
             if (confirmed === null) return;
             if (confirmed.trim().toUpperCase() !== 'DELETE') {
                 alert('Confirmation failed. Nothing was deleted.');
@@ -92,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessions.forEach(session => {
                     form.append('sessions[]', session);
                 });
-
                 const response = await fetch(technoHistory.ajax_url, {
                     method: 'POST',
                     body: form
@@ -209,14 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function visitorHtml(chat){
-        let first = new Date(chat.first_chat);
-        let last = new Date(chat.last_chat);
+        let first = new Date(chat.created_at);
+        let last = new Date(chat.ended_at);
         let span = formatChatSpan(first,last);
         let name = chat.name ? titleCase(chat.name) : chat.session_id;
 
         return `<li class="techno-history-visitor">
-                <input type="checkbox" name="selected-visitors[]" value="${chat.session_id}"/>
-                <span class="open-history" data-session="${chat.session_id}" data-name="${name}">
+                <input type="checkbox" name="selected-visitors[]" value="${chat.id}"/>
+                <span class="open-history" data-session="${chat.id}" data-name="${name}">
                     <strong title="${escapeHtml(name)}">
                         ${escapeHtml(name)}
                     </strong>
@@ -228,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatChatSpan(first,last){
         const same = first.toDateString()===last.toDateString();
-        const options={
+        const options = {
             month:'short',
             day:'numeric',
             year:'numeric',

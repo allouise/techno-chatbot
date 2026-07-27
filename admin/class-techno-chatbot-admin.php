@@ -123,7 +123,9 @@ class Techno_Chatbot_Admin {
 					'site_id'  => $site,
 					'token'    => $ws->get_token($site),
 					'site_name' => get_bloginfo('name'),
-					'notification_sound' => TECHNO_CHATBOT_FOLDER_URL . '/notification.mp3'
+					'notification_sound' => TECHNO_CHATBOT_FOLDER_URL . '/notification.mp3',
+					'endIdleChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message'),
+					'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat'),
 				]
 			);
 		}
@@ -333,424 +335,484 @@ class Techno_Chatbot_Admin {
 	/**
 	 * Save admin chat message
 	 *
-	 * @since    1.0.0
+	 * @since    1.1.0
 	 */
 	public function save_admin_chat_message() {
-        check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 
-		if (!current_user_can('techno_chat_support')) {
-			wp_send_json_error();
+		if ( ! current_user_can( 'techno_chat_support' ) ) {
+			wp_send_json_error( 'Permission denied', 403 );
 		}
- 
-        /* ---- rate limit: max 60 saves per minute per IP ---- */
-        $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-        $rate_key = 'techno_admin_chat_save_' . md5( $ip );
-        $rate_count = (int) get_transient( $rate_key );
-        if ( $rate_count >= 60 ) {
-            wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
-        }
-        set_transient( $rate_key, $rate_count + 1, 60 );
- 
-        /* ---- validate inputs ---- */
-        $session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
-        $message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( $_POST['message'] ) ) : '';
-		$message_type = isset($_POST['message_type'])? sanitize_text_field($_POST['message_type']) : 'text';
-			
-        if ( ! $session_id || ! $message ) {
-            wp_send_json_error( [ 'message' => 'Missing required fields' ], 400 );
-        }
 
-		if (strlen($message) < 1) {
-			wp_send_json_error(['message' => 'Empty message'], 400);
+		/* ---- Validate Inputs ---- */
+		$socket_id = isset( $_POST['socket_id'] ) ? sanitize_text_field( wp_unslash( $_POST['socket_id'] ) ) : ( isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '' );
+		$message = isset( $_POST['message'] ) ? trim( sanitize_textarea_field( wp_unslash( $_POST['message'] ) ) ) : '';
+		$message_type = isset( $_POST['type'] ) ? sanitize_text_field( wp_unslash( $_POST['type'] ) ) : 'text';
+
+		if ( empty( $socket_id ) || empty( $message ) ) {
+			wp_send_json_error( 'Missing required fields', 400 );
 		}
- 
-        /* session_id must be alphanumeric + dash/underscore only */
-        if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
-            wp_send_json_error( [ 'message' => 'Invalid session_id format' ], 400 );
-        }
- 
-        /* message length guard */
-        if ( mb_strlen( $message ) > 2000 ) {
-            wp_send_json_error( [ 'message' => 'Message too long' ], 400 );
-        }
 
-		/* validate message_type */
-		$allowed_types = ['text','image','file','system'];
-		if ( ! in_array($message_type, $allowed_types, true) ) {
+		/* Socket ID / Session ID format check */
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $socket_id ) ) {
+			wp_send_json_error( 'Invalid socket_id format', 400 );
+		}
+
+		/* Message length guard */
+		if ( mb_strlen( $message ) > 2000 ) {
+			wp_send_json_error( 'Message too long', 400 );
+		}
+
+		/* Validate message_type whitelist */
+		$allowed_types = [ 
+			'text', 'phone_input', 'email_input', 'time_input', 'name_input', 
+			'phone_input_answer', 'email_input_answer', 'time_input_answer', 
+			'name_input_answer', 'system', 'system_end', 'end_idlelive'
+		];
+		if ( ! in_array( $message_type, $allowed_types, true ) ) {
 			$message_type = 'text';
 		}
 
-		/* get admin info */
-		$current_user = wp_get_current_user();
-		$admin_name   = $current_user->display_name;
+		global $wpdb;
+		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
+		$table_messages = $wpdb->prefix . 'techno_cb_messages';
 
-		/* capture metadata */
-		$user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
-		$ip_address = substr( sanitize_text_field($ip), 0, 45 );
+		// 1. Fetch conversation ID using socket_id or session_id
+		$conversation = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, ended_at FROM {$table_conversations} WHERE socket_id = %s OR session_id = %s LIMIT 1",
+				$socket_id,
+				$socket_id
+			)
+		);
 
-        global $wpdb;
-        $result = $wpdb->insert(
-			$wpdb->prefix . 'techno_livechat_messages',
+		if ( ! $conversation || $wpdb->last_error ) {
+			wp_send_json_error( 'Conversation not found', 404 );
+		}
+
+		if ( ! is_null( $conversation->ended_at ) ) {
+			wp_send_json_error( 'Cannot send message to a closed conversation', 400 );
+		}
+		
+		$conversation_id = (int) $conversation->id;
+		
+		// 2. Insert admin message with resolved conversation_id
+		$result = $wpdb->insert(
+			$table_messages,
 			[
-				'session_id'   => $session_id,
-				'sender'       => 'admin',
-				'message'      => $message,
-				'name'         => $admin_name,
-				'message_type' => $message_type,
-				'user_agent'   => $user_agent,
-				'ip_address'   => $ip_address,
+				'conversation_id' => $conversation_id,
+				'sender' => 'admin',
+				'message' => $message,
+				'message_type' => $message_type
 			],
 			[
-				'%s', // session_id
+				'%d', // conversation_id
 				'%s', // sender
 				'%s', // message
-				'%s', // name
 				'%s', // message_type
-				'%s', // user_agent
-				'%s', // ip_address
 			]
 		);
- 
-        if ( $result === false ) {
-            wp_send_json_error( [ 'message' => 'DB error' ], 500 );
-        }
-        wp_send_json_success( [ 'id' => $wpdb->insert_id ] );
-    }
+
+		if ( false === $result ) {
+			wp_send_json_error( [ 'message' => 'Database error saving message' ], 500 );
+		}
+
+		wp_send_json_success( [ 
+			'conversation_id' => $conversation_id 
+		] );
+	}
 
 	/**
 	 * Return Chat History
 	 *
-	 * @since    1.0.0
+	 * @since    1.1.0
 	 */
-	public function techno_get_chat_history_ajxfunction() {
+	public function get_chat_history() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
- 
-		if (!current_user_can('techno_chat_support')) {
-			wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
+
+		if ( ! current_user_can( 'techno_chat_support' ) ) {
+			wp_send_json_error( 'Permission denied', 403 );
 		}
- 
-		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
-		if ( ! $session_id ) {
-			wp_send_json_error( [ 'message' => 'Missing session_id' ], 400 );
+
+		$socket_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+		if ( ! $socket_id ) {
+			wp_send_json_error( 'Missing session_id', 400 );
 		}
- 
-		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) {
-			wp_send_json_error( [ 'message' => 'Invalid session format' ], 400 );
+
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $socket_id ) ) {
+			wp_send_json_error( 'Invalid session format', 400 );
 		}
- 
+
 		global $wpdb;
+		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
+		$table_messages      = $wpdb->prefix . 'techno_cb_messages';
+
+		// 1. Fetch the conversation row first
+		$conversation = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, socket_id, session_id, name, ended_at 
+				FROM {$table_conversations} 
+				WHERE socket_id = %s OR session_id = %s 
+				LIMIT 1",
+				$socket_id,
+				$socket_id
+			)
+		);
+
+		// If conversation doesn't exist, exit early
+		if ( ! $conversation || $wpdb->last_error ) {
+			wp_send_json_error( 'Converastion not found', 404 );
+		}
+
+		// 2. Fetch the messages using the conversation ID
 		$messages = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT sender, message, name, created_at
-				 FROM {$wpdb->prefix}techno_livechat_messages
-				 WHERE session_id = %s
-				 ORDER BY id ASC",
-				$session_id
+				"SELECT sender, message, message_type, created_at 
+				FROM {$table_messages} 
+				WHERE conversation_id = %d 
+				ORDER BY id ASC",
+				$conversation->id
 			),
 			ARRAY_A
 		);
- 
-		wp_send_json_success( $messages ?: [] );
+
+		// 3. Return both metadata and messages
+		wp_send_json_success( [
+			'visitor_name' => $conversation->name,
+			'ended_at' => $conversation->ended_at,
+			'messages' => $messages ?: []
+		] );
 	}
 
 	/**
 	 * Get Live Chat Visitors
 	 *
-	 * @since    1.0.7
+	 * @since    1.1.0
 	 */
 	public function get_active_livechats() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 		if ( ! current_user_can( 'techno_chat_support' ) ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'techno_livechat_messages';
-		$rows = $wpdb->get_results("
-			SELECT
-				session_id,
-				MAX(CASE WHEN sender = 'visitor' THEN name END) AS visitor_name,
-				MIN(created_at) first_chat,
-				MAX(created_at) AS last_message
-			FROM {$table}
-			GROUP BY session_id
-			ORDER BY last_message DESC
-		", ARRAY_A);
+		$table = $wpdb->prefix . 'techno_cb_conversations';
+		$rows = $wpdb->get_results("SELECT * FROM {$table} WHERE socket_id IS NOT NULL AND ended_at IS NULL ORDER BY created_at DESC", ARRAY_A);
 
 		wp_send_json_success($rows);
 	}
 
 	/**
-	 * End chat and archive messages
+	 * End chat
 	 *
-	 * @since 1.0.7
+	 * @since 1.1.0
 	 */
 	public function end_chat() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 		if ( ! current_user_can( 'techno_chat_support' ) ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
 
-		/* ---- Rate limit ---- */
-		$ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-		$rate_key   = 'techno_end_chat_' . md5( $ip );
-		$rate_count = (int) get_transient( $rate_key );
-		if ( $rate_count >= 30 ) wp_send_json_error( [ 'message' => 'Rate limit exceeded' ], 429 );
-		set_transient( $rate_key, $rate_count + 1, 60 );
-
-		/* ---- Validate session ---- */
-		$end_type = isset( $_POST['end_type'] ) ? sanitize_text_field( $_POST['end_type'] ) : '';
-		$session_id = isset( $_POST['session_id'] ) ? sanitize_text_field( $_POST['session_id'] ) : '';
-		if ( empty( $session_id ) ) wp_send_json_error( [ 'message' => 'Missing session id' ], 400 );
-		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $session_id ) ) wp_send_json_error( [ 'message' => 'Invalid session id' ], 400 );
-
-		global $wpdb;
-		$live_table    = $wpdb->prefix . 'techno_livechat_messages';
-		$history_table = $wpdb->prefix . 'techno_chat_history';
-		$wpdb->query( 'START TRANSACTION' );
-
-		try {
-			$insert = $wpdb->query(
-				$wpdb->prepare(
-					"INSERT INTO {$history_table}
-					(
-						session_id,
-						user_id,
-						sender,
-						message,
-						name,
-						message_type,
-						tokens,
-						viewed_at,
-						user_agent,
-						ip_address,
-						created_at
-					)
-					SELECT
-						session_id,
-						user_id,
-						sender,
-						message,
-						name,
-						message_type,
-						tokens,
-						viewed_at,
-						user_agent,
-						ip_address,
-						created_at
-					FROM {$live_table}
-					WHERE session_id = %s",
-					$session_id
-				)
-			);
-
-			if ( $insert === false ) throw new Exception( 'Failed to archive chat.' );
-			/* if ( $insert === 0 ) throw new Exception( 'No chat messages found.' ); */
-
-			// Delete live messages
-			$delete = $wpdb->delete(
-				$live_table,
-				[
-					'session_id' => $session_id,
-				],
-				[
-					'%s',
-				]
-			);
-			if ( $delete === false ) throw new Exception( 'Failed to remove live messages.' );
-
-			if($end_type === '/endchat1'){
-				/* capture metadata */
-				$user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? substr( sanitize_text_field($_SERVER['HTTP_USER_AGENT']), 0, 255 ) : null;
-				$ip_address = substr( sanitize_text_field($ip), 0, 45 );
-				$endIdleChatMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message');
-				$result = $wpdb->insert(
-					$history_table,
-					[
-						'session_id'   => $session_id,
-						'sender'       => 'bot',
-						'message'      => $endIdleChatMsg,
-						'message_type' => 'text',
-						'user_agent'   => $user_agent,
-						'ip_address'   => $ip_address,
-					],
-					[
-						'%s',
-						'%s',
-						'%s',
-						'%s',
-						'%s',
-						'%s',
-					]
-				);
-
-				if ( $result === false ) {
-					throw new Exception( 'Failed to insert final chat message.' );
-				}
-			}
-
-			$wpdb->query( 'COMMIT' );
-			wp_send_json_success( [ 'archived_messages' => $insert ] );
-
-		} catch ( Exception $e ) {
-			$wpdb->query( 'ROLLBACK' );
-			wp_send_json_error( [ 'message' => $e->getMessage() ], 500 );
+		/* ---- Check Conversation & Session ID ---- */
+		$socket_id = isset( $_POST['session_id'] ) ? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+		$end_type = isset($_POST['end_type'])? sanitize_text_field(wp_unslash($_POST['end_type'])) : '';
+		if ( empty( $socket_id ) || empty( $end_type ) || !in_array($end_type, ['endchat','endchat1']) ) {
+			wp_send_json_error( [ 'message' => 'Missing Parameters' ], 400 );
 		}
+		if ( ! preg_match( '/^[a-zA-Z0-9\-_]+$/', $socket_id ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid session formats' ], 400 );
+		}
+		
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_cb_conversations';
+		switch ($end_type) {
+			case 'endchat1':
+				$query = "UPDATE {$table} SET ended_at = NOW() WHERE socket_id = %s AND ended_at IS NULL";
+			break;
+			case 'endchat':
+				$query = "UPDATE {$table} SET ended_at = '0000-00-00 00:00:00' WHERE socket_id = %s AND ended_at IS NULL";
+			break;
+		}
+
+		$updated = $wpdb->query(
+			$wpdb->prepare($query, $socket_id)
+		);
+
+		if ( false === $updated ) wp_send_json_error( [ 'message' => 'Database error while ending chat' ], 500 );
+		if ( 0 === $updated ) wp_send_json_error( [ 'message' => 'Conversation not found or already ended' ], 404 );
+
+		wp_send_json_success( [ 'message' => 'Conversation ended successfully' ] );
 	}
 	
 	/**
-	 * Get Archived List
+	 * Get ended conversation
 	 *
-	 * @since 1.0.7
+	 * @since 1.1.0
 	 */
-	public function get_archived_chat_list(){
+	public function get_ended_conversation(){
 		check_ajax_referer('techno_chatbot_nonce','nonce');
 		if ( ! current_user_can( 'techno_chat_support' ) ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
+			
+		$raw_from = isset( $_POST['from'] ) ? sanitize_text_field( wp_unslash( $_POST['from'] ) ) : '';
+    	$raw_to = isset( $_POST['to'] ) ? sanitize_text_field( wp_unslash( $_POST['to'] ) ) : '';
+
+		if ( empty( $raw_from ) || empty( $raw_to ) ) {
+			wp_send_json_error( [ 'message' => 'Missing required date parameters' ], 400 );
+		}
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $raw_from ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $raw_to ) ) {
+			wp_send_json_error( [ 'message' => 'Invalid date format. Expected YYYY-MM-DD' ], 400 );
+		}
+		$start_date = $raw_from . ' 00:00:00';
+		$end_date = $raw_to . ' 23:59:59';
 
 		global $wpdb;
-		$table = $wpdb->prefix.'techno_chat_history';
-		$from = sanitize_text_field($_POST['from']);
-		$to   = sanitize_text_field($_POST['to']);
-
+		$table = $wpdb->prefix.'techno_cb_conversations';
 		$rows = $wpdb->get_results(
-			$wpdb->prepare("
-				SELECT
-					session_id,
-					MAX(name) name,
-					MIN(created_at) first_chat,
-					MAX(created_at) last_chat
-				FROM {$table}
-				WHERE DATE(created_at) BETWEEN %s AND %s
-				GROUP BY session_id
-				ORDER BY last_chat DESC
-			", $from, $to)
+        $wpdb->prepare(
+				"SELECT * FROM {$table} 
+				WHERE created_at >= %s 
+				AND created_at <= %s 
+				AND ( ended_at IS NOT NULL OR socket_id IS NULL ) 
+				ORDER BY created_at DESC",
+				$start_date,
+				$end_date
+			),
+			ARRAY_A
 		);
 
-		wp_send_json_success($rows);
+		if ( $wpdb->last_error ) {
+			wp_send_json_error( [ 'message' => 'Database error retrieving archived chats' ], 500 );
+		}
+
+		wp_send_json_success( $rows ?: [] );
 	}
 
 	/**
 	 * Get Archive Chat by session id
 	 *
-	 * @since 1.0.7
+	 * @since 1.1.0
 	 */
-	public function get_archived_chat() {
+	public function get_conversation_messages() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
 		if ( ! current_user_can( 'techno_chat_support' ) ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
+		
+		$conversation_id = isset( $_POST['session'] ) ? absint( $_POST['session'] ) : 0;
+		if( !$conversation_id || $conversation_id <= 0 ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
 
 		global $wpdb;
-		$session = sanitize_text_field($_POST['session']);
-		$table = $wpdb->prefix.'techno_chat_history';
-		$messages = $wpdb->get_results($wpdb->prepare(
-			"SELECT *
-			FROM {$table}
-			WHERE session_id=%s
-			ORDER BY created_at ASC",
-			$session
-		));
+		$table_messages = $wpdb->prefix . 'techno_cb_messages';
+		$messages = $wpdb->get_results(
+			$wpdb->prepare( 
+				"SELECT sender, message, message_type, created_at FROM {$table_messages} WHERE conversation_id = %d ORDER BY created_at ASC", 
+				$conversation_id 
+			), 
+			ARRAY_A
+		); 
+				
 		wp_send_json_success($messages);
 	}
 	
 	/**
 	 * Delete Chat History
 	 *
-	 * @since 1.0.7
+	 * @since 1.1.0
 	 */
-	public function delete_chat_history() {
+	public function delete_conversation() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
-		if ( ! current_user_can( 'techno_chat_support' ) ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
 
-		$sessions = isset( $_POST['sessions'] ) ? (array) $_POST['sessions'] : [];
-		$sessions = array_filter( array_map( 'sanitize_text_field', $sessions ) );
+		if ( ! current_user_can( 'techno_chat_support' ) ) {
+			wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
+		}
 
-		if ( empty( $sessions ) ) wp_send_json_error( 'No sessions selected.' );
+		$ids = isset( $_POST['sessions'] ) ? (array) $_POST['sessions'] : [];
+		$ids = array_filter( array_map( 'absint', $ids ) );
+
+		if ( empty( $ids ) ) {
+			wp_send_json_error( 'No sessions selected.' );
+		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'techno_chat_history';
-		$placeholders = implode( ',', array_fill( 0, count( $sessions ), '%s' ) );
 
-		$query = $wpdb->prepare(
-			"DELETE FROM {$table} WHERE session_id IN ($placeholders)", ...$sessions
+		$conversations_table = $wpdb->prefix . 'techno_cb_conversations';
+		$messages_table = $wpdb->prefix . 'techno_cb_messages';
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// Delete all messages belonging to the selected conversations.
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$messages_table} WHERE conversation_id IN ($placeholders)",
+				...$ids
+			)
 		);
-		$wpdb->query( $query );
-		wp_send_json_success( ['deleted' => count( $sessions )] );
+
+		// Delete the conversations.
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$conversations_table} WHERE id IN ($placeholders)",
+				...$ids
+			)
+		);
+
+		wp_send_json_success( [
+			'deleted' => count( $ids ),
+		] );
 	}
 	
 	/**
 	 * Export Chat History
 	 *
-	 * @since 1.0.7
+	 * @since 1.1.0
 	 */
 	public function export_chat_history() {
 		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
-		if ( ! current_user_can( 'techno_chat_support' ) ) wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
+		if ( ! current_user_can( 'techno_chat_support' ) ) {
+			wp_send_json_error( [ 'message' => 'Permission denied' ], 403 );
+		}
 
-		$sessions = isset( $_POST['sessions'] ) ? (array) $_POST['sessions'] : [];
-		$sessions = array_filter( array_map(
-			static function ( $id ) {
-				$id = sanitize_text_field( $id );
-				return preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $id ) ? $id : ''; },
-			(array) $_POST['sessions']
-		));
-		if ( empty( $sessions ) ) wp_die( 'No sessions selected.' );
+		$ids = isset( $_POST['sessions'] ) ? (array) $_POST['sessions'] : [];
+		$ids = array_filter( array_map( 'absint', $ids ) );
+
+		if ( empty( $ids ) ) {
+			wp_send_json_error( [ 'message' => 'No sessions selected.' ], 400 );
+		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'techno_chat_history';
-		$placeholders = implode(',', array_fill( 0, count( $sessions ), '%s' ));
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
-					session_id,
-					user_id,
-					name,
-					sender,
-					message,
-					message_type,
-					tokens,
-					viewed_at,
-					ip_address,
-					user_agent,
-					created_at
-				FROM {$table}
-				WHERE session_id IN ($placeholders)
-				ORDER BY session_id ASC, created_at ASC
-				",
-				...$sessions
-			),
-			ARRAY_A
+
+		$conversations_table = $wpdb->prefix . 'techno_cb_conversations';
+		$messages_table      = $wpdb->prefix . 'techno_cb_messages';
+		$placeholders        = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// 1. Fetch Conversations
+		$conversations_query = $wpdb->prepare(
+			"SELECT 
+				id,
+				socket_id,
+				session_id,
+				user_id,
+				name,
+				title,
+				metas,
+				created_at,
+				ended_at
+			FROM {$conversations_table}
+			WHERE id IN ($placeholders)
+			ORDER BY id ASC",
+			...$ids
 		);
+		$conversations = $wpdb->get_results( $conversations_query, ARRAY_A );
 
-		if ( empty( $rows ) ) wp_die( 'No chat history found.' );
+		// 2. Fetch Messages
+		$messages_query = $wpdb->prepare(
+			"SELECT 
+				id,
+				conversation_id,
+				sender,
+				message,
+				message_type,
+				prompt_tokens,
+				completion_tokens,
+				created_at
+			FROM {$messages_table}
+			WHERE conversation_id IN ($placeholders)
+			ORDER BY conversation_id ASC, id ASC",
+			...$ids
+		);
+		$messages = $wpdb->get_results( $messages_query, ARRAY_A );
 
-		$filename = 'chat-history-' . date( 'Y-m-d-H-i-s' ) . '.csv';
-		header( 'Content-Type: text/csv; charset=utf-8' );
-		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-		$output = fopen( 'php://output', 'w' );
-		fprintf( $output, chr(0xEF).chr(0xBB).chr(0xBF) );
-		fputcsv( $output, [
+		if ( empty( $conversations ) ) {
+			wp_die( 'No chat history found.' );
+		}
+
+		// --- Create CSV Content in Memory ---
+
+		// A. Generate conversations.csv
+		$conv_stream = fopen( 'php://temp', 'r+' );
+		fprintf( $conv_stream, chr( 0xEF ) . chr( 0xBB ) . chr( 0xBF ) ); // UTF-8 BOM
+		fputcsv( $conv_stream, [
+			'ID',
+			'Socket ID',
 			'Session ID',
-			'Guest ID',
-			'Visitor Name',
-			'Date',
-			'Sender',
-			'Message Type',
-			'Message',
-			'Viewed At',
-			'IP Address',
-			'User Agent'
+			'User ID',
+			'Name',
+			'Title',
+			'Metas',
+			'Created At',
+			'Ended At'
 		] );
-
-		foreach ( $rows as $row ) {
-			fputcsv( $output, [
+		foreach ( $conversations as $row ) {
+			fputcsv( $conv_stream, [
+				$row['id'],
+				$row['socket_id'],
 				$row['session_id'],
 				$row['user_id'],
 				$row['name'],
+				$row['title'],
+				$row['metas'],
 				$row['created_at'],
-				ucfirst( $row['sender'] ),
-				ucfirst( $row['message_type'] ),
-				$row['message'],
-				$row['viewed_at'],
-				$row['ip_address'],
-				$row['user_agent']
+				$row['ended_at']
 			] );
 		}
-		fclose( $output );
+		rewind( $conv_stream );
+		$conv_csv_data = stream_get_contents( $conv_stream );
+		fclose( $conv_stream );
+
+		// B. Generate messages.csv
+		$msg_stream = fopen( 'php://temp', 'r+' );
+		fprintf( $msg_stream, chr( 0xEF ) . chr( 0xBB ) . chr( 0xBF ) ); // UTF-8 BOM
+		fputcsv( $msg_stream, [
+			'ID',
+			'Conversation ID',
+			'Sender',
+			'Message',
+			'Message Type',
+			'Prompt Tokens',
+			'Completion Tokens',
+			'Created At'
+		] );
+		foreach ( $messages as $row ) {
+			fputcsv( $msg_stream, [
+				$row['id'],
+				$row['conversation_id'],
+				ucfirst( $row['sender'] ),
+				$row['message'],
+				$row['message_type'],
+				$row['prompt_tokens'],
+				$row['completion_tokens'],
+				$row['created_at']
+			] );
+		}
+		rewind( $msg_stream );
+		$msg_csv_data = stream_get_contents( $msg_stream );
+		fclose( $msg_stream );
+
+		// --- Create Zip File ---
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			wp_die( 'ZipArchive PHP extension is not enabled on this server.' );
+		}
+
+		$zip_filename = 'chat-export-' . date( 'Y-m-d-H-i-s' ) . '.zip';
+		$temp_zip_file = wp_tempnam( $zip_filename );
+
+		$zip = new ZipArchive();
+		if ( true === $zip->open( $temp_zip_file, ZipArchive::OVERWRITE ) ) {
+			$zip->addFromString( 'conversations.csv', $conv_csv_data );
+			$zip->addFromString( 'messages.csv', $msg_csv_data );
+			$zip->close();
+		} else {
+			wp_die( 'Could not create zip archive.' );
+		}
+
+		// --- Output Zip for Download ---
+		header( 'Content-Type: application/zip' );
+		header( 'Content-Disposition: attachment; filename="' . $zip_filename . '"' );
+		header( 'Content-Length: ' . filesize( $temp_zip_file ) );
+		header( 'Pragma: no-cache' );
+		header( 'Expires: 0' );
+
+		readfile( $temp_zip_file );
+
+		// Cleanup temp zip file
+		if ( file_exists( $temp_zip_file ) ) {
+			@unlink( $temp_zip_file );
+		}
+
 		exit;
 	}
 	

@@ -122,6 +122,26 @@ function initAdminSocket() {
 
 }
 
+function updateChatState2(exists, ended = false) {
+    if (!chatInput || !sendBtn || !chatWindow || !chatMessages || !chatHeader) return;
+
+    if( ended == true ){
+        chatInput.placeholder = exists ? 'Type a message...' : 'Conversation Ended';
+        sendBtn.textContent = exists ? 'Send' : 'Ended';
+    }else{
+        chatInput.placeholder = exists ? 'Type a message...' : 'Conversation Error';
+        sendBtn.textContent = exists ? 'Send' : 'Error';
+    }
+    
+    const opened = activeVisitors.querySelector('.open');
+    if( exists && !opened ) exists = false;
+    chatInput.disabled = !exists;
+    sendBtn.disabled = !exists;
+    chatWindow.classList.toggle('disabled', !exists);
+    endBtn.classList.toggle('disabled', !exists);
+}
+
+
 function updateChatState(isOnline) {
     if (!chatInput || !sendBtn || !chatWindow || !chatMessages || !chatHeader) return;
     chatInput.placeholder = isOnline ? 'Type a message...' : 'Support is offline...';
@@ -356,12 +376,12 @@ function loadActiveVisitorsDB() {
         sessionMapMeta = {};
 
         res.data.forEach(chat => {
-            sessionMap[chat.session_id] = chat.visitor_name;
-            sessionMapMeta[chat.session_id] = {
+            sessionMap[chat.socket_id] = chat.name;
+            sessionMapMeta[chat.socket_id] = {
                 active: chat.active
             };
         });
-        if(socket){
+        if(socket && socket.connected){
             socket.emit("get-active-sessions");
         }else{
             renderActiveVisitors();
@@ -382,18 +402,21 @@ function escapeHtml(str) {
     div.textContent = str;
     return div.innerHTML;
 }
-async function sendAdminMessage(save = true) {
-    const msg = chatInput.value.trim();
+async function sendAdminMessage(save = true, _msg = '', _type = 'text') {
+    const msg = (_msg != '')? _msg : chatInput.value.trim();
+    
     if (!msg || !currentSession || !socket) return false;
     chatInput.value = '';
 
     socket.emit("send-message", {
         session_id: currentSession,
         message: msg,
-        sender: 'admin'
+        sender: 'admin',
+        type: _type,
     });
+
     if(save){
-        addAdminMessage({ sender: 'admin', message: msg });
+        addAdminMessage({ sender: 'admin', message: msg, type: _type });
     }
     return true;
 }
@@ -407,30 +430,38 @@ async function addAdminMessage(msg) {
     }
 
     /* Save TO DB */
-    const body = new URLSearchParams({
-        action: 'techno_save_admin_chat_message',
-        nonce: technoLivechat.nonce,
-        session_id: currentSession,
-        sender: msg.sender,
-        message: msg.message
-    });
-
     fetch(technoLivechat.ajax_url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body,
-        keepalive: true,
-    }).catch(err =>
-        console.error('[Techno Chatbot] DB save failed:', err)
-    );
-
-    renderMessage(msg);
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+            action: "techno_save_admin_chat_message",
+            nonce: technoLivechat.nonce,
+            session_id: currentSession,
+            sender: msg.sender,
+            message: msg.message,
+            type: msg.type
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            renderMessage(msg);
+        }
+    })
+    .catch(console.error);
+    
 }
 function renderMessage(msg) {
     if (!chatMessages) return;
     const div = document.createElement('div');
     div.className = `techno-livechat-msg ${escapeHtml(msg.sender)}`;
-    div.textContent = msg.message;
+    if( msg.sender == 'bot' ){
+        div.innerHTML = msg.message;
+    }else{
+        div.textContent = msg.message;
+    }
     chatMessages.appendChild(div);
     scrollToBottom();
     adminLastId = Math.max(adminLastId, msg.id || 0);
@@ -441,7 +472,11 @@ function renderMessageBatch(messages) {
     messages.forEach(msg => {
         const div = document.createElement('div');
         div.className = `techno-livechat-msg ${escapeHtml(msg.sender)}`;
-        div.textContent = msg.message;
+        if( msg.sender == 'bot' ){
+            div.innerHTML = msg.message;
+        }else{
+            div.textContent = msg.message;
+        }
 
         /* Time */
         if( msg.created_at ){
@@ -467,44 +502,59 @@ function renderMessageBatch(messages) {
 /* 
  * End Chat
  */
-async function endChat(_type = '/endchat') {
+async function endChat(_type = 'endchat') {
     if (!currentSession || !socket) return;
     
     livechatPage.classList.add('loading');
     chatInput.value = _type;
-    sendAdminMessage(false);
+    let msg = technoLivechat.endChatMsg;
 
-    /* Save history */
-    const sessionId = currentSession;
-    fetch(technoLivechat.ajax_url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-            action: "techno_end_chat",
-            nonce: technoLivechat.nonce,
-            end_type: _type,
-            session_id: sessionId
-        })
-    })
-    .then(r => r.json())
-    .then(res => {
+    if(_type == 'endchat1'){
+        msg = technoLivechat.endIdleChatMsg;
+        await sendAdminMessage(true, msg, 'end_idlelive');
+    }else{
+        await sendAdminMessage(true, msg, 'system_end');
+    }
+
+    /* End Chat */
+    try {
+        const sessionId = currentSession;
+        const response = await fetch(technoLivechat.ajax_url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+                action: "techno_end_chat",
+                nonce: technoLivechat.nonce,
+                end_type: _type,
+                session_id: sessionId
+            })
+        });
+
+        const res = await response.json();
+
         if (res.success) {
             finishEndChat(sessionId);
-            livechatPage.classList.remove('loading');
-        }else{
-            console.error(res.data)
-            livechatPage.classList.remove('loading');
-            return;
+        } else {
+            console.error(res.data);
+            if (_type === 'endchat') {
+                finishEndChat(sessionId, true);
+            }
         }
-    })
-    .catch(console.error);
+    } catch (err) {
+        console.error(err);
+    } finally {
+        livechatPage.classList.remove('loading');
+    }
 }
-function finishEndChat(sessionId) {
+function finishEndChat(sessionId, skip_socket = false) {
     const _session = activeVisitors.querySelector('[data-session="'+ sessionId +'"]');
-    socket.emit("end-chat", { session_id: sessionId });
-    
+
+    if( skip_socket === true ){
+        socket.emit("end-chat", { session_id: sessionId });
+    }
+
     delete sessionMessages[sessionId];
     delete sessionMap[sessionId];
     delete sessionMapMeta[sessionId];
@@ -523,7 +573,7 @@ endBtn?.addEventListener('click', () => {
     if (!confirmed) {
         return;
     }else{
-        endChat('/endchat');
+        endChat('endchat');
         chatMsgWindow.removeAttribute('style');
     }
 });
@@ -534,7 +584,7 @@ endIdleBtn?.addEventListener('click', () => {
     if (!confirmed) {
         return;
     }else{
-        endChat('/endchat1');
+        endChat('endchat1');
         chatMsgWindow.removeAttribute('style');
     }
 });
@@ -564,7 +614,7 @@ function loadSessionHistory(sessionId) {
 
     chatMessages.innerHTML = '';
     adminLastId = 0;
-
+    updateChatState2(true);
     if (sessionMessages[sessionId] && sessionMessages[sessionId].length) {
         renderMessageBatch(sessionMessages[sessionId]);
         return;
@@ -585,8 +635,9 @@ function loadSessionHistory(sessionId) {
     })
     .then(data => {
         livechatPage.classList.remove('loading');
-        if (!data.success || !Array.isArray(data.data)) return;
-        const messages = data.data.map(row => ({
+        if (!data.success || !Array.isArray(data.data.messages)) return;
+        
+        const messages = data.data.messages.map(row => ({
             sender:  row.sender  || 'visitor',
             message: row.message || '',
             created_at: row.created_at || ''
@@ -596,8 +647,13 @@ function loadSessionHistory(sessionId) {
         if (chatMessages && currentSession === sessionId) {
             renderMessageBatch(messages);
         }
+
+        if(data.data.ended_at != null){
+            updateChatState2(false, true);
+        }
     })
     .catch(err => {
+        updateChatState2(false);
         console.error('[Techno Chatbot] Failed to load history:', err);
         livechatPage.classList.remove('loading');
     });

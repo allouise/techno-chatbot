@@ -36,38 +36,37 @@ class Techno_Chatbot_Activator {
 			wp_schedule_event( time(), 'daily', 'techno_chatbot_daily_license_check' );
 		}
 
-		self::create_livechat_table();
-		self::create_chat_history_table();
+		self::create_cb_messages_table();
+		self::create_cb_conversation_table();
 		self::techno_chatbot_add_role();
 		self::techno_chatbot_add_admin_capability();
+
+		if ( defined( 'TECHNO_CHATBOT_VERSION' ) ) {
+			update_option( 'techno_chatbot_version', TECHNO_CHATBOT_VERSION );
+		}
 	}
 
 	/**
-	 * Create the live chat messages DB table
+	 * Create messages table
 	 *
 	 * @since    1.0.0
 	 */
-	public static function create_livechat_table() {
+	public static function create_cb_messages_table() {
 		global $wpdb;
-		$table   = $wpdb->prefix . 'techno_livechat_messages';
+		$table   = $wpdb->prefix . 'techno_cb_messages';
 		$charset = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
-			id             	  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id     	  VARCHAR(64) NOT NULL,
-			user_id        	  BIGINT UNSIGNED DEFAULT NULL,
-			sender         	  ENUM('visitor','admin','bot') NOT NULL,
-			message        	  TEXT NOT NULL,
-			name           	  VARCHAR(100) DEFAULT NULL,
-			message_type	  ENUM('text','image','file','system') DEFAULT 'text',
-			tokens		 	  BIGINT UNSIGNED DEFAULT NULL,
-			viewed_at      	  DATETIME DEFAULT NULL,
-			user_agent 	   	  VARCHAR(255) DEFAULT NULL,
-			ip_address     	  VARCHAR(45) DEFAULT NULL,
-			created_at     	  DATETIME DEFAULT CURRENT_TIMESTAMP,
+			id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			conversation_id   BIGINT UNSIGNED DEFAULT NULL,
+			sender            ENUM('visitor','admin','bot') NOT NULL,
+			message           TEXT NOT NULL,
+			message_type      VARCHAR(64) NOT NULL DEFAULT 'text',
+			prompt_tokens 	  INT UNSIGNED DEFAULT NULL,
+			completion_tokens INT UNSIGNED DEFAULT NULL,
+			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
-			INDEX idx_session (session_id),
-			INDEX idx_created (created_at)
+			INDEX idx_conversation_created (conversation_id, created_at)
 		) {$charset};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -75,32 +74,30 @@ class Techno_Chatbot_Activator {
 	}
 
 	/**
-	 * Create the chat history DB table
+	 * Create conversation table
 	 *
 	 * @since    1.0.0
 	 */
-	public static function create_chat_history_table() {
+	public static function create_cb_conversation_table() {
 		global $wpdb;
-
-		$table   = $wpdb->prefix . 'techno_chat_history';
+		$table   = $wpdb->prefix . 'techno_cb_conversations';
 		$charset = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE IF NOT EXISTS {$table} (
-			id             	  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			session_id        VARCHAR(64) NOT NULL,
-			user_id           BIGINT UNSIGNED DEFAULT NULL,
-			sender            ENUM('visitor','admin','bot') NOT NULL,
-			message        	  TEXT NOT NULL,
-			name			  VARCHAR(100) DEFAULT NULL,
-			message_type   	  ENUM('text','image','file','system') DEFAULT 'text',
-			tokens		 	  BIGINT UNSIGNED DEFAULT NULL,
-			viewed_at      	  DATETIME DEFAULT NULL,
-			user_agent     	  VARCHAR(255) DEFAULT NULL,
-			ip_address     	  VARCHAR(45) DEFAULT NULL,
-			created_at     	  DATETIME DEFAULT CURRENT_TIMESTAMP,
+			id             	BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			socket_id		VARCHAR(64) DEFAULT NULL,
+			session_id     	VARCHAR(64) NOT NULL,
+			user_id        	BIGINT UNSIGNED DEFAULT NULL,
+			name           	VARCHAR(100) DEFAULT NULL,
+			title           VARCHAR(100) DEFAULT NULL,
+			metas      		TEXT DEFAULT NULL,
+			created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+			ended_at        DATETIME DEFAULT NULL,
 			PRIMARY KEY (id),
+			INDEX idx_socket (socket_id),
 			INDEX idx_session (session_id),
-			INDEX idx_created (created_at)
+			INDEX idx_created (created_at),
+			INDEX idx_ended (ended_at)
 		) {$charset};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';

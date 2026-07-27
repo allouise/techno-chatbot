@@ -1,139 +1,1166 @@
-/**
- * Techno Chatbot Public Script
- * States:
- * 0 - Initial/Reset/Idle State
- * 1 - No Answer/Contact Options Shown
- * 2 - Contact Method Selected (Phone/Email)
- * 3 - Phone Follow-up step
- * 4 - Contact Finished/Handoff complete
- * 5 - Livechat Active
- * 6 - Ask Visitor name before live chat
- * 7 - End Chat By Admin show options
- * 8 - Ask Email For Chat History
- */
+class TechnoChatbot {
+    constructor() {
+        // DOM Elements
+        this.el = {};
+        
+        this.botData = {};
+        this.config = null;
+        this.storageKeys = null;
+        this.inputPlaceholders = null;
+        this.optionType = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-    /* ---------- Elements ---------- */
-    const el = {
-        icon: document.getElementById('techno-chatbot-floating-icon'),
-        window: document.getElementById('techno-chatbot-window'),
-        close: document.getElementById('techno-chatbot-close'),
-        send: document.getElementById('techno-chatbot-send'),
-        input: document.getElementById('techno-chatbot-input'),
-        messages: document.getElementById('techno-chatbot-messages'),
-        menubtn: document.getElementById('techno-chatbot-menu-trigger'),
-        reset: document.querySelectorAll('.techno-chatbot-reset'),
-        disclaimer: document.getElementById('techno-chatbot-disclaimer'),
-        disclaimerModal: document.getElementById('techno-chatbot-disclaimer-modal'),
-        transcriptRequest: document.getElementById('techno-chatbot-transcript-request'),
-    };
+        this.socket = null;
+        this.idleDisconnectTimer = null;
+        this.conversationId = null;
+        this.sessionId = null;
+        this.socketId = null;
+        this.socketName = null;
+        this.recentSession = null;
+        this.supportOnline = false;
+        this.requireInput = '';
+        this.state = '';
+        this.failedAnswer = 0;
+        this.isProcessing = false;
+        this.lastSendTime = 0;
+        this.minSendInterval = 2000;
+        this.hasHandledConnectError = false;
 
-    if (!el.icon || !el.window) return;
-
-    /* ---------- Constants ---------- */
-    const STORAGE_KEY = 'techno_chatbot_history';
-    const FAIL_COUNT_KEY = 'techno_chatbot_fail_count';
-    const CONTACT_STATE_KEY = 'techno_chatbot_contact_state';
-    const CONTACT_METHOD_KEY = 'techno_chatbot_contact_method';
-    const CHAT_START_KEY = 'techno_chatbot_start';
-    const LIVECHAT_NAME_KEY = 'techno_livechat_visitor_name';
-    const LIVECHAT_SESSION = 'techno_livechat_session';
-    const LIVECHAT_IDLE = 'techno_livechat_idled';
-
-    /* ---------- State ---------- */
-    let socket = null;
-    let transcriptOnlyRequest = false;
-    let liveChatSessionId = null;
-    let liveChatVisitorName = localStorage.getItem(LIVECHAT_NAME_KEY) || null;
-    let chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    let supportOnline = false;
-    let idleDisconnectTimer = localStorage.getItem(LIVECHAT_IDLE) || null;;
-
-    if (!localStorage.getItem(CHAT_START_KEY)) {
-        localStorage.setItem(CHAT_START_KEY, Date.now());
+        this.init();
     }
 
-    /* ---------- Utilities ---------- */
-    function scrollToBottom() {
-        el.messages.scrollTop = el.messages.scrollHeight;
+    /* ==========================================================================
+       Initialization & Setup
+       ========================================================================== */
+
+    async init() {
+        // localStorage.removeItem(this.storageKeys.session);
+        this.cacheElements();
+
+        if (!this.el.loader || !this.el.icon || !this.el.window || !this.el.messages || !this.el.input || !this.el.send){
+            console.warn('TechnoChatbot: Required DOM elements are missing. Class initialization stopped.');
+            return false; 
+        };
+
+        this.setupConfigurations();
+        this.initState();
+        this.bindEvents();
+        this.initSocket();
+
+        await this.getConversation();
+
+        /* console.log("Active Conversation & Session ID:", this.conversationId + ' ' + this.sessionId);
+        console.log('socketId & socketName:', this.socketId + ' ' + this.socketName);
+        console.log('state', this.state); */
     }
-    function validateEmail(email){
-        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return re.test(email);
+
+    cacheElements() {
+        this.el = {
+            icon: document.getElementById('techno-chatbot-floating-icon'),
+            window: document.getElementById('techno-chatbot-window'),
+            loader: document.getElementById('techno-chatbot-loader'),
+            close: document.getElementById('techno-chatbot-close'),
+            send: document.getElementById('techno-chatbot-send'),
+            input: document.getElementById('techno-chatbot-input'),
+            messages: document.getElementById('techno-chatbot-messages'),
+            menubtn: document.getElementById('techno-chatbot-menu-trigger'),
+            reset: document.querySelectorAll('.techno-chatbot-reset'),
+            disclaimer: document.getElementById('techno-chatbot-disclaimer'),
+            disclaimerModal: document.getElementById('techno-chatbot-disclaimer-modal'),
+            transcriptRequest: document.getElementById('techno-chatbot-transcript-request'),
+            statusDot: document.getElementById('techno-support-status-dot'),
+        };
     }
-    function validatePhone(phone){
-        const cleaned = phone.replace(/[\s\-()+]/g,'');
-        if (!/^\d{7,15}$/.test(cleaned)) return false;
-        return true;
+
+    setupConfigurations() {
+        this.botData = window.technoChatbot || {};
+
+        this.storageKeys = Object.freeze({
+            state: 'techno_chatbot_state',
+            session: 'techno_chatbot_session',
+            failedanswer: 'techno_chatbot_fail_count',
+            recentsession: 'techno_chatbot_recent_session'
+        });
+
+        this.inputPlaceholders = Object.freeze({
+            waiting: 'Please wait...',
+            options: 'Choose an option...',
+            default: this.botData.inputtxt || ''
+        });
+
+        this.optionType = Object.freeze({
+            noAnswer: 'no-answer',
+            endLive: 'end-live'
+        });
+
+        this.config = Object.freeze({
+            failLimit: parseInt(this.botData.noAnswerTrigger) || 0,
+            supportIdleTime: parseInt(this.botData.idleTimer) || 0,
+            liveChatEnabled: Boolean(this.botData.liveChatEnabled),
+            allowed_types: ['phone_input', 'email_input', 'time_input', 'name_input', 'email_end_input'],
+            allowed_states: ['request_transcript'],
+            timeFormatter: new Intl.DateTimeFormat('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            }),
+            processedFaq: (this.botData.faq || []).map(faq => ({
+                ...faq,
+                cleanedQuestions: faq.questions.map(question => {
+                    const cleaned = this.normalizeText(question);
+                    return {
+                        original: question,
+                        cleaned,
+                        words: cleaned.split(' ').filter(word => word.length >= 4)
+                    };
+                })
+            }))
+        });
     }
-    function cleanText(text){
-        return text.toLowerCase().replace(/[^\w\s]/g,'').trim();
+
+    initState() {
+        this.failedAnswer = this.getFailCount();
+        this.sessionId = this.getSession();
+        this.recentSession = this.getRecentSession();
+        this.state = this.getState();
+        this.updateTranscriptButtonVisibility();
     }
-    function sanitizeText(text){
-        if (typeof text !== 'string') return '';
-        text = text.replace(/<[^>]*>?/gm, '').replace(/[\u0000-\u001F]/g, '').replace(/\s+/g,' ').trim();
-        if (text.length > 1000){
-            text = text.substring(0,1000);
+
+    async socketIdleCheck(socket_error = false) {
+        if(!this.config.liveChatEnabled) return;
+        
+        const idleTime = this.config.supportIdleTime;
+        this.clearIdleDisconnectTimer();
+        
+        /* Update existing options on support status change */
+        let existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
+        if (existingOptions) {
+            existingOptions.remove();
+            this.showOptions(this.optionType.noAnswer);
+            existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
         }
-        return text;
+
+        /* If socket id or currently livechatting and socket got disconnected due to error */
+        if (socket_error && this.socketId != null) {
+            if (!existingOptions) {
+                await this.addMessage(this.botData.idleSupport, 'bot', true, 'system');
+                this.showOptions(this.optionType.noAnswer);
+            }
+            return;
+        }
+
+        /* If idleTime is setup and socket id or currently livechatting and support got disconnected */
+        if (idleTime > 0 && this.socketId != null && !this.supportOnline) {
+            this.idleDisconnectTimer = setTimeout(async () => {
+                const currentOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
+                if (!currentOptions) {
+                    await this.addMessage(this.botData.idleSupport, 'bot', true, 'system');
+                    this.showOptions(this.optionType.noAnswer);
+                }
+            }, idleTime * 1000);
+        }
     }
-    function showTyping() {
+
+    clearIdleDisconnectTimer() {
+        if (this.idleDisconnectTimer) {
+            clearTimeout(this.idleDisconnectTimer);
+            this.idleDisconnectTimer = null;
+        }
+    }
+
+    bindEvents() {
+        /* Click Submit */
+        this.el.send.addEventListener('click', () => this.handleSend());
+        this.el.input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.handleSend();
+            }
+        });
+        /* Toggle Chatbot Visibility */
+        this.el.close?.addEventListener('click', () => this.toggleChatbot());
+        this.el.icon?.addEventListener('click', () => this.toggleChatbot());
+        /* Toggle Menu */
+        this.el.menubtn?.addEventListener('click', (e) => this.toggleMenu(e));
+        /* Toggle Disclaimer */
+        this.el.disclaimer?.addEventListener('click', () => {
+            this.toggleMenu(false);
+            this.el.disclaimerModal?.classList.add('active');
+        });
+        const disclaimerCloseBtn = this.el.disclaimerModal?.querySelector('.close-btn');
+        disclaimerCloseBtn?.addEventListener('click', () => {
+            this.el.disclaimerModal?.classList.remove('active');
+        });
+        /* Request Transcript */
+        this.el.transcriptRequest?.addEventListener('click', () => {
+            this.toggleMenu(false);
+            this.initRequestTranscript();
+        });
+        /* Reset */
+        this.el.reset?.forEach(btn => btn.addEventListener('click', async () => {
+            this.toggleMenu(false);
+            await this.reset();
+        }));
+    }
+
+    /* ==========================================================================
+       UI Helpers
+       ========================================================================== */
+
+    toggleLoader(toggle = null) {
+        if (!this.el.loader) return;
+
+        const isCurrentlyVisible = this.el.loader.classList.contains('techno-cbfade-in');
+        const shouldShow = (toggle !== null) ? Boolean(toggle) : !isCurrentlyVisible;
+
+        if (shouldShow) {
+            this.el.loader.classList.remove('techno-cbfade-out');
+            this.el.loader.classList.add('techno-cbfade-in');
+        } else {
+            this.el.loader.classList.remove('techno-cbfade-in');
+            this.el.loader.classList.add('techno-cbfade-out');
+        }
+    }
+
+    scrollToBottom() {
+        this.el.messages.scrollTop = this.el.messages.scrollHeight;
+    }
+
+    showTyping() {
+        if (this.el.messages.querySelector('.techno-chatbot-message.typing')) return;
+
+        this.disableInput(true);
+        this.el.input.placeholder = this.inputPlaceholders.waiting;
+
         const typing = document.createElement('div');
         typing.className = 'techno-chatbot-message admin typing';
         typing.innerHTML = `<span></span><span></span><span></span>`;
-        el.messages.appendChild(typing);
-        scrollToBottom();
+
+        this.el.messages.appendChild(typing);
+        this.scrollToBottom();
+        
         return typing;
     }
-    function getTypingDelay(text) {
-        const base = 500;
-        const perChar = 0; /* optional per char delay */
-        const max = 3000;
-        return Math.min(base + text.length * perChar, max);
+
+    hideTyping(){
+        const typing = this.el.messages.querySelector('.techno-chatbot-message.typing');
+        if (!typing) return;
+        
+        typing.remove();
+        this.disableInput(false);
+        this.el.input.placeholder = this.inputPlaceholders.default;
     }
-    function disableInput(_switch = true){
-        el.input.disabled = _switch;
-        el.send.disabled = _switch;
-        if (!_switch) el.input.focus();
+
+    disableInput(disabled = true) {
+        this.el.input.disabled = disabled;
+        this.el.send.disabled = disabled;
+        if (!disabled) this.focusInput();
     }
-    function setState(state){
-        localStorage.setItem(CONTACT_STATE_KEY, state);
+
+    focusInput() {
+        this.el.input.focus();
     }
-    function getState(){
-        return parseInt(localStorage.getItem(CONTACT_STATE_KEY) || '0');
-    }
-    function clearIdleDisconnectTimer() {
-        if (idleDisconnectTimer) {
-            clearTimeout(idleDisconnectTimer);
-            idleDisconnectTimer = null;
-            localStorage.removeItem(LIVECHAT_IDLE);
+
+    toggleMenu(open) {
+        if (!this.el.menubtn) return;
+        if (typeof open === 'boolean') {
+            this.el.menubtn.classList.toggle('active', open);
+        } else {
+            this.el.menubtn.classList.toggle('active');
         }
     }
-    function startIdleDisconnectTimer() {
-        if( !technoChatbot.idleTimer || technoChatbot.idleTimer == '' ) return;
-        const idleSeconds = parseInt(technoChatbot.idleTimer);
-        if (!idleSeconds || idleSeconds <= 0) return;
-        if (getState() !== 5) return;
 
-        clearIdleDisconnectTimer();
-        idleDisconnectTimer = setTimeout(async () => {
-            if (!socket || !socket.connected || !supportOnline) {
-                if (!document.querySelector('.techno-chatbot-contact-options')) {
-                    await botReply(technoChatbot.idleSupport);
-                    showNoAnswerOptions();
-                    /* setState(0); */
-                }
-            }
-        }, idleSeconds * 1000);
-
+    updateTranscriptButtonVisibility() {
+        if (!this.el.transcriptRequest) return;        
+        const shouldHide = this.state === 'request_transcript' || this.recentSession == null || this.socketId != null;
+        this.el.transcriptRequest.classList.toggle('techno-cb-hide', shouldHide);
     }
 
-    /* ---------- WebSocket Live Chat ---------- */
-    function initSocket() {
-        if(!technoChatbot.ws_url) return;
-        if (socket) return;
+    toggleChatbot(open) {
+        const hidden = typeof open === 'boolean' ? open : !this.el.window.classList.contains('techno-chatbot-hidden');
+        this.el.window.classList.toggle('techno-chatbot-hidden', hidden);
+        if (!hidden) {
+            this.scrollToBottom();
+            this.focusInput();
+        }
+    }
+
+    renderHistory(messages) {
+        if (!Array.isArray(messages) || messages.length === 0) return;
+
+        const fragment = document.createDocumentFragment();
+        messages.forEach(msg => {
+            const messageEl = document.createElement('div');
+            messageEl.className = `techno-chatbot-message ${msg.sender}`;
+
+            if (msg.sender === 'visitor') {
+                messageEl.textContent = msg.message;
+            } else {
+                messageEl.innerHTML = msg.message;
+            }
+
+            const timeEl = document.createElement('div');
+            timeEl.className = 'techno-chatbot-time';
+            const dateObj = msg.created_at ? new Date(msg.created_at.replace(/-/g, '/')) : new Date();
+            timeEl.textContent = this.config.timeFormatter.format(dateObj);
+            messageEl.appendChild(timeEl);
+            fragment.appendChild(messageEl);
+        });
+        this.el.messages.appendChild(fragment);
+
+        let displayedOptions = false;
+        const lastMsg = messages[messages.length - 1];
+        const type = lastMsg?.message_type;
+        if (type === 'system') {
+            this.showOptions(this.optionType.noAnswer);
+            displayedOptions = true;
+        }else if (type === 'system_end') {
+            this.showOptions(this.optionType.endLive);
+            displayedOptions = true;
+        }else if(this.config.allowed_types.includes(type)) {
+            this.requireInput = type;
+        }
+
+        this.scrollToBottom();
+        return displayedOptions;
+    }
+
+    updateStatusDot(isOnline) {
+        if (this.el.statusDot) {
+            this.el.statusDot.classList.toggle('online', isOnline);
+            this.el.statusDot.classList.toggle('offline', !isOnline);
+        }
+    }
+
+    async initRequestTranscript() {
+        this.setState('request_transcript');
+        this.requireInput = 'email_input';
+        this.showTyping();
+        await this.addMessage(this.botData.menuHistorySend, 'visitor',);
+        await this.addMessage(this.botData.askEmail, 'bot', true, 'email_input');
+    }
+
+    showOptions(type = '') {
+        if (!type) return;
+        this.disableInput(true);
+        this.el.input.placeholder = this.inputPlaceholders.options;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'techno-chatbot-contact-options';
+        const options = [];
+
+        if (!this.socketId && this.config.liveChatEnabled && this.supportOnline) {
+            options.push({ action: 'livechat', label: this.botData.menuLivechat });
+        }
+
+        if (type === this.optionType.noAnswer) {
+            options.push(
+                { action: 'phone', label: this.botData.menuCall },
+                { action: 'email', label: this.botData.menuEmail },
+                { action: 'restart', label: this.botData.menuReset }
+            );
+        }
+
+        if (type === this.optionType.endLive) {
+            options.push(
+                { action: 'email_end', label: this.botData.menuHistorySend },
+                { action: 'end', label: this.botData.menuLeave }
+            );
+        }
+
+        if (options.length === 0) return;
+
+        const fragment = document.createDocumentFragment();
+        options.forEach(({ action, label }) => {
+            if (!label) return;
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            btn.dataset.action = action;
+            fragment.appendChild(btn);
+        });
+
+        wrapper.appendChild(fragment);
+        wrapper.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (btn && btn.dataset.action) {
+                this.chooseOption(btn.dataset.action);
+            }
+        });
+
+        this.el.messages.appendChild(wrapper);
+        this.scrollToBottom();
+    }
+
+    async chooseOption(method) {
+        this.el.messages.querySelector('.techno-chatbot-contact-options')?.remove();
+        this.showTyping();
+
+        const inputConfigs = {
+            phone: { visitorText: this.botData.menuCall, botLabel: this.botData.cPhoneLabel },
+            email: { visitorText: this.botData.menuEmail, botLabel: this.botData.cEmailLabel }
+        };
+
+        if (inputConfigs[method]) {
+            const { visitorText, botLabel } = inputConfigs[method];
+            await this.addMessage(visitorText, 'visitor');
+            await this.addMessage(botLabel, 'bot', true, `${method}_input`);
+            this.requireInput = `${method}_input`;
+
+            this.hideTyping();
+            return;
+        }
+
+        switch (method) {
+            case 'livechat':
+                await this.addMessage(this.botData.menuLivechat, 'visitor');
+                await this.transferLiveChat();
+            break;
+
+            case 'email_end':
+                await this.addMessage(this.botData.menuHistorySend, 'visitor');
+                await this.addMessage(this.botData.askEmail, 'bot', true, 'email_end_input');
+                this.requireInput = 'email_end_input';
+            break;
+
+            case 'end':
+                await this.addMessage(this.botData.menuLeave, 'visitor');
+                this.finishInput(this.botData.endChatMsg);
+            break;
+
+            case 'restart':
+                await this.reset();
+            break;
+        }
+
+        this.hideTyping();
+    }
+
+    async finishInput( last_msg = '' ){
+        if( this.conversationId == null ) return;
+
+        if( this.state == 'request_transcript' ){
+            await this.requestTranscript();
+            return;
+        }
+
+        try {
+            if (last_msg == '') {
+                last_msg = this.botData.getContactThxMsg;
+            }
+            await this.addMessage(last_msg, 'bot');
+            await this.stopConversation();
+        } catch (err) {
+            console.error("Error ending conversation:", err);
+        }
+    }
+
+    /* ==========================================================================
+       Utilities & Validation
+       ========================================================================== */
+
+    validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    validatePhone(phone) {
+        return /^\d{7,15}$/.test(phone.replace(/[\s()+-]/g, ''));
+    }
+
+    normalizeText(text = '') {
+        return text.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    }
+
+    sanitizeText(text = '') {
+        return text.replace(/<[^>]+>/g, '').replace(/[\0-\x1F]/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000);
+    }
+
+    async transferLiveChat(name = '') {
+        const isLive = this.config.liveChatEnabled && this.supportOnline;
+
+        if (!isLive) {
+            await this.addMessage(this.botData.offlineSupport, 'bot', true, 'system');
+            this.showOptions(this.optionType.noAnswer);
+            return;
+        }
+
+        const requiresName = Number(this.botData.liveChatGetName) === 1;
+
+        /* If user is new and a name is required, but none was provided yet */
+        if (!this.socketId && requiresName && !name.trim()) {
+            await this.addMessage(this.botData.getName, 'bot', true, 'name_input');
+            this.requireInput = `name_input`;
+            return;
+        }
+
+        /* If user is new (and has either provided a name or name isn't required) */
+        if (!this.socketId) {
+            const makeId = () => Math.random().toString(36).substring(2, 6).padEnd(4, '0');
+            this.socketId = `sess_${Date.now()}_${makeId()}`;
+            const visitorName = name.trim() !== '' ? name.trim() : this.socketId;
+            this.socketName = visitorName;
+            this.updateConversation(visitorName);
+        }
         
-        socket = io(technoChatbot.ws_url, { 
+        await this.addMessage(this.botData.transferredToSupport, 'bot', true);
+        this.socket.emit("visitor-join", { 
+            session_id: this.socketId, 
+            visitor_name: this.socketName 
+        });
+    }
+
+    /* ==========================================================================
+       Storage & Local State
+       ========================================================================== */
+
+    async reset( clear_only = false, msg = '' ) {
+
+        this.el.messages.innerHTML = '';
+        this.showTyping();
+
+        try {
+            msg = (msg != '')? msg : this.botData.menuReset;
+            if( clear_only === true ){
+                this.addMessage(msg, 'visitor', false);
+
+                localStorage.removeItem(this.storageKeys.session);
+                localStorage.removeItem(this.storageKeys.failedanswer);
+                localStorage.removeItem(this.storageKeys.state);
+                
+                this.conversationId = null;
+                this.socketId = null;
+                this.socketName = null;
+                this.requireInput = '';
+                this.state = '';
+                this.failedAnswer = 0;
+                this.sessionId = null;
+            }else{
+                await this.addMessage(msg, 'visitor');
+                await this.stopConversation();
+                await this.getConversation();
+            }
+
+            this.isProcessing = false;
+        } finally {
+
+            this.hideTyping();
+        }
+    }
+
+    getState(){
+        return localStorage.getItem(this.storageKeys.state) || null;
+    }
+
+    setState(state){
+        if(this.config.allowed_states.includes(state)){
+            this.state = state;
+            localStorage.setItem(this.storageKeys.state, state);
+        }
+    }
+
+    getSession() {
+        return localStorage.getItem(this.storageKeys.session) || null;
+    }
+
+    getRecentSession() {
+        return localStorage.getItem(this.storageKeys.recentsession) || null;
+    }
+
+    getFailCount() {
+        return parseInt(localStorage.getItem(this.storageKeys.failedanswer) || '0');
+    }
+
+    increaseFailCount() {
+        this.failedAnswer++;
+        localStorage.setItem(this.storageKeys.failedanswer, this.failedAnswer);
+        return this.failedAnswer;
+    }
+
+    resetFailCount() {
+        this.failedAnswer = 0;
+        localStorage.setItem(this.storageKeys.failedanswer, 0);
+        return this.failedAnswer;
+    }
+
+    /* ==========================================================================
+       Matching Algorithms (FAQ)
+       ========================================================================== */
+
+    levenshteinDistance(a, b) {
+        const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(0));
+        for (let i = 0; i <= b.length; i++) matrix[i][0] = i;
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                matrix[i][j] = b[i - 1] === a[j - 1]
+                    ? matrix[i - 1][j - 1]
+                    : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+
+    stringSimilarity(str1, str2) {
+        const longer = str1.length > str2.length ? str1 : str2;
+        const shorter = str1.length > str2.length ? str2 : str1;
+        if (longer.length === 0) return 1;
+        return (longer.length - this.levenshteinDistance(longer, shorter)) / longer.length;
+    }
+
+    findFaqAnswer(message) {
+        const text = this.normalizeText(message);
+        let bestMatch = null;
+        let bestScore = 0;
+
+        for (const faq of this.config.processedFaq) {
+            let score = 0;
+            for (const kw of faq.cleanedQuestions) {
+                let matched = false;
+                if (text.includes(kw.cleaned)) {
+                    score += 5;
+                    matched = true;
+                }
+                for (const word of kw.words) {
+                    if (text.includes(word)) {
+                        score += 2;
+                        matched = true;
+                    }
+                }
+                if (matched) {
+                    const similarity = this.stringSimilarity(text, kw.cleaned);
+                    if (similarity > 0.8) score += similarity * 5;
+                }
+            }
+            score += faq.priority || 0;
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = faq;
+            }
+        }
+
+        return (bestMatch && bestScore >= 6) ? bestMatch.answer : this.botData.noAnswer;
+    }
+
+    /* ==========================================================================
+       API / Backend Communication
+       ========================================================================== */
+
+    async apiCall(action, params = {}, { urlEncoded = false, keepalive = false } = {}) {
+        const nonce = this.botData.nonce || '';
+        let body;
+        const fetchOptions = {
+            method: "POST",
+            credentials: "same-origin"
+        };
+
+        if (urlEncoded) {
+            body = new URLSearchParams({ action, nonce, ...params });
+            fetchOptions.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        } else {
+            body = new FormData();
+            body.append("action", action);
+            body.append("nonce", nonce);
+            for (const [key, value] of Object.entries(params)) {
+                body.append(key, value);
+            }
+        }
+
+        fetchOptions.body = body;
+        if (keepalive) fetchOptions.keepalive = true;
+
+        return fetch(this.botData.ajax_url, fetchOptions);
+    }
+
+    async getConversation() {
+        if (this.sessionId == null){
+            if (this.botData.welcomeMessage) {
+                this.addMessage(this.botData.welcomeMessage, 'bot', false);
+            }
+            this.toggleLoader(false);
+            return null
+        };
+
+        this.toggleLoader(true);
+        this.showTyping();
+
+        let hasOptions = false;
+        let hasError = false;
+
+        try {
+            const res = await this.apiCall("techno_get_conversation", {
+                session_id: this.sessionId
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                this.addMessage(data.data.message, 'bot', false);
+                this.conversationId = null;
+                this.socketId = null;
+                this.socketName = null;
+                this.sessionId = null
+                hasError = true;
+                this.el.input.placeholder = '';
+                throw new Error("Failed to get conversation");
+            }
+
+            this.conversationId = data.data?.conversation ?? null;
+            this.socketId = data.data?.socket ?? null;
+            this.socketName = data.data?.visitor_name ?? this.socketId;
+
+            this.updateTranscriptButtonVisibility();
+
+            const messages = data.data?.messages;
+
+            if( this.socketId != null ){
+                this.socket.emit("visitor-join", { 
+                    session_id: this.socketId, 
+                    visitor_name: this.socketName
+                });
+            }
+
+            if (Array.isArray(messages) && messages.length > 0) {
+                hasOptions = this.renderHistory(messages);
+            } else if (this.botData.welcomeMessage) {
+                this.addMessage(this.botData.welcomeMessage, 'bot', false);
+            }
+
+            this.hideTyping();
+            return this.conversationId;
+
+        } finally {
+            // typing?.remove();
+            this.toggleLoader(false);
+            if( !hasError && hasOptions != true ){
+                this.hideTyping();
+            }
+        }
+    }
+
+    async startConversation() {
+        if (this.conversationId != null) return this.conversationId;
+        this.toggleLoader(true);
+
+        const sessionId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const params = { session_id: sessionId };
+        if ( this.botData.welcomeMessage ) {
+            params.message = this.botData.welcomeMessage;
+        }
+
+        const res = await this.apiCall("techno_new_conversation", params);
+        const data = await res.json();
+        if (!data.success) {
+
+            this.addMessage(data.data.message, 'bot', false);
+            this.disableInput(true);
+            throw new Error("Failed to create conversation");
+        }
+
+        this.conversationId = data.data.id;
+        this.sessionId = sessionId;
+        this.recentSession = sessionId;
+        localStorage.setItem(this.storageKeys.session, sessionId);
+        localStorage.setItem(this.storageKeys.recentsession, sessionId);
+        this.updateTranscriptButtonVisibility();
+        this.toggleLoader(false);
+        return this.conversationId;
+    }
+
+    async updateConversation(name = '') {
+        if (this.conversationId == null || this.sessionId == null || this.socketId == null ) {
+            console.warn("Cannot update conversation: Missing required session data.");
+            return false;
+        }
+
+        this.toggleLoader(true);
+        try {
+            const res = await this.apiCall("techno_update_conversation", {
+                session_id: String(this.sessionId).trim(),
+                conversation_id: String(this.conversationId).trim(),
+                socket_id: String(this.socketId).trim(),
+                name: typeof name === 'string' ? name.trim() : ''
+            });
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`Server returned status ${res.status}: ${errorText}`);
+            }
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.data?.message || "Failed to update conversation");
+            }
+            return true;
+        } catch (err) {
+            console.error("Error updating conversation:", err);
+            return false;
+        } finally {
+            this.toggleLoader(false);
+        }
+    }
+
+    async stopConversation() {
+        if (this.conversationId == null || this.sessionId == null) return;
+
+        this.toggleLoader(true);
+        try {
+            const res = await this.apiCall("techno_end_conversation", {
+                session_id: this.sessionId,
+                conversation_id: this.conversationId
+            });
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.data?.message || "Failed to end conversation");
+            }
+
+            if( this.socketId != null ){
+                this.socket.emit("end-chat", { session_id: this.socketId });
+            }
+
+            localStorage.removeItem(this.storageKeys.session);
+            localStorage.removeItem(this.storageKeys.failedanswer);
+            localStorage.removeItem(this.storageKeys.state);
+            
+            this.conversationId = null;
+            this.socketId = null;
+            this.socketName = null;
+            this.requireInput = '';
+            this.state = '';
+            this.failedAnswer = 0;
+            
+            this.sessionId = null; //need to test
+
+            return true;
+        } catch (err) {
+            console.error("Error ending conversation:", err);
+            return false;
+        } finally {
+            this.toggleLoader(false);
+        }
+    }
+
+    async findAIAnswer(question) {
+        try {
+            const res = await this.apiCall("techno_chatbot_ask_ai", { question });
+            const data = await res.json();
+            if (data.success) {
+                return data.data;
+            }
+            return null;
+        } catch (err) {
+            console.error("Error finding AI answer:", err);
+            return null;
+        }
+    }
+
+    async addMessage(text, sender, save = true, type = 'text', token = null) {
+        if( save === true && ( this.conversationId == null || this.sessionId == null ) ) return;
+
+        const message = document.createElement('div');
+        message.className = `techno-chatbot-message ${sender}`;
+
+        if (sender === 'visitor') {
+            message.textContent = text;
+        } else {
+            message.innerHTML = text;
+        }
+
+        const time = document.createElement('div');
+        time.className = 'techno-chatbot-time';
+        time.textContent = this.config.timeFormatter.format(new Date());
+        message.appendChild(time);
+        this.el.messages.appendChild(message);
+        this.scrollToBottom();
+
+        if (!save) return;
+
+        const params = {
+            conversation_id: this.conversationId,
+            session_id: this.sessionId,
+            sender,
+            message: text,
+            message_type: type,
+        };
+        if (token) {
+            params.token = JSON.stringify(token);
+        }
+
+        const res = await this.apiCall("techno_save_chat_message", params, { urlEncoded: true, keepalive: true });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if( data.data.message ){
+                this.addMessage(data.data.message, 'bot', false);
+            }
+            throw new Error(`Failed to save message (${res.status})`);
+        }
+    }
+
+    async requestTranscript() {
+        if (this.recentSession == null) return;
+
+        this.toggleLoader(true);
+
+        try {
+            
+            this.showTyping();
+
+            /* destory the state early */
+            localStorage.removeItem(this.storageKeys.state);
+            this.state = '';
+
+            const res = await this.apiCall("techno_chatbot_request_transcript", {
+                session_id: this.recentSession
+            });
+
+            if (!res.ok) {
+                throw new Error(`Server returned status ${res.status}`);
+            }
+
+            const data = await res.json();
+            this.hideTyping();
+            
+            if (data.success) {
+                await this.addMessage(this.botData.historySent, 'bot', true);
+            } else {
+                await this.addMessage(this.botData.errorMsg, 'bot', false);
+            }
+
+        } catch (err) {
+            console.error("Error requesting transcript:", err);
+            this.hideTyping();
+            await this.addMessage(this.botData.errorMsg, 'bot', false);
+        } finally {
+            this.toggleLoader(false);
+            this.hideTyping();
+        }
+    }
+
+    /* ==========================================================================
+       Message Handling Pipeline
+       ========================================================================== */
+
+    async handleFaqReply(message) {
+        this.showTyping();
+        let options = '';
+
+        try {
+            let error = false;
+            let answer = null;
+            let tokens = null;
+
+            if (this.botData.aiEnabled == 1) {
+                const aiResponse = await this.findAIAnswer(message);
+                answer = aiResponse?.answer;
+                tokens = { 
+                    prompt_tokens: aiResponse?.prompt_tokens ?? 0, 
+                    completion_tokens: aiResponse?.completion_tokens ?? 0 
+                };
+
+                if (answer && answer !== "NO_ANSWER") {
+                    this.resetFailCount();
+                } else {
+                    error = true;
+                }
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                answer = this.findFaqAnswer(message);
+                if (answer === this.botData.noAnswer) {
+                    error = true;
+                } else {
+                    this.resetFailCount();
+                }
+            }
+
+            if (error) {
+                this.failedAnswer = this.increaseFailCount();
+                if (this.config.failLimit === 0 || this.failedAnswer >= this.config.failLimit) {
+                    answer = this.botData.noAnswerFinalDefault || this.botData.noAnswer || '...';
+                    options = this.optionType.noAnswer;
+                    this.resetFailCount();
+                } else {
+                    answer = this.botData.noAnswer || '...';
+                }
+            }
+
+            this.hideTyping();
+
+            if( options != '' ){
+                await this.addMessage(answer, 'bot', true, 'system', tokens);
+                this.showOptions(options);
+            }else{
+                await this.addMessage(answer, 'bot', true, 'text', tokens);
+            }
+
+        } finally {
+            typing?.remove();
+            if (!options) {
+                this.hideTyping();
+            }
+        }
+    }
+
+    async handleSend() {
+        const now = Date.now();
+        if (now - this.lastSendTime < this.minSendInterval) {
+            this.addMessage(this.botData.spamLimitMsg, 'bot', false);
+            return; 
+        }
+
+        if (this.isProcessing) return;
+        this.isProcessing = true;
+
+        try {
+            const userInput = this.el.input.value.trim();
+            const userMessage = this.sanitizeText(userInput);
+            if (!userMessage) return;
+
+            this.lastSendTime = Date.now();
+            this.el.input.value = '';
+
+            if (this.conversationId == null) {
+                await this.startConversation();
+            }
+
+            if( this.botData.transferLiveChatKeywords.length > 0 || this.botData.transferKeywords.length > 0 ){
+                const normalizedText = this.normalizeText(userMessage);
+                const matchesKeyword = (keywords) => Array.isArray(keywords) && keywords.some(k => k && normalizedText.includes(this.normalizeText(k)));
+
+                /* Live Chat Trigger */
+                if (matchesKeyword(this.botData.transferLiveChatKeywords)) {
+                    await this.addMessage(userMessage, 'visitor');
+                    this.resetFailCount();
+                    await this.transferLiveChat();
+                    return;
+                }
+
+                /* Next Step / Option Transfer Trigger */
+                if (matchesKeyword(this.botData.transferKeywords)) {
+                    await this.addMessage(userMessage, 'visitor');
+                    this.resetFailCount();
+                    
+                    const replyMsg = this.botData.nextStepMsg || this.botData.noAnswerFinalDefault || this.botData.noAnswer || '...';
+                    await this.addMessage(replyMsg, 'bot', true, 'system');
+                    this.showOptions(this.optionType.noAnswer);
+                    return;
+                }
+            }
+
+            /* Requires Input */
+            if (this.requireInput && this.config.allowed_types?.includes(this.requireInput)) {
+                const currentType = this.requireInput;
+
+                if (currentType === 'phone_input') {
+                    if (!this.validatePhone(userMessage)) {
+                        await this.addMessage(userMessage, 'visitor');
+                        await this.addMessage(this.botData.phoneError, 'bot', true, currentType);
+                        return;
+                    }
+
+                    await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
+                    
+                    if (parseInt(this.botData.timeToCall, 10) === 1) {
+                        await this.addMessage(this.botData.timeToCallTxt, 'bot', true, 'time_input');
+                        this.requireInput = 'time_input';
+                    } else {
+                        await this.finishInput();
+                        this.requireInput = '';
+                    }
+                    return;
+                }
+
+                if (currentType === 'email_input') {
+                    if (!this.validateEmail(userMessage)) {
+                        await this.addMessage(userMessage, 'visitor');
+                        await this.addMessage(this.botData.emailError, 'bot', true, currentType);
+                        return;
+                    }
+                    
+                    await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
+                    await this.finishInput();
+                    this.requireInput = '';
+                    return;
+                }
+
+                if (currentType === 'email_end_input') {
+                    if (!this.validateEmail(userMessage)) {
+                        await this.addMessage(userMessage, 'visitor');
+                        await this.addMessage(this.botData.emailError, 'bot', true, currentType);
+                        return;
+                    }
+                    
+                    await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
+                    await this.finishInput(this.botData.historySent);
+                    this.requireInput = '';
+                    return;
+                }
+
+                if (currentType === 'time_input') {
+                    await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
+                    await this.finishInput();
+                    this.requireInput = '';
+                    return;
+                }
+
+                if (currentType === 'name_input') {
+                    await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
+                    await this.transferLiveChat(userMessage);
+                    this.requireInput = '';
+                    return;
+                }
+            }
+
+            /* Usual Add Message */
+            await this.addMessage(userMessage, 'visitor');
+
+            /* Transferred to Live Chat Message */
+            if(this.socket && this.socket.connected && this.socketId != null){
+                this.socket.emit("send-message", {
+                    session_id: this.socketId,
+                    message: userMessage,
+                    sender: "visitor"
+                });
+                return;
+            }else{
+                /* FAQ/AI Answers */
+                await this.handleFaqReply(userMessage);
+            }
+
+        } finally {
+            this.isProcessing = false;
+        }
+    }
+
+    handleReceivedMessage(msg){
+        const message = (msg.message || '').trim();
+        if(!message || message == '') return;
+
+        if(msg.type == 'text'){
+
+            this.addMessage(message, msg.sender, false);
+
+        }else if(msg.type == 'system_end'){
+
+            this.addMessage(this.botData.end_msg, msg.sender, false);
+            this.showOptions(this.optionType.endLive);
+
+        }else if(msg.type == 'end_idlelive'){
+            
+            this.reset(true, this.botData.end_msgidleguest);
+
+        }
+    }
+
+    /* ==========================================================================
+       WebSocket / Realtime Communication
+       ========================================================================== */
+
+    initSocket() {
+        const wsUrl = this.botData.ws_url;
+        if (!wsUrl || this.socket) return;
+        if (typeof io !== 'function') {
+            console.warn("Socket.io library not loaded.");
+            return;
+        }
+
+        this.socket = io(wsUrl, {
             transports: ['polling', 'websocket'],
             secure: true,
             reconnection: true,
@@ -142,894 +1169,53 @@ document.addEventListener('DOMContentLoaded', () => {
             reconnectionDelayMax: 5000,
             timeout: 20000,
             auth: {
-                site: technoChatbot.site_id,
-                token: technoChatbot.token
-            }
-        });
-        socket.on("connect", () => {
-            /* console.log("WS connected:", socket.id); */
-            clearIdleDisconnectTimer();
-            liveChatSessionId = localStorage.getItem(LIVECHAT_SESSION);
-            checkArchived(liveChatSessionId);
-        });
-        socket.on("connect_error", async () => {
-            /* console.log("WebSocket server is OFF"); */
-            if (!document.querySelector('.techno-chatbot-contact-options') && liveChatSessionId) {
-                await botReply(technoChatbot.idleSupport);
-                showNoAnswerOptions();
+                site: this.botData.site_id,
+                token: this.botData.token
             }
         });
 
-        socket.on("receive-message", async (msg) => {
-            if (msg.session_id !== liveChatSessionId) return;
+        /* ---- Event Listeners ---- */
+        this.socket.on("connect", () => {
+            this.hasHandledConnectError = false;
+            this.clearIdleDisconnectTimer();
+        });
 
-            if (msg.sender === 'admin') {
-                const message = msg.message.trim();
-                if (['/endchat', '/endchat1'].includes(message)) {
-                    await handleEndChatCommand(message);
-                    return;
-                }
-                addMessage(msg.message, 'admin');
+        this.socket.on("connect_error", () => {
+            if (!this.hasHandledConnectError) {
+                this.hasHandledConnectError = true;       
+                this.supportOnline = false;
+                this.socketIdleCheck(true);
             }
         });
 
-        socket.on("support-status", (data) => {
-            if(typeof data.online === 'boolean'){
-                updateStatusDot(data.online);
-                if (data.online === false) {
-                    startIdleDisconnectTimer();
-                } else {
-                    clearIdleDisconnectTimer();
-                }
-                const existingOptions = document.querySelector('.techno-chatbot-contact-options');
-                if (existingOptions) {
-                    existingOptions.remove();
-                    showNoAnswerOptions(true);
-                }
+        this.socket.on("receive-message", (msg) => {
+            if (!msg || msg.session_id !== this.socketId) return;
+            this.handleReceivedMessage(msg);
+        });
+
+        this.socket.on("support-status", (data) => {
+            if (typeof data?.online === 'boolean') {
+                this.supportOnline = data.online;
+                this.updateStatusDot(data.online);
+                this.socketIdleCheck();
             }
         });
 
-        socket.on("unregister-support", () => {
-            updateStatusDot(false);
-            startIdleDisconnectTimer();
+        this.socket.on("unregister-support", () => {
+            this.supportOnline = false;
+            this.updateStatusDot(false);
+            this.socketIdleCheck();
         });
 
-        socket.on("disconnect", () => {
-            /* console.log("WS disconnected"); */
-            updateStatusDot(false);
-            startIdleDisconnectTimer();
+        this.socket.on("disconnect", () => {
+            this.supportOnline = false;
+            this.updateStatusDot(false);
+            this.socketIdleCheck();
         });
     }
-    function updateStatusDot(online) {
-        supportOnline = online;
-        const dot = document.getElementById('techno-support-status-dot');
-        if (!dot) return;
-        dot.classList.toggle('online', online);
-        dot.classList.toggle('offline', !online);
-        dot.title = online ? 'Support Online' : 'Support Offline';
-    }
-    async function handleOnlineStatus(online) {
-        if (online) {
-            if (parseInt(technoChatbot.liveChatGetName) === 1) {
-                setState(6);
-                await botReply(technoChatbot.getName);
-                disableInput(false);
-            } else {
-                setState(5);
-                await botReply(technoChatbot.transferredToSupport);
-                await startLiveChat();
-            }
-        } else {
-            setState(0);
-            await botReply(technoChatbot.offlineSupport);
-            showNoAnswerOptions();
-        }
-    }
-    async function startLiveChat() {
-        liveChatSessionId = localStorage.getItem(LIVECHAT_SESSION) || ('sess_' + Date.now());
-        localStorage.setItem(LIVECHAT_SESSION, liveChatSessionId);
-        disableInput(false);
-        if (!socket){ initSocket(); } 
-        botHistoryToLive();
-        if (socket.connected) {
-            socket.emit("visitor-join", { session_id: liveChatSessionId, visitor_name: liveChatVisitorName || liveChatSessionId });
-        }
-    }
-    async function checkAndTransferToLiveChat() {
-        if (!technoChatbot.liveChatEnabled) {
-            await botReply(technoChatbot.offlineSupport);
-            showNoAnswerOptions();
-            return;
-        }
+}
 
-        if (supportOnline) {
-            handleOnlineStatus(supportOnline);
-            return;
-        }
-
-        try {
-            const res = await fetch(technoChatbot.ajax_url, {
-                method:'POST',
-                headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    action:'techno_check_support_online',
-                    nonce: technoChatbot.nonce
-                })
-            });
-            const data = await res.json();
-            const online = data.success && data.data.online;
-            updateStatusDot(online);
-            handleOnlineStatus(online);
-        } catch(e){
-            console.error(e);
-            setState(0);
-            await botReply(technoChatbot.offlineSupport);
-            showNoAnswerOptions();
-        }
-    }
-    async function handleEndChatCommand(_type = '/endchat'){
-        setState(7);
-        
-        if(_type == '/endchat1'){
-            await finishLiveChat(null, 'idle');
-        }else{
-            await botReply(technoChatbot.end_msg);
-            showEndChatOptions();
-        }
-    }
-    function showEndChatOptions(restored = false){
-        if (document.querySelector('.techno-chatbot-end-options')) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'techno-chatbot-end-options';
-
-        /* YES BUTTON */
-        const yesBtn = document.createElement('button');
-        yesBtn.textContent = technoChatbot.menuHistorySend;
-        yesBtn.onclick = () => {
-            wrapper.remove();
-            addMessage( technoChatbot.menuHistorySend, 'visitor', true );
-            askEmailForHistory();
-        };
-
-        /* NO BUTTON */
-        const noBtn = document.createElement('button');
-        noBtn.textContent = technoChatbot.menuLeave;
-        noBtn.onclick = () => {
-            wrapper.remove();
-            addMessage( technoChatbot.menuLeave, 'visitor', true );
-            finishLiveChat();
-        };
-
-        wrapper.appendChild(yesBtn);
-        wrapper.appendChild(noBtn);
-        el.messages.appendChild(wrapper);
-        scrollToBottom();
-        disableInput(true);
-        el.input.placeholder = 'Choose an option...';
-        if(!restored) setState(7);
-    }
-    async function askEmailForHistory(){
-        setState(8);
-        disableInput(false);
-        await botReply( technoChatbot.askEmail );
-    }
-    async function finishLiveChat(email = null, _type = '' ){
-        let lastmsg = '';
-        fetch(technoChatbot.ajax_url, {
-            method:'POST',
-            headers:{
-                'Content-Type':
-                'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                action: 'end_live_chat',
-                email: email || '',
-                nonce: technoChatbot.nonce,
-                end_type: _type,
-                session_id: liveChatSessionId
-            })
-        })
-        .then(res => res.json())
-        .then(async data => { 
-            if (data.success) {
-                if( email ){
-                    lastmsg = technoChatbot.historySent;
-                    addMessage( lastmsg, 'bot', false );
-                    saveLocalHistory( lastmsg, 'bot' );
-                }else if(_type == 'idle'){
-                    lastmsg = technoChatbot.end_msgidleguest;
-                    addMessage( lastmsg, 'bot', false );
-                    saveLocalHistory( lastmsg, 'bot' );
-                }else{
-                    lastmsg = technoChatbot.endChatMsg;
-                    addMessage( lastmsg, 'bot', false );
-                    saveLocalHistory( lastmsg, 'bot' );
-                }
-            } else {
-                lastmsg = technoChatbot.errorMsg;
-                addMessage( lastmsg, 'bot', false );
-                saveLocalHistory( lastmsg, 'bot' );
-            }
-        })
-        .catch(async () => {
-            lastmsg = technoChatbot.errorMsg;
-            addMessage( lastmsg, 'bot', false );
-            saveLocalHistory( lastmsg, 'bot' );
-        })
-        .finally(() => {
-            endLiveChatCleanup(lastmsg);
-        });
-    }
-    function endLiveChatCleanup(lstmsg = ''){
-        setState(0);
-        disableInput(false);
-        if (socket && liveChatSessionId) {
-            socket.emit( "chat-ended", { session_id: liveChatSessionId } );
-            /* socket.disconnect();
-            socket = null; */
-        }
-        clearHistory(lstmsg);
-        clearIdleDisconnectTimer();
-    }
-
-    /* ---------- Histories ---------- */
-    function saveLocalHistory(text, sender, token = null){
-        if (sender !== 'admin' && sender !== 'bot') {
-            text = sanitizeText(text);
-        }
-        if (!text) return;
-        chatHistory.push({ text, sender, created_at: new Date().toISOString(), token });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
-    }
-    function saveHistory(text, sender, token = null) {
-        if (sender !== 'admin' && sender !== 'bot') {
-            text = sanitizeText(text);
-        }
-        if (!text) return;
-        saveLocalHistory(text, sender, token);
-        const state = getState();
-        if ( (state >= 5 || idleDisconnectTimer ) && liveChatSessionId && sender != 'admin' ){
-            saveMessageToDB(liveChatSessionId, sender, text);
-        }
-    }
-    function softClearHistory(){
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(CONTACT_STATE_KEY);
-        localStorage.removeItem(CONTACT_METHOD_KEY);
-        localStorage.removeItem(FAIL_COUNT_KEY);
-        localStorage.removeItem(CHAT_START_KEY);
-        localStorage.removeItem(LIVECHAT_NAME_KEY);
-        localStorage.removeItem(LIVECHAT_SESSION);
-        localStorage.removeItem(LIVECHAT_IDLE);
-        idleDisconnectTimer = null;
-        liveChatSessionId = null;
-        liveChatVisitorName = null;
-        chatHistory = [];
-
-        disableInput(false);
-    }
-    function clearHistory(prependMsg = null) {
-        if (socket) {
-            /* if (liveChatSessionId) {
-                socket.emit("restarted-leave", { session_id: liveChatSessionId });
-            } */
-            socket.off("disconnect");
-            socket.disconnect();
-            socket = null;
-        }
-
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(CONTACT_STATE_KEY);
-        localStorage.removeItem(CONTACT_METHOD_KEY);
-        localStorage.removeItem(FAIL_COUNT_KEY);
-        localStorage.removeItem(CHAT_START_KEY);
-        localStorage.removeItem(LIVECHAT_NAME_KEY);
-        localStorage.removeItem(LIVECHAT_SESSION);
-        localStorage.removeItem(LIVECHAT_IDLE);
-        idleDisconnectTimer = null;
-        liveChatSessionId = null;
-        liveChatVisitorName = null;
-        chatHistory = [];
-        el.messages.innerHTML = '';
-
-        if (prependMsg) {
-            const div = document.createElement('div');
-            div.className = 'techno-chatbot-message admin';
-            div.textContent = prependMsg;
-            el.messages.appendChild(div);
-        }
-
-        if (technoChatbot.disclaimerEnabled == 1 && technoChatbot.disclaimerMsg) {
-            botReply(technoChatbot.disclaimerMsg).then(() => {
-                botReply(technoChatbot.welcomeMessage);
-            });
-        } else {
-            botReply(technoChatbot.welcomeMessage);
-        }
-        disableInput(false);
-        if (!socket){ initSocket(); } 
-    }
-    function loadHistory(){
-        chatHistory.forEach(msg => addMessage(msg.text, msg.sender, false));
-        const state = getState();
-        if(state === 1) showNoAnswerOptions(true);
-        if(state === 2 || state === 3) disableInput(false);
-        if(state === 5){
-            /* setTimeout(() => {
-                if(socket && liveChatSessionId){
-                    socket.emit("visitor-join", { session_id: liveChatSessionId });
-                    checkArchived();
-                }
-            }, 500); */
-        }
-        if (state === 6) {
-            if (parseInt(technoChatbot.liveChatGetName) === 1) {
-                disableInput(false);
-            } else {
-                setState(0);
-                disableInput(false);
-            }
-        }
-        if(state === 7) showEndChatOptions(true);
-        if(state === 8) disableInput(false);
-        scrollToBottom();
-    }
-    function checkArchived(session_id){
-        if(!session_id) return;
-        fetch(technoChatbot.ajax_url, {
-            method:'POST',
-            headers:{
-                'Content-Type':
-                'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                action: 'techno_chatbot_history',
-                nonce: technoChatbot.nonce,
-                session_id: session_id
-            })
-        })
-        .then(res => res.json())
-        .then(ret => { 
-            if (ret.success && ret.data.has_history == true) {
-                handleEndChatCommand('/endchat1');
-            }else{
-                socket.emit("visitor-join", { session_id: session_id });
-            }
-        });
-    }
-    function botHistoryToLive(){
-        const history = localStorage.getItem(STORAGE_KEY);
-
-        if (!history) return;
-        fetch(technoChatbot.ajax_url,{
-            method:'POST',
-            headers:{
-                'Content-Type':
-                'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                action: 'techno_bot_to_live',
-                nonce: technoChatbot.nonce,
-                session_id: liveChatSessionId,
-                visitor_name: liveChatVisitorName,
-                history: history
-            })
-        })
-        .catch(err =>
-            console.error(err)
-        );
-    }
-    function sendTranscriptToEmail(email){
-        const history = localStorage.getItem(STORAGE_KEY);
-        if (!history) return Promise.reject();
-        return fetch(technoChatbot.ajax_url, {
-            method:'POST',
-            headers:{
-                'Content-Type':
-                'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                action: 'send_transcript',
-                history: history,
-                email: email,
-                nonce: technoChatbot.nonce
-            })
-        });
-    }
-
-    /* ---------- FAQ Handling ---------- */
-    const processedFaq = technoChatbot.faq.map(faq => ({
-        ...faq,
-        cleanedQuestions: faq.questions.map(q => ({
-            original: q,
-            cleaned: cleanText(q),
-            words: cleanText(q).split(' ').filter(w => w.length >= 4)
-        }))
-    }));
-    async function handleFaqReply(message){
-        const answer = findFaqAnswer(message);
-        const failLimit = parseInt(technoChatbot.noAnswerTrigger) || 0;
-        let failCount = parseInt(localStorage.getItem(FAIL_COUNT_KEY) || '0');
-
-        if(answer === technoChatbot.noAnswer){
-            failCount++;
-            localStorage.setItem(FAIL_COUNT_KEY, failCount);
-            if(failLimit === 0 || failCount >= failLimit){
-                await botReply(technoChatbot.noAnswerFinalDefault || technoChatbot.noAnswer || '...');
-                showNoAnswerOptions();
-                localStorage.setItem(FAIL_COUNT_KEY, 0);
-            } else {
-                await botReply(answer);
-            }
-        } else {
-            localStorage.setItem(FAIL_COUNT_KEY, 0);
-            await botReply(answer);
-        }
-    }
-    function findFaqAnswer(message){
-        const text = cleanText(message);
-        let bestMatch = null;
-        let bestScore = 0;
-
-        for (const faq of processedFaq) {
-            let score = 0;
-            for (const kw of faq.cleanedQuestions) {
-                if (text.includes(kw.cleaned)) score += 5;
-                kw.words.forEach(word => {
-                    if (text.includes(word)) score += 2;
-                });
-                const similarity = stringSimilarity(text, kw.cleaned);
-                if (similarity > 0.8) score += similarity * 5;
-            }
-            score += (faq.priority || 0);
-            if (score > bestScore) {
-                bestScore = score;
-                bestMatch = faq;
-            }
-        }
-
-        return (bestMatch && bestScore >= 6) ? bestMatch.answer : technoChatbot.noAnswer;
-    }
-    function stringSimilarity(str1, str2){
-        const longer = str1.length > str2.length ? str1 : str2;
-        const shorter = str1.length > str2.length ? str2 : str1;
-        if(longer.length === 0) return 1;
-
-        return (longer.length - levenshteinDistance(longer, shorter)) / longer.length;
-    }
-    function levenshteinDistance(a, b){
-        const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(0));
-        for(let i=0;i<=b.length;i++) matrix[i][0]=i;
-        for(let j=0;j<=a.length;j++) matrix[0][j]=j;
-
-        for(let i=1;i<=b.length;i++){
-            for(let j=1;j<=a.length;j++){
-                matrix[i][j] = b[i-1] === a[j-1]
-                    ? matrix[i-1][j-1]
-                    : Math.min(matrix[i-1][j-1]+1, matrix[i][j-1]+1, matrix[i-1][j]+1);
-            }
-        }
-        return matrix[b.length][a.length];
-    }
-
-    /* ---------- AI FAQ Handling ---------- */
-    async function askAI(question) {
-        const typing = showTyping();
-        const formData = new FormData();
-        formData.append("action", "techno_chatbot_ask_ai");
-        formData.append("question", question);
-        formData.append("nonce", technoChatbot.nonce);
-        
-        try {
-            const res = await fetch(technoChatbot.ajax_url, {
-                method: "POST",
-                credentials: "same-origin",
-                body: formData
-            });
-            const data = await res.json();
-            typing.remove();
-            if (data.success && data.data.answer) {
-                return data.data;
-            }
-            return null;
-
-        } catch (e) {
-            console.error(e);
-            typing.remove();
-            return null;
-        }
-    }
-
-    /* ---------- Chatbot Send Handler ---------- */
-    let isProcessing = false;
-    const handleSend = async () => {
-        if (isProcessing) return;
-        isProcessing = true;
-        
-        const userInput = el.input.value.trim();
-        const userMessage = sanitizeText(userInput);
-        if(!userMessage){ isProcessing = false; return; }
-
-        el.input.value = '';
-        const state = getState();
-
-        if(state != 8){
-            addMessage(userMessage, 'visitor');
-        }
-        
-        /* LIVE CHAT KEYWORDS */
-        if ( technoChatbot.transferLiveChatKeywords && technoChatbot.transferLiveChatKeywords.length ) {
-            const text = cleanText(userMessage);
-            for (const keyword of technoChatbot.transferLiveChatKeywords) {
-                if (keyword && text.includes(cleanText(keyword))) {
-                    localStorage.setItem(FAIL_COUNT_KEY,0);
-                    await checkAndTransferToLiveChat();
-                    isProcessing = false;
-                    return;
-                }
-            }
-        }
-
-        /* TRANSFER KEYWORDS */
-        if ( technoChatbot.transferKeywords && technoChatbot.transferKeywords.length ) {
-            const text = cleanText(userMessage);
-            for (const keyword of technoChatbot.transferKeywords) {
-                if (keyword && text.includes(cleanText(keyword))) {
-                    localStorage.setItem(FAIL_COUNT_KEY, 0);
-                    await botReply(
-                        technoChatbot.nextStepMsg ||
-                        technoChatbot.noAnswerFinalDefault ||
-                        technoChatbot.noAnswer ||
-                        '...'
-                    );
-                    showNoAnswerOptions();
-                    isProcessing = false;
-                    return;
-                }
-            }
-        }
-
-        if(state === 2){
-            const method = getContactMethod();
-            if(method === 'phone'){
-                const phone = userMessage;
-                if (!validatePhone(phone)) {
-                    await botReply( technoChatbot.phoneError );
-                    isProcessing = false;
-                    return;
-                }
-                if(parseInt(technoChatbot.timeToCall) === 1){
-                    setState(3);
-                    await botReply( technoChatbot.timeToCallTxt );
-                } else {
-                    await finishContact();
-                }
-                isProcessing = false;
-                return;
-            }
-            if(method === 'email'){
-                const email = userMessage;
-                if (!validateEmail(email)) {
-                    await botReply( technoChatbot.emailError );
-                    isProcessing = false;
-                    return;
-                }
-                await finishContact();
-                isProcessing = false;
-                return;
-            }
-        }
-
-        if(state === 3){
-            await finishContact();
-            isProcessing = false;
-            return;
-        }
-
-        if(state === 5 && socket && socket.connected){
-            socket.emit("send-message", {
-                session_id: liveChatSessionId,
-                message: userMessage,
-                sender: "visitor"
-            });
-            isProcessing = false;
-            return;
-        }
-
-        if(state === 6){
-            liveChatVisitorName = userMessage;
-            localStorage.setItem(LIVECHAT_NAME_KEY, liveChatVisitorName);
-            setState(5);
-            await botReply(technoChatbot.transferredToSupport);
-            await startLiveChat();
-            isProcessing = false;
-            return;
-        }
-
-        if(state === 8){
-            const email = userMessage;
-            if (!validateEmail(email)) {
-                addMessage(userMessage, 'visitor');
-                await botReply('Please enter a valid email address.');
-                isProcessing = false;
-                return;
-            }
-            if (transcriptOnlyRequest) {
-                addMessage(userMessage, 'visitor');
-                transcriptOnlyRequest = false;
-                try {
-                    await sendTranscriptToEmail(email);
-                    await botReply(technoChatbot.historySent);
-                } catch(e){
-                    await botReply(technoChatbot.errorMsg);
-                }
-                setState(0);
-            } else {
-                addMessage(userMessage, 'visitor', false);
-                saveLocalHistory( userMessage, 'visitor' );
-                await finishLiveChat(email);
-            }
-            isProcessing = false;
-            return;
-        }
-
-        /* Answer Via AI */
-        if (technoChatbot.aiEnabled == 1) {
-            const aiResponse = await askAI(userMessage);
-            const aiAnswer = aiResponse?.answer;
-            const tokens = aiResponse?.tokens || 0;
-            const failLimit = parseInt(technoChatbot.noAnswerTrigger) || 0;
-            let failCount = parseInt(localStorage.getItem(FAIL_COUNT_KEY) || '0');
-
-            if (aiAnswer && aiAnswer !== "NO_ANSWER") {
-                localStorage.setItem(FAIL_COUNT_KEY, 0);
-                await botReply(aiAnswer, tokens);
-            }else {
-                failCount++;
-                localStorage.setItem(FAIL_COUNT_KEY, failCount);
-                if (failLimit === 0 || failCount >= failLimit) {
-                    await botReply(
-                        technoChatbot.noAnswerFinalDefault ||
-                        technoChatbot.noAnswer ||
-                        '...',
-                        tokens
-                    );
-                    showNoAnswerOptions();
-                    localStorage.setItem(FAIL_COUNT_KEY, 0);
-                } else {
-                    await botReply(
-                        technoChatbot.noAnswer || '...', tokens
-                    );
-                }
-            }
-        }else{
-            await handleFaqReply(userMessage);
-        }
-
-        isProcessing = false;
-    };
-    function addMessage(text, sender, save = true, token = null) {
-        const message = document.createElement('div');
-        let cssClass = sender;
-        if (sender === 'bot') cssClass = 'bot';
-        if (sender === 'admin') cssClass = 'admin';
-        if (sender === 'visitor') cssClass = 'visitor';
-        message.className = `techno-chatbot-message ${cssClass}`;
-        if (sender === 'bot' || sender === 'admin') {
-            message.innerHTML = text;
-        } else {
-            message.textContent = text;
-        }
-
-        /* Time */
-        const time = document.createElement('div');
-        time.className = 'techno-chatbot-time';
-        time.textContent = new Date().toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-        message.appendChild(time);
-
-        el.messages.appendChild(message);
-        scrollToBottom();
-        if (save) saveHistory(text, sender, token);
-    }
-    function botReply(text, token = null) {
-        if(!text) return Promise.resolve();
-        disableInput(true);
-        el.input.placeholder = 'Please wait...';
-        const typing = showTyping();
-        const delay = getTypingDelay(text);
-        return new Promise(resolve => {
-            setTimeout(() => {
-                typing.remove();
-                addMessage(text, 'bot', true, token);
-                resolve();
-                disableInput(false);
-                el.input.placeholder = technoChatbot.inputtxt;
-            }, delay);
-        });
-    }
-    function saveMessageToDB(sessionId, sender, message) {
-        if (!sessionId || !sender || !message) return;
-        const body = new URLSearchParams({
-            action:       'techno_save_chat_message',
-            nonce:        technoChatbot.nonce,
-            session_id:   sessionId,
-            sender:       sender,
-            message:      message,
-        });
-        if (liveChatVisitorName && sender === 'visitor') {
-            body.append('visitor_name', liveChatVisitorName);
-        }
-        fetch(technoChatbot.ajax_url, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body:    body,
-            keepalive: true,
-        }).catch(err => console.error(err));
-    }
-    function sendChatToAdmin(){
-        const started = parseInt(localStorage.getItem(CHAT_START_KEY));
-        const duration = Date.now() - started;
-        if(duration < 5000){
-            botReply(technoChatbot.spamLimitMsg);
-            return;
-        }
-
-        const lastMsg = technoChatbot.getContactThxMsg;
-        const history = localStorage.getItem(STORAGE_KEY);
-        if (!history) return;
-        try {
-            fetch(technoChatbot.ajax_url, {
-                method:'POST',
-                headers:{ 'Content-Type':'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    action:'send_history_admin',
-                    history: history,
-                    nonce: technoChatbot.nonce
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) softClearHistory();
-                else botReply(technoChatbot.cerrorMsg);
-            })
-            .catch(err => {
-                console.error(err);
-                botReply(technoChatbot.errorMsg);
-            });
-        } catch(e){
-            console.error(e);
-            botReply(technoChatbot.cerrorMsg);
-        } 
-    }
-    function showNoAnswerOptions(restored = false){
-        if(document.querySelector('.techno-chatbot-contact-options')) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'techno-chatbot-contact-options';
-
-        if (technoChatbot.liveChatEnabled && supportOnline) {
-            const livechatBtn = document.createElement('button');
-            livechatBtn.textContent = technoChatbot.menuLivechat;
-            livechatBtn.onclick = () => {
-                wrapper.remove();
-                addMessage(technoChatbot.menuLivechat, 'visitor', true);
-                checkAndTransferToLiveChat();
-            };
-            wrapper.appendChild(livechatBtn);
-        }
-
-        const phoneBtn = document.createElement('button');
-        phoneBtn.textContent = technoChatbot.menuCall;
-        phoneBtn.onclick = () => chooseContact('phone');
-
-        const emailBtn = document.createElement('button');
-        emailBtn.textContent = technoChatbot.menuEmail;
-        emailBtn.onclick = () => chooseContact('email');
-
-        wrapper.appendChild(phoneBtn);
-        wrapper.appendChild(emailBtn);
-
-        if( !idleDisconnectTimer ){
-            const restartBtn = document.createElement('button');
-            restartBtn.textContent = technoChatbot.menuReset;
-            restartBtn.onclick = () => {
-                wrapper.remove();
-                clearHistory();
-            };
-            wrapper.appendChild(restartBtn);
-        }
-        
-        el.messages.appendChild(wrapper);
-        scrollToBottom();
-        disableInput(true);
-        el.input.placeholder = 'Choose an option...';
-        if(!restored) setState(1);
-    }
-    function chooseContact(method){
-        setContactMethod(method);
-        setState(2);
-        
-        const options = document.querySelector('.techno-chatbot-contact-options');
-        if(options) options.remove();
-
-        disableInput(false);
-
-        const choiceLabel = method === 'phone' ? technoChatbot.menuCall : technoChatbot.menuEmail;
-        addMessage(choiceLabel, 'visitor', true);
-
-        const methodLabel = method === 'phone' ? technoChatbot.cPhoneLabel : technoChatbot.cEmailLabel;
-        addMessage(methodLabel, 'bot', true);
-    }
-    function setContactMethod(method){
-        localStorage.setItem(CONTACT_METHOD_KEY, method);
-    }
-    function getContactMethod(){
-        return localStorage.getItem(CONTACT_METHOD_KEY);
-    }
-    async function finishContact(){
-        setState(4);
-        await botReply(technoChatbot.getContactThxMsg);
-        sendChatToAdmin();
-    }
-
-    /* ---------- Event Listeners ---------- */
-    el.send?.addEventListener('click', handleSend);
-    el.input?.addEventListener('keypress', (e) => {
-        if(e.key === 'Enter') handleSend();
-    });
-    el.close?.addEventListener('click', () => {
-        el.window.classList.add('techno-chatbot-hidden');
-    });
-    el.icon.addEventListener('click', () => {
-        el.window.classList.toggle('techno-chatbot-hidden');
-        if(!el.window.classList.contains('techno-chatbot-hidden')){
-            scrollToBottom();
-            const history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            if (!history.length) {
-                if (technoChatbot.disclaimerEnabled == 1 && technoChatbot.disclaimerMsg) {
-                    botReply(technoChatbot.disclaimerMsg);
-                }
-                botReply(technoChatbot.welcomeMessage);
-            }
-        }
-    });
-    el.menubtn.addEventListener('click', () => el.menubtn.classList.toggle('active'));
-    if(el.reset.length > 0){
-        el.reset.forEach(btn => btn.addEventListener('click', () => { clearHistory(); el.menubtn.classList.remove('active'); }));
-    }
-    if(el.disclaimer){
-        el.disclaimer.addEventListener('click', () => {
-            el.disclaimerModal.classList.add('active');
-            el.menubtn.classList.remove('active');
-        });
-        el.disclaimerModal.querySelector('.close-btn').onclick = () => el.disclaimerModal.classList.remove('active');
-    }
-    el.transcriptRequest?.addEventListener('click', async () => {
-        transcriptOnlyRequest = true;
-        addMessage(
-            technoChatbot.menuHistorySend,
-            'visitor',
-            true
-        );
-        await askEmailForHistory();
-        el.menubtn.classList.remove('active');
-    });
-    /* TO FIX THIS SHOULD ONLY RUN ON LIVECHAT */
-    /* window.addEventListener("storage", (e) => {
-        if (e.key === STORAGE_KEY) {
-            chatHistory = JSON.parse(e.newValue || '[]');
-            el.messages.innerHTML = '';
-            loadHistory();
-        }
-    }); */
-
-    if (!socket){ initSocket(); } 
-    loadHistory();
+/* Instantiation on DOM Ready */
+document.addEventListener('DOMContentLoaded', () => {
+    window.technoChatbotInstance = new TechnoChatbot();
 });
