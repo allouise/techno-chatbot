@@ -106,25 +106,31 @@ class Techno_Chatbot_Websocket {
      * @since    1.0.0
      */
     public function is_running(): bool {
-        $site  = get_site_url();
+        $site = get_site_url();
+        $cache_key = 'ws_status_' . md5($site);
+
+        $cached = get_transient($cache_key);
+        if ($cached !== false) {
+            return $cached === '1';
+        }
+
         $token = $this->get_token($site);
         $url = $this->get_url('status') . "?site=" . urlencode($site) . "&token=" . urlencode($token);
+
         $response = wp_remote_get($url, [
-            'timeout' => 2,
-            'sslverify' => false, // ← needed for local self-signed/mkcert certs
+            'timeout'   => 5,
+            'sslverify' => false,
         ]);
 
-        if (is_wp_error($response)) return false;
+        $result = false;
 
-        $status_code = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
+        if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+            $data = json_decode(wp_remote_retrieve_body($response), true);
+            $result = is_array($data) && isset($data['running']) && $data['running'] === true;
+        }
 
-        if ($status_code !== 200) return false;
-        $data = json_decode($body, true);
-
-        if (!is_array($data)) return false;
-
-        return ( isset($data['running']) && $data['running'] === true );
+        set_transient($cache_key, $result ? '1' : '0', $result ? 30 : 10);
+        return $result;
     }
 
     /**
