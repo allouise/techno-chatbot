@@ -47,7 +47,7 @@ function initAdminSocket() {
             socket.connect();
         }
     });
-    socket.on("connect_error", () => {
+    socket.on("connect_error", (err) => {
         if (err.message === "invalid session id") {
             socket.connect();
         }

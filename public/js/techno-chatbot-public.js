@@ -1185,7 +1185,7 @@ class TechnoChatbot {
             }
         });
         
-        this.socket.on("connect_error", () => {
+        this.socket.on("connect_error", (err) => {
             if (err.message === "invalid session id") {
                 socket.connect();
             }
