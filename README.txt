@@ -56,6 +56,7 @@ The system includes the following security measures:
 == Changelog ==
 = 1.1.0 =
 * Added Socket connect js handler for connection error due to missing sid
+* Fixed js error
 
 = 1.1.0 =
 * MAJOR RELEASE
