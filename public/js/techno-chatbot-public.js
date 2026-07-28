@@ -50,7 +50,8 @@ class TechnoChatbot {
 
         /* console.log("Active Conversation & Session ID:", this.conversationId + ' ' + this.sessionId);
         console.log('socketId & socketName:', this.socketId + ' ' + this.socketName);
-        console.log('state', this.state); */
+        console.log('state', this.state);
+        console.log('require input', this.requireInput); */
     }
 
     cacheElements() {
@@ -128,18 +129,13 @@ class TechnoChatbot {
     }
 
     async socketIdleCheck(socket_error = false) {
-        if(!this.config.liveChatEnabled) return;
+        if(!this.config.liveChatEnabled || this.socketId == null) return;
         
         const idleTime = this.config.supportIdleTime;
+
         this.clearIdleDisconnectTimer();
-        
-        /* Update existing options on support status change */
+
         let existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
-        if (existingOptions) {
-            existingOptions.remove();
-            this.showOptions(this.optionType.noAnswer);
-            existingOptions = this.el.messages.querySelector('.techno-chatbot-contact-options');
-        }
 
         /* If socket id or currently livechatting and socket got disconnected due to error */
         if (socket_error && this.socketId != null) {
@@ -195,6 +191,7 @@ class TechnoChatbot {
         /* Request Transcript */
         this.el.transcriptRequest?.addEventListener('click', () => {
             this.toggleMenu(false);
+            if (this.recentSession == null) return;
             this.initRequestTranscript();
         });
         /* Reset */
@@ -339,6 +336,7 @@ class TechnoChatbot {
         this.showTyping();
         await this.addMessage(this.botData.menuHistorySend, 'visitor',);
         await this.addMessage(this.botData.askEmail, 'bot', true, 'email_input');
+        this.hideTyping();
     }
 
     showOptions(type = '') {
@@ -730,9 +728,10 @@ class TechnoChatbot {
 
         } finally {
             this.toggleLoader(false);
-            if( !hasError && hasOptions != true ){
+            this.hideTyping();
+            /* if( !hasError && hasOptions != true ){
                 this.hideTyping();
-            }
+            } */
         }
     }
 
@@ -1128,8 +1127,9 @@ class TechnoChatbot {
 
     handleReceivedMessage(msg){
         const message = (msg.message || '').trim();
+        console.log('mEnsahe',message);
         if(!message || message == '') return;
-
+console.log('pasok!');
         if(msg.type == 'text'){
 
             this.addMessage(message, msg.sender, false);
@@ -1180,7 +1180,6 @@ class TechnoChatbot {
 
         this.socket.io.on("error", (error) => {
             if (error === "invalid session id" || error?.message?.includes("Session ID unknown")) {
-                // Reconnect with a fresh session
                 socket.connect();
             }
         });

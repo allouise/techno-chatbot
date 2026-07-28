@@ -412,7 +412,7 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 async function sendAdminMessage(save = true, _msg = '', _type = 'text') {
-    const msg = (_msg != '')? _msg : chatInput.value.trim();
+    const msg = (_msg != '') ? _msg : chatInput.value.trim();
     
     if (!msg || !currentSession || !socket) return false;
     chatInput.value = '';
@@ -424,43 +424,49 @@ async function sendAdminMessage(save = true, _msg = '', _type = 'text') {
         type: _type,
     });
 
-    if(save){
-        addAdminMessage({ sender: 'admin', message: msg, type: _type });
+    if (save) {
+        await addAdminMessage({ sender: 'admin', message: msg, type: _type });
     }
+    
     return true;
 }
 async function addAdminMessage(msg) {
     if (!chatMessages) return;
 
-    /* Cache first so a tab-switch immediately after will show it */
     if (currentSession) {
         if (!sessionMessages[currentSession]) sessionMessages[currentSession] = [];
         sessionMessages[currentSession].push({ sender: msg.sender, message: msg.message });
     }
 
     /* Save TO DB */
-    fetch(technoLivechat.ajax_url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-            action: "techno_save_admin_chat_message",
-            nonce: technoLivechat.nonce,
-            session_id: currentSession,
-            sender: msg.sender,
-            message: msg.message,
-            type: msg.type
-        })
-    })
-    .then(r => r.json())
-    .then(res => {
+    try {
+        const response = await fetch(technoLivechat.ajax_url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: new URLSearchParams({
+                action: "techno_save_admin_chat_message",
+                nonce: technoLivechat.nonce,
+                session_id: currentSession,
+                sender: msg.sender,
+                message: msg.message,
+                type: msg.type
+            })
+        });
+
+        const res = await response.json();
+
         if (res.success) {
             renderMessage(msg);
+        } else {
+            console.error('Failed to save message:', res.data);
         }
-    })
-    .catch(console.error);
-    
+        
+        return res;
+    } catch (err) {
+        console.error('Network error saving message:', err);
+    }
 }
 function renderMessage(msg) {
     if (!chatMessages) return;
@@ -513,20 +519,19 @@ function renderMessageBatch(messages) {
  */
 async function endChat(_type = 'endchat') {
     if (!currentSession || !socket) return;
-    
     livechatPage.classList.add('loading');
-    chatInput.value = _type;
-    let msg = technoLivechat.endChatMsg;
 
-    if(_type == 'endchat1'){
-        msg = technoLivechat.endIdleChatMsg;
-        await sendAdminMessage(true, msg, 'end_idlelive');
-    }else{
-        await sendAdminMessage(true, msg, 'system_end');
-    }
-
-    /* End Chat */
     try {
+
+        let msg = technoLivechat.endChatMsg;
+
+        if (_type === 'endchat1') {
+            msg = technoLivechat.endIdleChatMsg;
+            await sendAdminMessage(true, msg, 'end_idlelive');
+        } else {
+            await sendAdminMessage(true, msg, 'system_end');
+        }
+
         const sessionId = currentSession;
         const response = await fetch(technoLivechat.ajax_url, {
             method: "POST",
@@ -543,17 +548,21 @@ async function endChat(_type = 'endchat') {
 
         const res = await response.json();
 
-        if (res.success) {
+        if (_type == 'endchat') {
             finishEndChat(sessionId);
+        } else if (_type == 'endchat1') {
+            finishEndChat(sessionId, true);
+        }
+
+        if (res.success) {
         } else {
             console.error(res.data);
-            if (_type === 'endchat') {
-                finishEndChat(sessionId, true);
-            }
         }
+
     } catch (err) {
-        console.error(err);
+        console.error('Failed to end chat:', err);
     } finally {
+        // Guaranteed to run, even if sendAdminMessage throws an error
         livechatPage.classList.remove('loading');
     }
 }
@@ -570,7 +579,6 @@ function finishEndChat(sessionId, skip_socket = false) {
 
     currentSession = null;
     adminLastId = 0;
-    chatInput.value = '';
 
     updateChatState(false);
     renderActiveVisitors();
