@@ -1178,7 +1178,17 @@ class TechnoChatbot {
             this.clearIdleDisconnectTimer();
         });
 
+        this.socket.io.on("error", (error) => {
+            if (error === "invalid session id" || error?.message?.includes("Session ID unknown")) {
+                // Reconnect with a fresh session
+                socket.connect();
+            }
+        });
+        
         this.socket.on("connect_error", () => {
+            if (err.message === "invalid session id") {
+                socket.connect();
+            }
             if (!this.hasHandledConnectError) {
                 this.hasHandledConnectError = true;       
                 this.supportOnline = false;

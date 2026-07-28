@@ -39,9 +39,18 @@ function initAdminSocket() {
             token: technoLivechat.token
         }
     });
-    
+
     /* On Error */
+    socket.io.on("error", (error) => {
+        if (error === "invalid session id" || error?.message?.includes("Session ID unknown")) {
+            // Reconnect with a fresh session
+            socket.connect();
+        }
+    });
     socket.on("connect_error", () => {
+        if (err.message === "invalid session id") {
+            socket.connect();
+        }
         console.log("WebSocket server is OFF");
         socket.disconnect();
         loadActiveVisitorsDB();
