@@ -729,7 +729,6 @@ class TechnoChatbot {
             return this.conversationId;
 
         } finally {
-            // typing?.remove();
             this.toggleLoader(false);
             if( !hasError && hasOptions != true ){
                 this.hideTyping();
@@ -990,7 +989,6 @@ class TechnoChatbot {
             }
 
         } finally {
-            typing?.remove();
             if (!options) {
                 this.hideTyping();
             }
@@ -1180,7 +1178,17 @@ class TechnoChatbot {
             this.clearIdleDisconnectTimer();
         });
 
-        this.socket.on("connect_error", () => {
+        this.socket.io.on("error", (error) => {
+            if (error === "invalid session id" || error?.message?.includes("Session ID unknown")) {
+                // Reconnect with a fresh session
+                socket.connect();
+            }
+        });
+        
+        this.socket.on("connect_error", (err) => {
+            if (err.message === "invalid session id") {
+                socket.connect();
+            }
             if (!this.hasHandledConnectError) {
                 this.hasHandledConnectError = true;       
                 this.supportOnline = false;
