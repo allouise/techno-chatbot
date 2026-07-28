@@ -54,7 +54,7 @@ The system includes the following security measures:
 - Transfer rules and escalation behavior
 
 == Changelog ==
-= 1.1.0 =
+= 1.1.1 =
 * Added Socket connect js handler for connection error due to missing sid
 * Fixed js error
 
