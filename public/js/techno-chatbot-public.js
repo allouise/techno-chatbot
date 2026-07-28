@@ -729,7 +729,6 @@ class TechnoChatbot {
             return this.conversationId;
 
         } finally {
-            // typing?.remove();
             this.toggleLoader(false);
             if( !hasError && hasOptions != true ){
                 this.hideTyping();
@@ -990,7 +989,6 @@ class TechnoChatbot {
             }
 
         } finally {
-            typing?.remove();
             if (!options) {
                 this.hideTyping();
             }
