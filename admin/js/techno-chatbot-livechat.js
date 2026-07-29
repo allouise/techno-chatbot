@@ -117,18 +117,22 @@ function initAdminSocket() {
      * Show visitor messages in real time on the admin side.
      */
     socket.on('receive-message', (msg) => {
-        if (msg.sender !== 'visitor') return;
+        console.log('Incoming message:', msg);
 
         /* Cache for every session regardless of which is open */
         if (!sessionMessages[msg.session_id]) sessionMessages[msg.session_id] = [];
-        sessionMessages[msg.session_id].push({ sender: 'visitor', message: msg.message });
+        
+        // Avoid double rendering if the socket receives its own sent message back
+        const isSelfMessage = msg.sender === 'admin' && msg.sender_socket_id === socket.id;
+        if (!isSelfMessage) {
+            sessionMessages[msg.session_id].push({ sender: msg.sender, message: msg.message });
+        }
 
         /* Render only if this is the currently open session */
-        if (msg.session_id === currentSession) {
-            renderMessage({ sender: 'visitor', message: msg.message });
+        if (msg.session_id === currentSession && !isSelfMessage) {
+            renderMessage({ sender: msg.sender, message: msg.message });
         }
     });
-
 }
 
 function updateChatState2(exists, ended = false) {
