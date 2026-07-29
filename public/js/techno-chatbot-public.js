@@ -1018,7 +1018,7 @@ class TechnoChatbot {
                 await this.startConversation();
             }
 
-            if( this.botData.transferLiveChatKeywords.length > 0 || this.botData.transferKeywords.length > 0 ){
+            if( ( this.botData.transferLiveChatKeywords && this.botData.transferLiveChatKeywords.length > 0 ) || ( this.botData.transferKeywords && this.botData.transferKeywords.length > 0 ) ){
                 const normalizedText = this.normalizeText(userMessage);
                 const matchesKeyword = (keywords) => Array.isArray(keywords) && keywords.some(k => k && normalizedText.includes(this.normalizeText(k)));
 

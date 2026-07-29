@@ -41,6 +41,15 @@ class Techno_Chatbot_Public {
 	private $version;
 
 	/**
+	 * AI assitance limit.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 * @var      int    $ai_assist_limit    AI assitance limit.
+	 */
+	private $ai_assist_limit;
+
+	/**
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    1.0.0
@@ -51,6 +60,7 @@ class Techno_Chatbot_Public {
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
+		$this->ai_assist_limit = (int) get_option('techno_chatbot_ai_assitance_limit', 0);
 
 	}
 
@@ -1196,9 +1206,6 @@ class Techno_Chatbot_Public {
 	 * @since 1.1.0
 	 */
 	public function get_ai_assisted_history() {
-
-		$limit = 2;
-
 		global $wpdb;
 		$table = $wpdb->prefix . 'techno_cb_messages';
 		
@@ -1210,7 +1217,7 @@ class Techno_Chatbot_Public {
 		);
 
 		// If limit is NOT reached, ensure notification flag is cleared and exit early
-		if ( $count < $limit ) {
+		if ( $count < $this->ai_assist_limit ) {
 			delete_option( 'techno_chatbot_limit_notified' );
 			return false;
 		}
