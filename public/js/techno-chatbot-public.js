@@ -850,6 +850,8 @@ class TechnoChatbot {
     }
 
     async addMessage(text, sender, save = true, type = 'text', token = null) {
+        // console.log( save === true && ( this.conversationId == null || this.sessionId == null ) );
+
         if( save === true && ( this.conversationId == null || this.sessionId == null ) ) return;
 
         const message = document.createElement('div');
@@ -1127,22 +1129,17 @@ class TechnoChatbot {
 
     handleReceivedMessage(msg){
         const message = (msg.message || '').trim();
-        console.log('mEnsahe',message);
         if(!message || message == '') return;
-console.log('pasok!');
+
         if(msg.type == 'text'){
-
             this.addMessage(message, msg.sender, false);
-
         }else if(msg.type == 'system_end'){
-
             this.addMessage(this.botData.end_msg, msg.sender, false);
             this.showOptions(this.optionType.endLive);
-
         }else if(msg.type == 'end_idlelive'){
-            
             this.reset(true, this.botData.end_msgidleguest);
-
+        }else if(msg.session_id == this.socketId){
+            this.addMessage(message, msg.sender, false);
         }
     }
 
