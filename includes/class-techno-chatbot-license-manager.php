@@ -156,6 +156,8 @@ class Techno_Chatbot_License_Manager {
 		$plan = sanitize_text_field($data['plan'] ?? 'free');
 		$expiry_date = sanitize_text_field($data['expiry_date'] ?? '');
         $ai_assistance_limit = (int) sanitize_text_field($data['ai_assistance_limit'] ?? 0);
+		$ailimit_start_date = sanitize_text_field($data['ailimit_start_date'] ?? '');
+		$ailimit_end_date = sanitize_text_field($data['ailimit_end_date'] ?? '');
 
 		$license_data = [
 			'key' => $license_key,
@@ -163,9 +165,11 @@ class Techno_Chatbot_License_Manager {
 			'status' => $status,
 			'expiry_date' => $expiry_date,
             'ai_assistance_limit' => $ai_assistance_limit,
+			'ailimit_start_date' => $ailimit_start_date,
+			'ailimit_end_date' => $ailimit_end_date,
 			'last_check' => time()
 		];
-        update_option('techno_chatbot_ai_assitance_limit', $ai_assistance_limit, false);
+		
 		update_option('techno_chatbot_license_data', $license_data, false);
 		return $license_key;
 	}

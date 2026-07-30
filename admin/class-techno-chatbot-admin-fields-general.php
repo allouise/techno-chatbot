@@ -94,7 +94,7 @@ class Techno_Chatbot_Admin_Fields_General {
 			'label'       => 'Enable AI',
 			'type'        => 'checkbox',
 			'section'     => 'general_section',
-			'default'     => 1,
+			'default'     => 0,
 			'description' => 'Enable AI instead of FAQ',
 			'features'	  => array('ai_training')
 		),
@@ -206,6 +206,15 @@ class Techno_Chatbot_Admin_Fields_General {
 			$plans = techno_chatbot_feature($features);
 			$disabled = $plans['allowed'] == false ? 'disabled' : $disabled;
 			$disabledmsg = $plans['message'];
+
+			if( in_array( 'ai_training', $features ) ){
+				$limits_left = techno_chatbot_get_ailimit();
+				if( $limits_left <= 0 ){
+					$disabled = 'disabled';
+					$disabledmsg = 'AI assistance allowance exhausted. Please contact us @ <a href="mailto:contact@techno.com">contact@techno.com</a> for renewal.';
+				}
+			}
+			
 		}
 
 		// Checkbox

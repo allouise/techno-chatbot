@@ -41,15 +41,6 @@ class Techno_Chatbot_Public {
 	private $version;
 
 	/**
-	 * AI assitance limit.
-	 *
-	 * @since    1.0.0
-	 * @access   private
-	 * @var      int    $ai_assist_limit    AI assitance limit.
-	 */
-	private $ai_assist_limit;
-
-	/**
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    1.0.0
@@ -60,7 +51,6 @@ class Techno_Chatbot_Public {
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
-		$this->ai_assist_limit = (int) get_option('techno_chatbot_ai_assitance_limit', 0);
 
 	}
 
@@ -1185,6 +1175,14 @@ class Techno_Chatbot_Public {
 		if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'techno_chatbot_nonce')) {
 			wp_send_json_error('Invalid nonce');
 		}
+
+		$limits_left = (int) techno_chatbot_get_ailimit();
+		if( $limits_left <= 0 ){
+			wp_send_json_error([
+				'transfer_to_qa' => true
+			]);
+		}
+
 		$question = sanitize_text_field($_POST['question']);
 		if (!$question) {
 			wp_send_json_error('Empty question');
@@ -1203,102 +1201,92 @@ class Techno_Chatbot_Public {
 	/**
 	 * Check AI usage on every page load.
 	 *
-	 * @since 1.1.0
+	 * @since 1.1.4
 	 */
-	public function get_ai_assisted_history() {
-		global $wpdb;
-		$table = $wpdb->prefix . 'techno_cb_messages';
-		
-		// Count messages where AI was used
-		$count = (int) $wpdb->get_var(
-			"SELECT COUNT(*)
-			FROM {$table}
-			WHERE prompt_tokens > 0 OR completion_tokens > 0"
-		);
+	public function check_ai_limits() {
 
-		// If limit is NOT reached, ensure notification flag is cleared and exit early
-		if ( $count < $this->ai_assist_limit ) {
-			delete_option( 'techno_chatbot_limit_notified' );
+		$aitraining_plan = techno_chatbot_feature( 'ai_training' );
+		$aitraining_enabled = is_array( $aitraining_plan ) && ! empty( $aitraining_plan['allowed'] );
+
+		// Plan has no AI capability
+		if ( ! $aitraining_enabled ) {
 			return false;
 		}
 
-		// 1. Set AI replies option to 0 (instead of deleting)
-		update_option( 'techno_chatbot_aireplies', 0 );
+		$limits_left = (int) techno_chatbot_get_ailimit();
 
-		// 2. Check if we already sent the notifications
-		if ( get_option( 'techno_chatbot_limit_notified' ) ) {
-			return true; // Limit is reached, but emails were already sent once
+		// Disable AI replies if limit reaches 0 or below
+		if ( $limits_left <= 0 ) {
+			update_option( 'techno_chatbot_aireplies', 0 );
 		}
 
-		/*
-		* Get recipient emails.
-		*/
-		$emails_option = get_option( 'techno_chatbot_emails', '' );
-		$recipients    = [];
+		// ----------------------------------------------------
+		// 1. Notify Site Admin (Every 2 days if limit <= 20)
+		// ----------------------------------------------------
+		if ( $limits_left <= 20 ) {
+			// Check transient (2-day throttle)
+			if ( false === get_transient( 'techno_chatbot_clientlimit_notified' ) ) {
+				
+				// Resolve email recipients
+				$emails_option = get_option( 'techno_chatbot_emails', '' );
+				$recipients    = [];
 
-		if ( ! empty( $emails_option ) ) {
-			$emails = preg_split( '/[\r\n,]+/', $emails_option );
+				if ( ! empty( $emails_option ) ) {
+					$emails = preg_split( '/[\r\n,]+/', $emails_option );
+					foreach ( $emails as $email ) {
+						$email = sanitize_email( trim( $email ) );
+						if ( is_email( $email ) ) {
+							$recipients[] = $email;
+						}
+					}
+				}
 
-			foreach ( $emails as $email ) {
-				$email = sanitize_email( trim( $email ) );
+				if ( empty( $recipients ) ) {
+					$admin_email = sanitize_email( get_option( 'admin_email' ) );
+					if ( is_email( $admin_email ) ) {
+						$recipients[] = $admin_email;
+					}
+				}
 
-				if ( is_email( $email ) ) {
-					$recipients[] = $email;
+				// Send email to client
+				if ( ! empty( $recipients ) ) {
+					$subject = 'Techno Chatbot - AI Assistance Limit Update';
+					$message = sprintf(
+						"Notice: You have %d AI response remaining on your plan. Please reach out to contact@techno.com to renew your balance. Once depleted, AI replies will be paused automatically.",
+						$limits_left
+					);
+
+					wp_mail( $recipients, $subject, $message );
+
+					// Set 2-day transient (2 * DAY_IN_SECONDS = 172,800 seconds)
+					set_transient( 'techno_chatbot_clientlimit_notified', true, 2 * DAY_IN_SECONDS );
 				}
 			}
 		}
 
-		// Fallback to admin email.
-		if ( empty( $recipients ) ) {
-			$admin_email = sanitize_email( get_option( 'admin_email' ) );
+		// ----------------------------------------------------
+		// 2. Notify Techno Team (Only once when limit <= 0)
+		// ----------------------------------------------------
+		if ( $limits_left <= 0 ) {
+			// Check transient without expiration (acts as a permanent lock until cleared)
+			if ( false === get_transient( 'techno_chatbot_technolimit_notified' ) ) {
+				
+				$site_url = home_url();
+				$subject  = 'Techno Chatbot Plugin Client - AI Assistance Limit Reached';
+				$message  = sprintf(
+					"A client has reached their AI-assisted chat limit.%sSite URL: %s",
+					PHP_EOL . PHP_EOL,
+					$site_url
+				);
 
-			if ( is_email( $admin_email ) ) {
-				$recipients[] = $admin_email;
+				wp_mail( 'contact@techno.com', $subject, $message );
+
+				// Set transient with 0 expiration (persists indefinitely until deleted manually or via cache purge)
+				set_transient( 'techno_chatbot_technolimit_notified', true, 0 );
 			}
 		}
-
-		/*
-		* Notify site admin.
-		*/
-		if ( ! empty( $recipients ) ) {
-			wp_mail(
-				$recipients,
-				'AI Chat Limit Reached',
-				'Your limit has reached ....'
-			);
-		}
-
-		/*
-		* Notify Techno.
-		*/
-		$site_url = home_url();
-
-		wp_mail(
-			'contact@techno.com',
-			'Client AI Chat Limit Reached',
-			sprintf(
-				'Our client has reached the AI-assisted chat limit.%sSite: %s',
-				PHP_EOL . PHP_EOL,
-				$site_url
-			)
-		);
-
-		// 3. Mark notification as sent so it only runs ONCE
-		update_option( 'techno_chatbot_limit_notified', 1 );
 
 		return true;
 	}
 
-	public function testAI(){
-		$test = wp_remote_get( 'https://api.openai.com/v1/models', [
-			'headers' => [ 'Authorization' => 'Bearer ' . get_option('techno_chatbot_openai_secret') ],
-			'timeout' => 10,
-		] );
-
-		if ( is_wp_error( $test ) ) {
-			error_log( 'OpenAI Direct Test Failed: ' . $test->get_error_message() );
-		} else {
-			error_log( 'OpenAI Direct Test Succeeded!' );
-		}
-	}
 }

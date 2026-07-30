@@ -842,6 +842,9 @@ class TechnoChatbot {
             if (data.success) {
                 return data.data;
             }
+            if(data.data.transfer_to_qa){
+                return data.data;
+            }
             return null;
         } catch (err) {
             console.error("Error finding AI answer:", err);
@@ -850,8 +853,6 @@ class TechnoChatbot {
     }
 
     async addMessage(text, sender, save = true, type = 'text', token = null) {
-        // console.log( save === true && ( this.conversationId == null || this.sessionId == null ) );
-
         if( save === true && ( this.conversationId == null || this.sessionId == null ) ) return;
 
         const message = document.createElement('div');
@@ -948,16 +949,29 @@ class TechnoChatbot {
 
             if (this.botData.aiEnabled == 1) {
                 const aiResponse = await this.findAIAnswer(message);
-                answer = aiResponse?.answer;
-                tokens = { 
-                    prompt_tokens: aiResponse?.prompt_tokens ?? 0, 
-                    completion_tokens: aiResponse?.completion_tokens ?? 0 
-                };
 
-                if (answer && answer !== "NO_ANSWER") {
-                    this.resetFailCount();
-                } else {
-                    error = true;
+                if( aiResponse.transfer_to_qa && aiResponse.transfer_to_qa == true ){
+                    this.botData.aiEnabled = 0;
+                    
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    answer = this.findFaqAnswer(message);
+                    if (answer === this.botData.noAnswer) {
+                        error = true;
+                    } else {
+                        this.resetFailCount();
+                    }
+                }else{
+                    answer = aiResponse?.answer;
+                    tokens = { 
+                        prompt_tokens: aiResponse?.prompt_tokens ?? 0, 
+                        completion_tokens: aiResponse?.completion_tokens ?? 0 
+                    };
+
+                    if (answer && answer !== "NO_ANSWER") {
+                        this.resetFailCount();
+                    } else {
+                        error = true;
+                    }
                 }
             } else {
                 await new Promise(resolve => setTimeout(resolve, 300));
