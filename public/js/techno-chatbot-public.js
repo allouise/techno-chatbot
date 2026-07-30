@@ -946,8 +946,26 @@ class TechnoChatbot {
             let error = false;
             let answer = null;
             let tokens = null;
+            const normalizedText = this.normalizeText(message);
+            const matchesKeyword = (keywords) => {
+                if (!Array.isArray(keywords)) return false;
+                return keywords.some(k => {
+                    if (!k) return false;
+                    const normalizedKeyword = this.normalizeText(k);
+                    const regex = new RegExp(`\\b${normalizedKeyword}\\b`, 'i');
+                    return regex.test(normalizedText);
+                });
+            };
 
-            if (this.botData.aiEnabled == 1) {
+            if ( this.botData?.greetingsIntent?.length > 0 && this.botData?.greetingsIntentAnswer && matchesKeyword(this.botData.greetingsIntent) ) {
+                answer = this.botData.greetingsIntentAnswer;
+                this.resetFailCount();
+            } else if ( this.botData?.genericHelpIntent?.length > 0 && this.botData?.genericHelpIntentAnswer && matchesKeyword(this.botData.genericHelpIntent) ) {
+                answer = this.botData.genericHelpIntentAnswer;
+                this.resetFailCount();
+            }
+
+            if ( this.botData.aiEnabled == 1 && answer == null ) {
                 const aiResponse = await this.findAIAnswer(message);
 
                 if( aiResponse.transfer_to_qa && aiResponse.transfer_to_qa == true ){
@@ -973,7 +991,7 @@ class TechnoChatbot {
                         error = true;
                     }
                 }
-            } else {
+            } else if( answer == null ) {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 answer = this.findFaqAnswer(message);
                 if (answer === this.botData.noAnswer) {

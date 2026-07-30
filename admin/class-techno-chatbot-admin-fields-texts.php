@@ -59,6 +59,9 @@ class Techno_Chatbot_Admin_Fields_Texts {
         'texts_section' => array(
             'title' => 'Texts',
         ),
+        'intent_answer_section' => array(
+            'title' => 'Intent Answers',
+        ),
         'messages_section' => array(
             'title' => 'Messages',
         ),
@@ -70,6 +73,7 @@ class Techno_Chatbot_Admin_Fields_Texts {
 	 * @since    1.0.0
 	 */
     private static $fields = array(
+
         // Texts
         'techno_chatbot_header' => array(
             'label'       => 'Chatbox Header',
@@ -168,6 +172,25 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'default'     => 'End Conversation',
             'placeholder' => 'End Conversation',
             'description' => 'Menu end button text.'
+        ),
+
+        // Intent Answers
+        'techno_chatbot_greetings_intent_answer' => array(
+            'label'       => 'Greetings Intent',
+            'type'        => 'textarea',
+            'section'     => 'intent_answer_section',
+            'rows'        => 2,
+            'default'     => 'Hi there! How can I help you today?',
+            'description' => ''
+        ),
+
+        'techno_chatbot_generichelp_intent_answer' => array(
+            'label'       => 'Generic Help Intent',
+            'type'        => 'textarea',
+            'section'     => 'intent_answer_section',
+            'rows'        => 2,
+            'default'     => "I'd be happy to help! What would you like to ask about?",
+            'description' => ''
         ),
 
         // Messages

@@ -125,6 +125,10 @@ class Techno_Chatbot_Public {
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
+			'greetingsIntent' =>  explode(',', Techno_Chatbot_Admin_Fields_General::get_value( 'techno_chatbot_greetings_intent' )),
+			'greetingsIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_greetings_intent_answer' ),
+			'genericHelpIntent' =>  explode(',', Techno_Chatbot_Admin_Fields_General::get_value( 'techno_chatbot_generichelp_intent' )),
+			'genericHelpIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_generichelp_intent_answer' ),
 			'faq' => $this->get_faq_data()
 		);
 

@@ -57,6 +57,7 @@ The system includes the following security measures:
 = 1.1.4 =
 * Licensing limit & fixes
 * Fix js issues for other plans
+* Added Intent Greetings 
 
 = 1.1.3 =
 * Fixes
