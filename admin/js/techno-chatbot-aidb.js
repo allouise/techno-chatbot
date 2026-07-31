@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("Error: " + data.data);
 
                 button.disabled = false;
-                button.innerText = "Crawl This Page";
+                button.innerText = "Crawl This Source";
             }
 
         } catch (error) {
@@ -40,6 +40,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         button.disabled = false;
-        button.innerText = "Crawl This Page";
+        button.innerText = "Crawl This Source";
     });
 });

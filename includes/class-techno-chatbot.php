@@ -199,6 +199,7 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'hide_everything_from_support' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'block_everything_from_support' );
+		$this->loader->add_filter( 'admin_body_class', $plugin_admin, 'admin_body_class' );
 		
     	$this->loader->add_action( 'init', $this->post_types, 'register_post_types' ); 
 		$this->loader->add_action( 'init', $this->post_types, 'register_taxonomies' );
@@ -232,7 +233,7 @@ class Techno_Chatbot {
 	private function define_public_hooks() {
 
 		$plugin_public = new Techno_Chatbot_Public( $this->get_plugin_name(), $this->get_version() );
-		// $this->loader->add_action( 'init', $plugin_public, 'get_ai_assisted_history' );
+		$this->loader->add_action( 'init', $plugin_public, 'check_ai_limits' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		$this->loader->add_action( 'wp_footer', $plugin_public, 'render_chatbot_icon' );

@@ -129,9 +129,10 @@ class Techno_Chatbot_License_Manager {
 				'https://technodreamwebdesign.com/wp-json/techno-licensing/v1/check'
 			),
 			[
-				'timeout' => 15,
+				'timeout' => 20,
 			]
 		);
+
 		if (is_wp_error($response)) {
 			return $license_key;
 		}
@@ -151,16 +152,22 @@ class Techno_Chatbot_License_Manager {
 
 		$status = sanitize_text_field($data['status'] ?? 'invalid');
 		$plan = sanitize_text_field($data['plan'] ?? 'free');
-		$expires = sanitize_text_field($data['expires'] ?? '');
+		$expiry_date = sanitize_text_field($data['expiry_date'] ?? '');
+        $ai_assistance_limit = (int) sanitize_text_field($data['ai_assistance_limit'] ?? 0);
+		$ailimit_start_date = sanitize_text_field($data['ailimit_start_date'] ?? '');
+		$ailimit_end_date = sanitize_text_field($data['ailimit_end_date'] ?? '');
 
 		$license_data = [
 			'key' => $license_key,
 			'plan' => $plan,
 			'status' => $status,
-			'expires' => $expires,
+			'expiry_date' => $expiry_date,
+            'ai_assistance_limit' => $ai_assistance_limit,
+			'ailimit_start_date' => $ailimit_start_date,
+			'ailimit_end_date' => $ailimit_end_date,
 			'last_check' => time()
 		];
-
+		
 		update_option('techno_chatbot_license_data', $license_data, false);
 		return $license_key;
 	}

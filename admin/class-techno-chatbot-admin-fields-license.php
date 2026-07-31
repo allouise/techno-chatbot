@@ -255,17 +255,29 @@ class Techno_Chatbot_Admin_Fields_License {
 		}
 
 		if ($option === 'techno_chatbot_license') {
+
 			$license_data = get_option('techno_chatbot_license_data', [
 				'plan' => 'free',
 				'status' => 'invalid',
-				'expires' => ''
+				'expiry_date' => '',
+				'ai_assistance_limit' => 0,
+				'last_check' => ''
 			]);
+
 			$status = ucfirst($license_data['status'] ?? 'Inactive');
-			$plan   = ucfirst($license_data['plan'] ?? 'Free');
-			$expires = !empty($license_data['expires']) ? date('M d, Y', strtotime($license_data['expires'])) : '—';
+			$plan = ucfirst($license_data['plan'] ?? 'Free');
+			$expiry_date = !empty($license_data['expiry_date']) ? date('M d, Y', strtotime($license_data['expiry_date'])) : 'Lifetime';
+			$last_check = !empty($license_data['last_check']) ? date('Y-m-d H:i:s', $license_data['last_check']) : '';
+			$ai_assistance_limit = (int) $license_data['ai_assistance_limit'] ?? 0;
+
 			if( $status == 'Active' ){
-				echo '<div class="license-details" style="margin-top:10px;"> Plan: <strong style="color: #0066ff;">' . esc_html($plan) . '</strong> Status: <strong style="color: #03a756;">' . esc_html($status) . '</strong> Expires: <strong>' . esc_html($expires) . '</strong>
-			</div>';
+				echo "<div class='license-details' style='margin-top:10px;'> 
+					Last Check: <strong>$last_check</strong> | 
+					Plan: <strong style='color: #0066ff;'>$plan</strong> | 
+					Status: <strong style='color: #03a756;'>$status</strong> | 
+					Expires: <strong>$expiry_date</strong> | 
+					AI Assitance Limit: <strong>$ai_assistance_limit</strong> 
+				</div>";
 			}else{
 				echo '<div class="license-details" style="margin-top:10px;">License Status: <strong style="color: #f00">' . esc_html($status) . '</strong></div>';
 			}

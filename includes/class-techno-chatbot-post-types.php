@@ -51,7 +51,7 @@ class Techno_Chatbot_Post_Types {
         // FAQ
         register_post_type( 'techno_chatbot_faq', array(
             'labels'        => array(
-                'name'          => __( 'FAQ', 'techno-chatbot' ),
+                'name'          => __( 'Techno Chatbot FAQ', 'techno-chatbot' ),
                 'singular_name' => __( 'FAQ', 'techno-chatbot' ),
                 'menu_name'     => __( 'FAQ', 'techno-chatbot' ),
                 'add_new_item'  => __( 'Add New FAQ', 'techno-chatbot' ),
@@ -70,7 +70,7 @@ class Techno_Chatbot_Post_Types {
         // AI Knowledge Source
         register_post_type( 'techno_chatbot_aidb', array(
             'labels'        => array(
-                'name'          => __( 'AI Knowldegebase', 'techno-chatbot' ),
+                'name'          => __( 'Techno Chatbot AI Knowldegebase', 'techno-chatbot' ),
                 'singular_name' => __( 'AI Knowldegebase', 'techno-chatbot' ),
                 'menu_name'     => __( 'AI Knowldegebase', 'techno-chatbot' ),
                 'add_new_item'  => __( 'Add New AI Knowldegebase', 'techno-chatbot' ),
@@ -263,14 +263,14 @@ class Techno_Chatbot_Post_Types {
         if( $ai_allowed && $post_status === 'publish' ){ ?>
             <p>
                 <button type="button" class="button button-primary" id="techno-crawl-page">
-                    Crawl This Page
+                    Crawl This Source
                 </button>
             </p>
         <?php }else{ ?>
             <div style="display:flex;align-items: center;gap: 20px;">
                 <p>
                     <button type="button" class="button button-primary" disabled>
-                        Crawl This Page
+                        Crawl This Source
                     </button>
                 </p>
                 <?php techno_chatbot_msgformat($disabledmsg); ?>
@@ -278,8 +278,9 @@ class Techno_Chatbot_Post_Types {
         <?php } ?>
         
         <p>
-            <label><strong><?php _e( 'Page URL', 'techno-chatbot' ); ?></strong></label><br>
-            <input type="url" name="page_url" value="<?php echo esc_attr( $page_url ); ?>" <?php echo isset($page_url) && !empty($page_url)? 'readonly disabled':''; ?> style="width:100%;" />
+            <label><strong><?php _e( 'Resource URL', 'techno-chatbot' ); ?></strong></label><br>
+            <input type="url" name="page_url" value="<?php echo esc_attr( $page_url ); ?>" <?php echo isset($page_url) && !empty($page_url)? 'readonly disabled':''; ?> style="width:100%;" /><br/>
+            <small>If using PDF as a source make sure it's not a flatten image.</small>
         </p>
 
         <p>

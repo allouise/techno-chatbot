@@ -59,11 +59,8 @@ class Techno_Chatbot_Admin_Fields_General {
         'general_section' => array(
             'title' => 'Settings',
         ),
-        'livechat_section' => array(
-            'title' => 'Livechat',
-        ),
-		'nextstep_section' => array(
-            'title' => 'Next Step',
+        'intent_section' => array(
+            'title' => 'Intents',
         ),
     );
 
@@ -94,7 +91,7 @@ class Techno_Chatbot_Admin_Fields_General {
 			'label'       => 'Enable AI',
 			'type'        => 'checkbox',
 			'section'     => 'general_section',
-			'default'     => 1,
+			'default'     => 0,
 			'description' => 'Enable AI instead of FAQ',
 			'features'	  => array('ai_training')
 		),
@@ -108,22 +105,41 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'Admin emails to receive notifications. Separate emails with comma. e.g. (email1@email.com, email2@email.com). If blank default email to receive the notifications will be Wordpress administration email.',
 		),
 
-        // Livechat
-		'techno_chatbot_live_chat_trigger' => array(
-			'label'       => 'Live Chat Trigger',
+        // Intents
+		'techno_chatbot_greetings_intent' => array(
+			'label'       => 'Greetings Intent',
 			'type'        => 'text',
-			'section'     => 'livechat_section',
+			'section'     => 'intent_section',
+			'default'     => 'hi, hello, hi!, hello!',
+			'placeholder' => 'help, support, live chat',
+			'description' => 'Separate greetings with comma. Not case sensitive e.g. (hi, hello). Chatbot\'s reply is in Texts tab',
+			'features'	  => array('live_chat')
+		),
+
+		'techno_chatbot_generichelp_intent' => array(
+			'label'       => 'Generic Help Intent',
+			'type'        => 'text',
+			'section'     => 'intent_section',
+			'default'     => "i have a question, im looking for something, can you help me?",
+			'placeholder' => 'help, support, live chat',
+			'description' => 'Separate question with comma. Not case sensitive. Chatbot\'s reply is in Texts tab',
+			'features'	  => array('live_chat')
+		),
+
+		'techno_chatbot_live_chat_trigger' => array(
+			'label'       => 'Live Chat Intent',
+			'type'        => 'text',
+			'section'     => 'intent_section',
 			'default'     => 'talk to an agent, live chat, talk with someone, talk to someone, I need to talk with your agent, can i talk with someone',
 			'placeholder' => 'help, support, live chat',
 			'description' => 'Separate trigger text with comma. e.g. (Help, Support, Live chat)',
 			'features'	  => array('live_chat')
 		),
 
-        // Nextstep
 		'techno_chatbot_transfer_trigger_keyword' => array(
-			'label'       => 'Next Step Trigger Keyword',
+			'label'       => 'Next Step Intent',
 			'type'        => 'text',
-			'section'     => 'nextstep_section',
+			'section'     => 'intent_section',
 			'default'     => '',
 			'placeholder' => '',
 			'description' => 'Separate trigger keyword with comma. WARNING: Once the system detected this keyword even in a sentence asked it will automatically transfer the chat to the next step (affects live chat/default no answer).',
@@ -206,6 +222,15 @@ class Techno_Chatbot_Admin_Fields_General {
 			$plans = techno_chatbot_feature($features);
 			$disabled = $plans['allowed'] == false ? 'disabled' : $disabled;
 			$disabledmsg = $plans['message'];
+
+			if( in_array( 'ai_training', $features ) ){
+				$limits_left = techno_chatbot_get_ailimit();
+				if( $limits_left <= 0 ){
+					$disabled = 'disabled';
+					$disabledmsg = sprintf( 'AI assistance allowance exhausted. Please contact us @ <a href="mailto:%1$s">%1$s</a> for renewal.', TECHNO_CHATBOT_SUPPORT_EMAIL );
+				}
+			}
+			
 		}
 
 		// Checkbox

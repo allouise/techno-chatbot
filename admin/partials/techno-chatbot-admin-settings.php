@@ -17,27 +17,27 @@ $active_tab = isset($_GET['tab']) ? sanitize_key( $_GET['tab'] ) : 'general';
     <h1><?php esc_html_e( 'Techno Chatbot Settings', 'techno-chatbot' ); ?></h1>
 
     <h2 class="nav-tab-wrapper">
-        <a href="?page=techno-chatbot&tab=general" 
+        <a href="?page=techno-chatbot-settings&tab=general" 
            class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">
            General
         </a>
 
-        <a href="?page=techno-chatbot&tab=behaviors" 
+        <a href="?page=techno-chatbot-settings&tab=behaviors" 
            class="nav-tab <?php echo $active_tab == 'behaviors' ? 'nav-tab-active' : ''; ?>">
            Behaviors
         </a>
 
-        <a href="?page=techno-chatbot&tab=texts" 
+        <a href="?page=techno-chatbot-settings&tab=texts" 
            class="nav-tab <?php echo $active_tab == 'texts' ? 'nav-tab-active' : ''; ?>">
            Messages/Texts
         </a>
 
-        <a href="?page=techno-chatbot&tab=styles" 
+        <a href="?page=techno-chatbot-settings&tab=styles" 
            class="nav-tab <?php echo $active_tab == 'styles' ? 'nav-tab-active' : ''; ?>">
            Styles
         </a>
 
-        <a href="?page=techno-chatbot&tab=license" 
+        <a href="?page=techno-chatbot-settings&tab=license" 
            class="nav-tab <?php echo $active_tab == 'license' ? 'nav-tab-active' : ''; ?>">
            License/API
         </a>

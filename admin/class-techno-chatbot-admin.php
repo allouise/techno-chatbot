@@ -148,6 +148,20 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Add Body Class
+	 *
+	 * @since    1.1.4
+	 */
+	public function admin_body_class($classes) {
+		$user = wp_get_current_user();
+		if ( in_array( 'chat_support', (array) $user->roles, true ) ) {
+			$classes .= ' chat-support';
+		}
+
+		return $classes;
+	}
+
+	/**
 	 * Hide All Menus from Chat Support
 	 *
 	 * @since    1.0.0
@@ -198,9 +212,18 @@ class Techno_Chatbot_Admin {
 			__( 'Techno Chatbot', 'techno-chatbot' ),
 			'manage_options',
 			'techno-chatbot',
-			array( $this, 'display_settings_page' ),
+			array( $this, 'display_dashboard_page' ),
 			'dashicons-format-chat',
 			26
+		);
+
+		add_submenu_page(
+			'techno-chatbot',
+			__( 'Dashboard', 'techno-chatbot' ),
+			__( 'Dashboard', 'techno-chatbot' ),
+			'manage_options',
+			'techno-chatbot',
+			array( $this, 'display_dashboard_page' )
 		);
 
 		add_submenu_page(
@@ -208,7 +231,7 @@ class Techno_Chatbot_Admin {
 			__( 'Settings', 'techno-chatbot' ),
 			__( 'Settings', 'techno-chatbot' ),
 			'manage_options',
-			'techno-chatbot',
+			'techno-chatbot-settings',
 			array( $this, 'display_settings_page' )
 		);
 
@@ -263,11 +286,84 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Render the dashboard page.
+	 *
+	 * @since    1.1.4
+	 */
+	public function display_dashboard_page() {
+		if (!current_user_can('techno_chat_support')) {
+			wp_die('Unauthorized');
+		}
+
+		$aiallowed  = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies');
+		$enabled    = get_option('techno_chatbot_enabled', 0);
+		$basic_chat = techno_chatbot_feature('basic_chat');
+
+		$default_license = [
+			'plan'                => 'Free',
+			'status'              => 'Invalid',
+			'expiry_date'         => '',
+			'ai_assistance_limit' => 0,
+			'last_check'          => '',
+		];
+		$license_data = wp_parse_args((array) get_option('techno_chatbot_license_data', []), $default_license);
+
+		$ai_assistance_limit  = (int) ($license_data['ai_assistance_limit'] ?? 0);
+		$remaining_limit      = (int) techno_chatbot_get_ailimit();
+		$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
+		$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+		$chatbot_status       = ($enabled && !empty($basic_chat['allowed'])) ? 'Active' : 'Disabled';
+		$counts = get_transient('techno_chatbot_dashboard_counts');
+
+		if (false === $counts) {
+			global $wpdb;
+
+			$faq_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(ID) FROM {$wpdb->posts} WHERE post_type = %s AND post_status = 'publish'",
+					'techno_chatbot_faq'
+				)
+			);
+
+			$crawled_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(p.ID) 
+					FROM {$wpdb->posts} p
+					INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+					WHERE p.post_type = %s 
+					AND p.post_status = %s 
+					AND pm.meta_key = %s 
+					AND pm.meta_value = %s",
+					'techno_chatbot_aidb',
+					'publish',
+					'_ai_status',
+					'crawled'
+				)
+			);
+
+			$counts = [
+				'faq'     => $faq_count,
+				'crawled' => $crawled_count,
+			];
+
+			set_transient('techno_chatbot_dashboard_counts', $counts, HOUR_IN_SECONDS);
+		}
+
+		$faq_count     = $counts['faq'];
+		$crawled_count = $counts['crawled'];
+
+		include_once plugin_dir_path(__FILE__) . 'partials/techno-chatbot-admin-dashboard.php';
+	}
+
+	/**
 	 * Render the settings page.
 	 *
 	 * @since    1.0.0
 	 */
 	public function display_settings_page() {
+		if (!current_user_can('techno_chat_support')) {
+			wp_die('Unauthorized');
+		}
 		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-settings.php';
 	}
 
@@ -817,7 +913,7 @@ class Techno_Chatbot_Admin {
 	}
 	
 	/**
-	 * Crawl Page
+	 * Crawl Page (Supports Pages, TXT, and PDF files)
 	 *
 	 * @since    1.0.0
 	 */
@@ -831,9 +927,9 @@ class Techno_Chatbot_Admin {
 		}
 
 		$ai_allowed = techno_chatbot_feature('ai_training');
-    	$ai_allowed = $ai_allowed['allowed'] === true;
+		$ai_allowed = $ai_allowed['allowed'] === true;
 
-		if( !$ai_allowed ){
+		if (!$ai_allowed) {
 			wp_send_json_error('Invalid Plan');
 		}
 
@@ -844,29 +940,71 @@ class Techno_Chatbot_Admin {
 			wp_send_json_error('Invalid URL');
 		}
 
-		// FETCH NEW Using Content Only
-		$wp_post_id = url_to_postid($url);
-		if ($wp_post_id) {
-			$wp_post = get_post($wp_post_id);
-			if (!$wp_post) wp_send_json_error('Post not found');
-			// Get rendered WP content
-			$content = apply_filters('the_content', $wp_post->post_content);
-			// Convert HTML to clean text
-			$clean_text = wp_strip_all_tags($content);
-			// Normalize spaces
-			$clean_text = preg_replace('/\s+/', ' ', $clean_text);
-			$clean_text = trim($clean_text);
-		} else {
-			// EXTERNAL URL FALLBACK
+		$target_host  = parse_url($url, PHP_URL_HOST);
+		$site_host = parse_url(home_url(), PHP_URL_HOST);
+		$target_host_clean = preg_replace('/^www\./', '', strtolower($target_host));
+		$site_host_clean = preg_replace('/^www\./', '', strtolower($site_host));
+		if ($target_host_clean !== $site_host_clean) {
+			wp_send_json_error('Unauthorized URL: You can only crawl content from ' . $site_host_clean);
+		}
+
+		$clean_text = '';
+
+		// Extract file extension from URL
+		$path_info = pathinfo(parse_url($url, PHP_URL_PATH));
+		$extension = isset($path_info['extension']) ? strtolower($path_info['extension']) : '';
+
+		// 1. HANDLE PDF FILES
+		if ($extension === 'pdf') {
+			$clean_text = $this->extract_pdf_content($url);
+			if (is_wp_error($clean_text)) {
+				wp_send_json_error($clean_text->get_error_message());
+			}
+		} 
+		// 2. HANDLE TXT FILES
+		elseif ($extension === 'txt') {
 			$response = wp_remote_get($url, [
-				'timeout' => 20,
+				'timeout'    => 20,
+				'sslverify' => false,
 				'user-agent' => 'TechnoChatbotCrawler/1.0',
 			]);
+
 			if (is_wp_error($response)) {
 				wp_send_json_error($response->get_error_message());
 			}
-			$html = wp_remote_retrieve_body($response);
-			$clean_text = $this->extract_main_content($html);
+
+			$raw_text = wp_remote_retrieve_body($response);
+			// Clean up whitespace & linebreaks
+			$clean_text = preg_replace('/\s+/', ' ', $raw_text);
+			$clean_text = trim($clean_text);
+		} 
+		// 3. HANDLE REGULAR HTML / WORDPRESS POSTS
+		else {
+			$wp_post_id = url_to_postid($url);
+			if ($wp_post_id) {
+				$wp_post = get_post($wp_post_id);
+				if (!$wp_post) wp_send_json_error('Post not found');
+				
+				$content = apply_filters('the_content', $wp_post->post_content);
+				$clean_text = wp_strip_all_tags($content);
+				$clean_text = preg_replace('/\s+/', ' ', $clean_text);
+				$clean_text = trim($clean_text);
+			} else {
+				// EXTERNAL URL FALLBACK
+				$response = wp_remote_get($url, [
+					'timeout'    => 20,
+					'user-agent' => 'TechnoChatbotCrawler/1.0',
+				]);
+				if (is_wp_error($response)) {
+					wp_send_json_error($response->get_error_message());
+				}
+				$html = wp_remote_retrieve_body($response);
+				$clean_text = $this->extract_main_content($html);
+			}
+		}
+
+		if (empty($clean_text)) {
+			wp_send_json_error('No content could be extracted from the source.');
 		}
 
 		// CHUNK CONTENT
@@ -877,6 +1015,7 @@ class Techno_Chatbot_Admin {
 		if (!$results) {
 			wp_send_json_error('Embedding failed');
 		}
+
 		$embedded_chunks = [];
 		foreach ($results as $item) {
 			if (!isset($item['embedding'])) {
@@ -886,7 +1025,7 @@ class Techno_Chatbot_Admin {
 			$index = $item['index'];
 
 			$embedded_chunks[] = [
-				'text' => $chunks[$index] ?? '',
+				'text'      => $chunks[$index] ?? '',
 				'embedding' => $item['embedding']
 			];
 		}
@@ -900,8 +1039,108 @@ class Techno_Chatbot_Admin {
 
 		wp_send_json_success([
 			'message' => 'Crawled successfully',
-			'chunks' => count($chunks)
+			'chunks'  => count($chunks)
 		]);
+	}
+
+	/**
+	 * Extract plain text from PDF URL
+	 *
+	 * @since    1.1.4
+	 * @param    string $url PDF file URL.
+	 * @return   string|WP_Error Extracted clean text or error object.
+	 */
+	private function extract_pdf_content($url, $local_path = false) {
+		$pdf_data = '';
+
+		if ($local_path) {
+			$pdf_data = file_get_contents($local_path);
+		} else {
+			add_filter('https_ssl_verify', '__return_false');
+			$response = wp_remote_get($url, [
+				'timeout'   => 30,
+				'sslverify' => false,
+				'user-agent'=> 'TechnoChatbotCrawler/1.0',
+			]);
+			remove_filter('https_ssl_verify', '__return_false');
+
+			if (is_wp_error($response)) {
+				return $response;
+			}
+
+			$pdf_data = wp_remote_retrieve_body($response);
+		}
+
+		if (empty($pdf_data)) {
+			return new WP_Error('empty_pdf', 'PDF file is empty.');
+		}
+
+		// Step 1: Extract all streams from PDF binary data
+		preg_match_all('/stream[\r\n]+(.*?)[\r\n]+endstream/s', $pdf_data, $stream_matches);
+
+		$raw_parts = [];
+
+		if (!empty($stream_matches[1])) {
+			foreach ($stream_matches[1] as $stream) {
+				$decompressed = @gzuncompress($stream);
+				if ($decompressed === false) {
+					$decompressed = @gzinflate($stream);
+				}
+
+				$content = ($decompressed !== false) ? $decompressed : $stream;
+
+				if (preg_match_all('/BT[\r\n\s]+(.*?)[\r\n\s]+ET/s', $content, $text_blocks)) {
+					foreach ($text_blocks[1] as $block) {
+						// Match Tj string
+						if (preg_match_all('/\((.*?)\)\s*Tj/s', $block, $tj_matches)) {
+							$raw_parts[] = implode('', $tj_matches[1]);
+						}
+
+						// Match TJ array - join internal array pieces WITHOUT extra spaces first
+						if (preg_match_all('/\[(.*?)\]\s*TJ/s', $block, $array_matches)) {
+							foreach ($array_matches[1] as $arr) {
+								if (preg_match_all('/\((.*?)\)/s', $arr, $inner_text)) {
+									// Join array segments directly to prevent letter-level splitting
+									$raw_parts[] = implode('', $inner_text[1]);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		$text = implode(' ', $raw_parts);
+
+		// Step 2: Unescape basic PDF special characters
+		$text = preg_replace('/\\\\([0-7]{1,3})/', '', $text);
+		$text = str_replace(['\(', '\)', '\\\\'], ['(', ')', '\\'], $text);
+
+		// Step 3: Remove non-printable characters
+		$text = preg_replace('/[^\x20-\x7E\x0A\x0D]/', ' ', $text);
+
+		// --- KERNING & SINGLE-LETTER HEURISTICS FIX ---
+		
+		// Fix isolated single-letter sequences like "E n joy" -> "Enjoy", "h o s tin g" -> "hosting"
+		// Run multiple passes to collapse sequence chains of single characters
+		for ($i = 0; $i < 3; $i++) {
+			// Rejoin single lower/upper case letters separated by single spaces (e.g., "e a s y" -> "easy")
+			$text = preg_replace('/(?<=\b[a-zA-Z])\s+(?=[a-zA-Z]\b)/', '', $text);
+		}
+
+		// Fix remaining edge cases like "W o rd Pres s" or "$22 0. 99"
+		$text = preg_replace('/(?<=\b[a-zA-Z])\s+(?=[a-zA-Z]{1,2}\b)/', '', $text);
+		$text = preg_replace('/(?<=\d)\s+(?=\d)/', '', $text); // Fix numbers like "$22 0. 99" -> "$220.99"
+
+		// Step 4: Final whitespace normalization
+		$text = preg_replace('/\s+/', ' ', $text);
+		$text = trim($text);
+
+		if (empty($text)) {
+			return new WP_Error('pdf_read_error', 'Could not extract readable text from this PDF.');
+		}
+
+		return $text;
 	}
 	
 	/**

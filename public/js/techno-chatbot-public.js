@@ -842,6 +842,9 @@ class TechnoChatbot {
             if (data.success) {
                 return data.data;
             }
+            if(data.data.transfer_to_qa){
+                return data.data;
+            }
             return null;
         } catch (err) {
             console.error("Error finding AI answer:", err);
@@ -850,8 +853,6 @@ class TechnoChatbot {
     }
 
     async addMessage(text, sender, save = true, type = 'text', token = null) {
-        // console.log( save === true && ( this.conversationId == null || this.sessionId == null ) );
-
         if( save === true && ( this.conversationId == null || this.sessionId == null ) ) return;
 
         const message = document.createElement('div');
@@ -945,21 +946,52 @@ class TechnoChatbot {
             let error = false;
             let answer = null;
             let tokens = null;
+            const normalizedText = this.normalizeText(message);
+            const matchesKeyword = (keywords) => {
+                if (!Array.isArray(keywords)) return false;
+                return keywords.some(k => {
+                    if (!k) return false;
+                    const normalizedKeyword = this.normalizeText(k);
+                    const regex = new RegExp(`\\b${normalizedKeyword}\\b`, 'i');
+                    return regex.test(normalizedText);
+                });
+            };
 
-            if (this.botData.aiEnabled == 1) {
+            if ( this.botData?.greetingsIntent?.length > 0 && this.botData?.greetingsIntentAnswer && matchesKeyword(this.botData.greetingsIntent) ) {
+                answer = this.botData.greetingsIntentAnswer;
+                this.resetFailCount();
+            } else if ( this.botData?.genericHelpIntent?.length > 0 && this.botData?.genericHelpIntentAnswer && matchesKeyword(this.botData.genericHelpIntent) ) {
+                answer = this.botData.genericHelpIntentAnswer;
+                this.resetFailCount();
+            }
+
+            if ( this.botData.aiEnabled == 1 && answer == null ) {
                 const aiResponse = await this.findAIAnswer(message);
-                answer = aiResponse?.answer;
-                tokens = { 
-                    prompt_tokens: aiResponse?.prompt_tokens ?? 0, 
-                    completion_tokens: aiResponse?.completion_tokens ?? 0 
-                };
 
-                if (answer && answer !== "NO_ANSWER") {
-                    this.resetFailCount();
-                } else {
-                    error = true;
+                if( aiResponse.transfer_to_qa && aiResponse.transfer_to_qa == true ){
+                    this.botData.aiEnabled = 0;
+                    
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    answer = this.findFaqAnswer(message);
+                    if (answer === this.botData.noAnswer) {
+                        error = true;
+                    } else {
+                        this.resetFailCount();
+                    }
+                }else{
+                    answer = aiResponse?.answer;
+                    tokens = { 
+                        prompt_tokens: aiResponse?.prompt_tokens ?? 0, 
+                        completion_tokens: aiResponse?.completion_tokens ?? 0 
+                    };
+
+                    if (answer && answer !== "NO_ANSWER") {
+                        this.resetFailCount();
+                    } else {
+                        error = true;
+                    }
                 }
-            } else {
+            } else if( answer == null ) {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 answer = this.findFaqAnswer(message);
                 if (answer === this.botData.noAnswer) {
@@ -1018,7 +1050,7 @@ class TechnoChatbot {
                 await this.startConversation();
             }
 
-            if( this.botData.transferLiveChatKeywords.length > 0 || this.botData.transferKeywords.length > 0 ){
+            if( ( this.botData.transferLiveChatKeywords && this.botData.transferLiveChatKeywords.length > 0 ) || ( this.botData.transferKeywords && this.botData.transferKeywords.length > 0 ) ){
                 const normalizedText = this.normalizeText(userMessage);
                 const matchesKeyword = (keywords) => Array.isArray(keywords) && keywords.some(k => k && normalizedText.includes(this.normalizeText(k)));
 
