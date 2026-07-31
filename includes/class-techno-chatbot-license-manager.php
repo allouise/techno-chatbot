@@ -126,12 +126,10 @@ class Techno_Chatbot_License_Manager {
 					'license' => $license_key,
 					'site' => home_url(),
 				],
-				// 'https://technodreamwebdesign.com/
-                'https://wpbot.test/wp-json/techno-licensing/v1/check'
+				'https://technodreamwebdesign.com/wp-json/techno-licensing/v1/check'
 			),
 			[
-				'timeout' => 15,
-                'sslverify' => false, //remove on live
+				'timeout' => 20,
 			]
 		);
 

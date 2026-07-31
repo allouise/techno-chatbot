@@ -97,3 +97,7 @@
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 
 .toplevel_page_techno-chatbot .form-table [name].disabled { pointer-events: none; }
+
+/* Chat Support */
+body.chat-support #wp-admin-bar-wp-logo, body.chat-support #wp-admin-bar-command-palette, body.chat-support #wp-admin-bar-user-info .edit-profile, body.chat-support #wp-admin-bar-user-info img{ display: none !important; }
+body.chat-support #wpadminbar #wp-admin-bar-my-account.with-avatar #wp-admin-bar-user-actions>li { margin-left: 16px; }

@@ -12,7 +12,7 @@
 ?>
 
 <div class="wrap">
-    <h1><?php esc_html_e( 'Techno Chatbot Settings', 'techno-chatbot' ); ?></h1>
+    <h1><?php esc_html_e( 'Techno Chatbot Chat', 'techno-chatbot' ); ?></h1>
 
     <h2 class="nav-tab-wrapper">
         <a href="?page=techno-chatbot-livechat&tab=livechat" class="nav-tab <?php echo $active_tab === 'livechat' ? 'nav-tab-active' : ''; ?>">

@@ -58,6 +58,7 @@ The system includes the following security measures:
 * Licensing limit & fixes
 * Fix js issues for other plans
 * Added Intent Greetings 
+* Allowed file upload in AI Knowdlegebase (pdf and txt)
 
 = 1.1.3 =
 * Fixes
