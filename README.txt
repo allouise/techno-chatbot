@@ -59,6 +59,7 @@ The system includes the following security measures:
 * Fix js issues for other plans
 * Added Intent Greetings 
 * Allowed file upload in AI Knowdlegebase (pdf and txt)
+* Added Techno Chatbot Home Dashboard Reporting
 
 = 1.1.3 =
 * Fixes

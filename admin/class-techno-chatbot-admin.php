@@ -212,9 +212,18 @@ class Techno_Chatbot_Admin {
 			__( 'Techno Chatbot', 'techno-chatbot' ),
 			'manage_options',
 			'techno-chatbot',
-			array( $this, 'display_settings_page' ),
+			array( $this, 'display_dashboard_page' ),
 			'dashicons-format-chat',
 			26
+		);
+
+		add_submenu_page(
+			'techno-chatbot',
+			__( 'Dashboard', 'techno-chatbot' ),
+			__( 'Dashboard', 'techno-chatbot' ),
+			'manage_options',
+			'techno-chatbot',
+			array( $this, 'display_dashboard_page' )
 		);
 
 		add_submenu_page(
@@ -222,7 +231,7 @@ class Techno_Chatbot_Admin {
 			__( 'Settings', 'techno-chatbot' ),
 			__( 'Settings', 'techno-chatbot' ),
 			'manage_options',
-			'techno-chatbot',
+			'techno-chatbot-settings',
 			array( $this, 'display_settings_page' )
 		);
 
@@ -277,11 +286,84 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Render the dashboard page.
+	 *
+	 * @since    1.1.4
+	 */
+	public function display_dashboard_page() {
+		if (!current_user_can('techno_chat_support')) {
+			wp_die('Unauthorized');
+		}
+
+		$aiallowed  = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies');
+		$enabled    = get_option('techno_chatbot_enabled', 0);
+		$basic_chat = techno_chatbot_feature('basic_chat');
+
+		$default_license = [
+			'plan'                => 'Free',
+			'status'              => 'Invalid',
+			'expiry_date'         => '',
+			'ai_assistance_limit' => 0,
+			'last_check'          => '',
+		];
+		$license_data = wp_parse_args((array) get_option('techno_chatbot_license_data', []), $default_license);
+
+		$ai_assistance_limit  = (int) ($license_data['ai_assistance_limit'] ?? 0);
+		$remaining_limit      = (int) techno_chatbot_get_ailimit();
+		$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
+		$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+		$chatbot_status       = ($enabled && !empty($basic_chat['allowed'])) ? 'Active' : 'Disabled';
+		$counts = get_transient('techno_chatbot_dashboard_counts');
+
+		if (false === $counts) {
+			global $wpdb;
+
+			$faq_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(ID) FROM {$wpdb->posts} WHERE post_type = %s AND post_status = 'publish'",
+					'techno_chatbot_faq'
+				)
+			);
+
+			$crawled_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(p.ID) 
+					FROM {$wpdb->posts} p
+					INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+					WHERE p.post_type = %s 
+					AND p.post_status = %s 
+					AND pm.meta_key = %s 
+					AND pm.meta_value = %s",
+					'techno_chatbot_aidb',
+					'publish',
+					'_ai_status',
+					'crawled'
+				)
+			);
+
+			$counts = [
+				'faq'     => $faq_count,
+				'crawled' => $crawled_count,
+			];
+
+			set_transient('techno_chatbot_dashboard_counts', $counts, HOUR_IN_SECONDS);
+		}
+
+		$faq_count     = $counts['faq'];
+		$crawled_count = $counts['crawled'];
+
+		include_once plugin_dir_path(__FILE__) . 'partials/techno-chatbot-admin-dashboard.php';
+	}
+
+	/**
 	 * Render the settings page.
 	 *
 	 * @since    1.0.0
 	 */
 	public function display_settings_page() {
+		if (!current_user_can('techno_chat_support')) {
+			wp_die('Unauthorized');
+		}
 		include_once plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-admin-settings.php';
 	}
 
