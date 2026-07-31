@@ -1255,21 +1255,32 @@ class Techno_Chatbot_Public {
 				// Send email to client
 				if ( ! empty( $recipients ) ) {
 					$subject = 'Techno Chatbot - AI Assistance Limit Update';
-
 					$response_label = ( $limits_left === 1 ) ? 'response' : 'responses';
 					$message = sprintf(
-						"Notice: You have %d AI %s remaining on your plan. Please reach out to %s to renew your balance. Once depleted, AI replies will be paused automatically.",
+						"Notice: You have %d AI %s remaining on your plan. Please reach out to <a href=\"mailto:%s\">%s</a> to renew your balance. Once depleted, AI replies will be paused automatically.",
 						$limits_left,
 						$response_label,
+						TECHNO_CHATBOT_SUPPORT_EMAIL,
 						TECHNO_CHATBOT_SUPPORT_EMAIL
 					);
-					wp_mail( $recipients, $subject, $message );
+					$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+					wp_mail( $recipients, $subject, $message, $headers );
 
-
-					$site_domain = wp_parse_url( home_url(), PHP_URL_HOST );
-					$subject = "TD Chatbot Plugin Client - {$site_domain} AI Limit Update";
-					$admin_headers = array( 'Bcc: cristine@technodreamcenter.com' );
-					wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $subject, $message, $admin_headers );
+					$site_domain = home_url();
+					$admin_subject = "TD Chatbot Plugin Client - AI Limit Update";
+					$admin_message = sprintf(
+						"Site URL: %s <br/> Notice: You have %d AI %s remaining on your plan. Please reach out to <a href=\"mailto:%s\">%s</a> to renew your balance. Once depleted, AI replies will be paused automatically.",
+						$site_domain,
+						$limits_left,
+						$response_label,
+						TECHNO_CHATBOT_SUPPORT_EMAIL,
+						TECHNO_CHATBOT_SUPPORT_EMAIL
+					);
+					$admin_headers = array( 
+						'Content-Type: text/html; charset=UTF-8',
+        				'Bcc: cristine@technodreamcenter.com' 
+					);
+					wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $admin_subject, $admin_message, $admin_headers );
 
 					set_transient( 'techno_chatbot_clientlimit_notified', true, 2 * DAY_IN_SECONDS );
 				}
