@@ -227,7 +227,7 @@ class Techno_Chatbot_Admin_Fields_General {
 				$limits_left = techno_chatbot_get_ailimit();
 				if( $limits_left <= 0 ){
 					$disabled = 'disabled';
-					$disabledmsg = 'AI assistance allowance exhausted. Please contact us @ <a href="mailto:contact@techno.com">contact@techno.com</a> for renewal.';
+					$disabledmsg = sprintf( 'AI assistance allowance exhausted. Please contact us @ <a href="mailto:%1$s">%1$s</a> for renewal.', TECHNO_CHATBOT_SUPPORT_EMAIL );
 				}
 			}
 			

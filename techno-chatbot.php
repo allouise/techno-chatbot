@@ -27,6 +27,7 @@ if ( ! defined( 'WPINC' ) ) {
 define( 'TECHNO_CHATBOT_VERSION', '1.1.4' );
 define( 'TECHNO_CHATBOT_FILEBASE', plugin_basename( __FILE__ ) );
 define( 'TECHNO_CHATBOT_FOLDER_URL', plugins_url( '', __FILE__ ) );
+define( 'TECHNO_CHATBOT_SUPPORT_EMAIL', 'customersupport2@technodreamcenter.com' );
 
 /**
  * The code that runs during plugin activation.

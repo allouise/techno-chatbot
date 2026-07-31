@@ -91,7 +91,7 @@
         <footer class="techno-dashboard-footer">
             <p class="techno-support-text">
                 Need help or have questions about your account? Contact support at 
-                <a href="mailto:contact@techno.com" class="techno-support-link">contact@techno.com</a>.
+                <a href="mailto:<?php echo TECHNO_CHATBOT_SUPPORT_EMAIL; ?>" class="techno-support-link"><?php echo TECHNO_CHATBOT_SUPPORT_EMAIL; ?></a>.
             </p>
         </footer>
 

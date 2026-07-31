@@ -1255,38 +1255,24 @@ class Techno_Chatbot_Public {
 				// Send email to client
 				if ( ! empty( $recipients ) ) {
 					$subject = 'Techno Chatbot - AI Assistance Limit Update';
-					$message = sprintf(
-						"Notice: You have %d AI response remaining on your plan. Please reach out to contact@techno.com to renew your balance. Once depleted, AI replies will be paused automatically.",
-						$limits_left
-					);
 
+					$response_label = ( $limits_left === 1 ) ? 'response' : 'responses';
+					$message = sprintf(
+						"Notice: You have %d AI %s remaining on your plan. Please reach out to %s to renew your balance. Once depleted, AI replies will be paused automatically.",
+						$limits_left,
+						$response_label,
+						TECHNO_CHATBOT_SUPPORT_EMAIL
+					);
 					wp_mail( $recipients, $subject, $message );
 
-					// Set 2-day transient (2 * DAY_IN_SECONDS = 172,800 seconds)
+
+					$site_domain = wp_parse_url( home_url(), PHP_URL_HOST );
+					$subject = "TD Chatbot Plugin Client - {$site_domain} AI Limit Update";
+					$admin_headers = array( 'Bcc: cristine@technodreamcenter.com' );
+					wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $subject, $message, $admin_headers );
+
 					set_transient( 'techno_chatbot_clientlimit_notified', true, 2 * DAY_IN_SECONDS );
 				}
-			}
-		}
-
-		// ----------------------------------------------------
-		// 2. Notify Techno Team (Only once when limit <= 0)
-		// ----------------------------------------------------
-		if ( $limits_left <= 0 ) {
-			// Check transient without expiration (acts as a permanent lock until cleared)
-			if ( false === get_transient( 'techno_chatbot_technolimit_notified' ) ) {
-				
-				$site_url = home_url();
-				$subject  = 'Techno Chatbot Plugin Client - AI Assistance Limit Reached';
-				$message  = sprintf(
-					"A client has reached their AI-assisted chat limit.%sSite URL: %s",
-					PHP_EOL . PHP_EOL,
-					$site_url
-				);
-
-				wp_mail( 'contact@techno.com', $subject, $message );
-
-				// Set transient with 0 expiration (persists indefinitely until deleted manually or via cache purge)
-				set_transient( 'techno_chatbot_technolimit_notified', true, 0 );
 			}
 		}
 
