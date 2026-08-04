@@ -148,6 +148,11 @@ class Techno_Chatbot {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-texts.php';
 
 		/**
+		 * The class responsible for text fields.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-languages.php';
+
+		/**
 		 * The class responsible for styles fields.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-styles.php';

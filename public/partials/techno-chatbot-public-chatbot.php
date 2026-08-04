@@ -41,7 +41,7 @@
 			<a id="techno-chatbot-menu-trigger" title="Show Chat Menu"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" height="30" width="30" xmlns="http://www.w3.org/2000/svg"><circle cx="256" cy="256" r="48"></circle><circle cx="416" cy="256" r="48"></circle><circle cx="96" cy="256" r="48"></circle></svg></a>
 			<ul id="techno-chatbot-menu-list">
 				<?php if( $disclaimerEnabled ){ ?>
-					<li><a id="techno-chatbot-disclaimer">Disclaimer</a></li>
+					<li><a id="techno-chatbot-disclaimer"><?php echo $menudisclaimertxt; ?></a></li>
 				<?php } ?>
 				<li><a id="techno-chatbot-transcript-request"><?php echo $menutranscripttxt; ?></a></li>
 				<li><a class="techno-chatbot-reset"><?php echo $menuresettxt; ?></a></li>

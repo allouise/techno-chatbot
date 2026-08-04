@@ -1,6 +1,7 @@
 /**
  * Techno Chatbot Admin Styles
  */
+body.techno-chatbot_page_techno-chatbot-settings .wrap form[action="options.php"] p.submit { position: sticky; bottom: 0px; }
 #techno-livechat-admin{ display:flex; gap:1rem; position: relative; }
 .techno-chat-admin-loader{ display: none; }
 #techno-livechat-admin.loading .techno-chat-admin-loader { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 10; background: #ffffffc9; font-size: 1.2em; text-transform: uppercase; }

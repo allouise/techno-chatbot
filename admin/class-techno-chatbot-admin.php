@@ -50,6 +50,7 @@ class Techno_Chatbot_Admin {
 	protected $general_fields;
     protected $behaviors_fields;
     protected $texts_fields;
+	protected $languages_fields;
     protected $styles_fields;
     protected $license_fields;
 
@@ -66,6 +67,7 @@ class Techno_Chatbot_Admin {
 		$this->general_fields = new Techno_Chatbot_Admin_Fields_General( $plugin_name, $version );
 		$this->behaviors_fields = new Techno_Chatbot_Admin_Fields_Behaviors( $plugin_name, $version );
 		$this->texts_fields = new Techno_Chatbot_Admin_Fields_Texts( $plugin_name, $version );
+		$this->languages_fields = new Techno_Chatbot_Admin_Fields_Languages( $plugin_name, $version );
     	$this->styles_fields  = new Techno_Chatbot_Admin_Fields_Styles( $plugin_name, $version );
 		$this->license_fields  = new Techno_Chatbot_Admin_Fields_License( $plugin_name, $version );
 	}
@@ -281,6 +283,7 @@ class Techno_Chatbot_Admin {
 		$this->general_fields->register( 'techno-chatbot-general' );
 		$this->behaviors_fields->register( 'techno-chatbot-behaviors' );
 		$this->texts_fields->register( 'techno-chatbot-texts' );
+		$this->languages_fields->register( 'techno-chatbot-languages' );
 		$this->styles_fields->register( 'techno-chatbot-styles' );
 		$this->license_fields->register( 'techno-chatbot-license' );
 	}

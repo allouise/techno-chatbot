@@ -32,6 +32,11 @@ $active_tab = isset($_GET['tab']) ? sanitize_key( $_GET['tab'] ) : 'general';
            Messages/Texts
         </a>
 
+        <a href="?page=techno-chatbot-settings&tab=languages" 
+           class="nav-tab <?php echo $active_tab == 'languages' ? 'nav-tab-active' : ''; ?>">
+           Languages
+        </a>
+
         <a href="?page=techno-chatbot-settings&tab=styles" 
            class="nav-tab <?php echo $active_tab == 'styles' ? 'nav-tab-active' : ''; ?>">
            Styles
@@ -44,6 +49,7 @@ $active_tab = isset($_GET['tab']) ? sanitize_key( $_GET['tab'] ) : 'general';
     </h2>
     <?php settings_errors(); ?>
     <form method="post" action="options.php">
+        
         <?php
         
         if ($active_tab == 'general') {
@@ -55,10 +61,13 @@ $active_tab = isset($_GET['tab']) ? sanitize_key( $_GET['tab'] ) : 'general';
         } else if ($active_tab == 'texts') {
             settings_fields('techno_chatbot_texts_group');
             do_settings_sections('techno-chatbot-texts');
-        }else if ($active_tab == 'styles') {
+        } else if ($active_tab == 'languages') {
+            settings_fields('techno_chatbot_languages_group');
+            do_settings_sections('techno-chatbot-languages');
+        } else if ($active_tab == 'styles') {
             settings_fields('techno_chatbot_styles_group');
             do_settings_sections('techno-chatbot-styles');
-        }else if ($active_tab == 'license') {
+        } else if ($active_tab == 'license') {
             settings_fields('techno_chatbot_license_group');
             do_settings_sections('techno-chatbot-license');
         }

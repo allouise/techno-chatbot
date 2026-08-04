@@ -83,8 +83,8 @@ class TechnoChatbot {
         });
 
         this.inputPlaceholders = Object.freeze({
-            waiting: 'Please wait...',
-            options: 'Choose an option...',
+            waiting: this.botData.inputwait || '',
+            options: this.botData.inputchoose || '',
             default: this.botData.inputtxt || ''
         });
 

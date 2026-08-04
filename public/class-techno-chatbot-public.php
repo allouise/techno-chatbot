@@ -90,7 +90,6 @@ class Techno_Chatbot_Public {
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
-			// 'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
 			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
@@ -119,6 +118,8 @@ class Techno_Chatbot_Public {
 			'historySent' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent'),
 			'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg'),
 			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
+			'inputwait' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputwait'),
+			'inputchoose' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputchoose'),
 			'end_msg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat'),
 			'end_msgidleguest' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message'),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
@@ -237,6 +238,7 @@ class Techno_Chatbot_Public {
 		$chaticontype = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chatbot_icontype');
 		$inputtxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext');
 		$sendbtn = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_sendbtn');
+		$menudisclaimertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menudisclaimer');
 		$menutranscripttxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend');
 		$menuresettxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset');
 		$disclaimerEnabled = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer');
