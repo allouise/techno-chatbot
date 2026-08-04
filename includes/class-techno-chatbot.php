@@ -237,6 +237,7 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		$this->loader->add_action( 'wp_footer', $plugin_public, 'render_chatbot_icon' );
+		$this->loader->add_action( 'rest_api_init', $plugin_public, 'register_routes' );
 		
 		$this->loader->add_action( 'techno_chatbot_daily_license_check', $plugin_public, 'validate_license' );
 
@@ -263,7 +264,6 @@ class Techno_Chatbot {
 
 		$this->loader->add_action( 'wp_ajax_techno_chatbot_ask_ai', $plugin_public, 'ask_ai' );
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_chatbot_ask_ai', $plugin_public, 'ask_ai' );
-
 	}
 
 	/**
