@@ -54,6 +54,9 @@ The system includes the following security measures:
 - Transfer rules and escalation behavior
 
 == Changelog ==
+= 1.1.5 =
+* Added remaining allowance api
+
 = 1.1.4 =
 * Licensing limit & fixes
 * Fix js issues for other plans

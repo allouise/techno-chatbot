@@ -1290,4 +1290,74 @@ class Techno_Chatbot_Public {
 		return true;
 	}
 
+	/**
+	 * Register rest route
+	 *
+	 * @since 1.1.5
+	 */
+    public function register_routes() {
+        register_rest_route( 'technopl/v1', '/get-allowance', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'check_license' ],
+            'permission_callback' => '__return_true',
+        ] );
+    }
+
+    public function check_license( WP_REST_Request $request ) {
+
+		$allowed_domain = 'technodreamwebdesign.com';
+		$allowed_ip = gethostbyname( $allowed_domain );
+		$request_ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( $_SERVER['REMOTE_ADDR'] ) : '';
+		if ( isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+			$forwarded_ips = explode( ',', $_SERVER['HTTP_X_FORWARDED_FOR'] );
+			$request_ip    = trim( $forwarded_ips[0] );
+		}
+
+		if ( empty( $request_ip ) || $request_ip !== $allowed_ip ) {
+			return new WP_REST_Response( [ 'message' => 'Forbidden: Request IP unauthorized' ], 403 );
+		}
+		$origin  = isset( $_SERVER['HTTP_ORIGIN'] ) ? $_SERVER['HTTP_ORIGIN'] : '';
+		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? $_SERVER['HTTP_REFERER'] : '';
+
+		if ( ! empty( $origin ) && strpos( $origin, $allowed_domain ) === false ) {
+			return new WP_REST_Response( [ 'message' => 'Forbidden: Unauthorized Origin' ], 403 );
+		}
+		if ( ! empty( $referer ) && strpos( $referer, $allowed_domain ) === false ) {
+			return new WP_REST_Response( [ 'message' => 'Forbidden: Unauthorized Referer' ], 403 );
+		}
+
+		$license_key = $request->get_header( 'x-technopl-license' );
+		$timestamp   = $request->get_header( 'x-technopl-timestamp' );
+		$signature   = $request->get_header( 'x-technopl-signature' );
+
+		if ( empty( $license_key ) || empty( $timestamp ) || empty( $signature ) ) {
+			return new WP_REST_Response( [ 'message' => 'Missing authentication headers' ], 401 );
+		}
+		if ( abs( time() - intval( $timestamp ) ) > 300 ) {
+			return new WP_REST_Response( [ 'message' => 'Request expired' ], 401 );
+		}
+
+		$license_data = (array) get_option( 'techno_chatbot_license_data', [] );
+		if ( empty( $license_data['key'] ) || $license_data['key'] !== $license_key ) {
+			return new WP_REST_Response( [ 'message' => 'Invalid license key' ], 403 );
+		}
+
+		$expected_signature = hash_hmac( 'sha256', $timestamp, $license_key );
+		if ( ! hash_equals( $expected_signature, $signature ) ) {
+			return new WP_REST_Response( [ 'message' => 'Invalid cryptographic signature' ], 401 );
+		}
+
+		$remaining_allowance = techno_chatbot_get_ailimit();
+		$response = new WP_REST_Response( [
+			'success'   => true,
+			'remaining' => $remaining_allowance,
+			'license_data' => $license_data
+			/* 'limit'     => 0,
+			'used'      => 0, */
+		], 200 );
+
+		$response->header( 'X-Robots-Tag', 'noindex' );
+		$response->header( 'Cache-Control', 'no-store, no-cache' );
+		return $response;
+	}
 }
