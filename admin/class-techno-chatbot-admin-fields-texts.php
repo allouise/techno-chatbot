@@ -634,34 +634,39 @@ class Techno_Chatbot_Admin_Fields_Texts {
 	 *
 	 * @since    1.0.0
 	 */
-    public static function get_value( $key ) {
-		/* $default = self::$fields[$key]['default'] ?? '';
-        $value = get_option( $key, $default );
-		return ( $default !== '' && $value === '' ) ? $default : $value; */
+    public static function get_value( $key, $lang_code = 'en' ) {
+        if ( empty( $lang_code ) || 'en' === $lang_code ) {
+            $default = self::$fields[ $key ]['default'] ?? '';
+            $value   = get_option( $key, $default );
+            return ( '' !== $default && '' === $value ) ? $default : $value;
+        }
 
-        $default = self::$fields[ $key ]['default'] ?? '';
+        static $translations = array();
+        if ( ! isset( $translations[ $lang_code ] ) ) {
+            global $wpdb;
+            $table = $wpdb->prefix . 'techno_cb_translations';
+            $results = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT option_key, option_value FROM %i WHERE lang_code = %s",
+                    $table,
+                    $lang_code
+                ),
+                OBJECT_K
+            );
 
-		// If a target language is passed, attempt DB fetch from translations table
-		if ( ! empty( $lang_code ) ) {
-			global $wpdb;
-			$table = $wpdb->prefix . 'techno_cb_translations';
+            $translations[ $lang_code ] = array();
+            if ( ! empty( $results ) ) {
+                foreach ( $results as $row_key => $row ) {
+                    $translations[ $lang_code ][ $row_key ] = $row->option_value;
+                }
+            }
+        }
 
-			$translated = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT option_value FROM {$table} WHERE option_key = %s AND lang_code = %s",
-					$key,
-					$lang_code
-				)
-			);
+        if ( ! empty( $translations[ $lang_code ][ $key ] ) ) {
+            return $translations[ $lang_code ][ $key ];
+        }
 
-			if ( ! empty( $translated ) ) {
-				return $translated;
-			}
-		}
-
-		// Fall back to primary option / default text
-		$value = get_option( $key, $default );
-		return ( $default !== '' && $value === '' ) ? $default : $value;
+        return self::get_value( $key, 'en' );
     }
     
 }

@@ -96,6 +96,15 @@ class Techno_Chatbot_Admin_Fields_General {
 			'features'	  => array('ai_training')
 		),
 
+		'techno_chatbot_multilang' => array(
+			'label'       => 'Show Language Switcher',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 0,
+			'description' => 'Enable Multi-language switcher in chatbot',
+			'features'	  => array('multi_lang')
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'Notification Emails',
 			'type'        => 'text',

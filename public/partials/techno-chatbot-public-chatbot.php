@@ -46,6 +46,15 @@
 				<li><a id="techno-chatbot-transcript-request"><?php echo $menutranscripttxt; ?></a></li>
 				<li><a class="techno-chatbot-reset"><?php echo $menuresettxt; ?></a></li>
 			</ul>
+			<?php if( $multilang === '1' && count($languages) > 1 ){ ?>
+				<select name="techno_language" id="techno-chatbot-language-switcher">
+					<?php foreach ( $languages as $code => $name ) : ?>
+						<option value="<?php echo esc_attr( $code ); ?>" <?php echo ( $current_language == $code )? 'selected' : ''; ?> >
+							<?php echo esc_html( $code ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			<?php } ?>
 			<button type="button" id="techno-chatbot-close"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" height="30" width="30" xmlns="http://www.w3.org/2000/svg"><path d="M289.94 256l95-95A24 24 0 00351 127l-95 95-95-95a24 24 0 00-34 34l95 95-95 95a24 24 0 1034 34l95-95 95 95a24 24 0 0034-34z"></path></svg></button>
 		</div>
 	</div>

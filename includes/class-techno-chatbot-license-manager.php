@@ -43,7 +43,7 @@ class Techno_Chatbot_License_Manager {
 			'basic_chat' => 'Basic Chat',
 			'live_chat' => 'Live Chat',
 			'ai_training' => 'Ai Training',
-			'multi_lang' => 'multi_lang'
+			'multi_lang' => 'Multi Language'
 		] ] ];
 
     /**

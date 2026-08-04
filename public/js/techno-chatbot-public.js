@@ -69,6 +69,7 @@ class TechnoChatbot {
             disclaimerModal: document.getElementById('techno-chatbot-disclaimer-modal'),
             transcriptRequest: document.getElementById('techno-chatbot-transcript-request'),
             statusDot: document.getElementById('techno-support-status-dot'),
+            languageSwitcher: document.getElementById('techno-chatbot-language-switcher'),
         };
     }
 
@@ -193,6 +194,15 @@ class TechnoChatbot {
             this.toggleMenu(false);
             if (this.recentSession == null) return;
             this.initRequestTranscript();
+        });
+        /* Switch Language */
+        this.el.languageSwitcher?.addEventListener('change', () => {
+            const selectedLang = this.el.languageSwitcher.value;
+            if (selectedLang) {
+                const maxAge = 30 * 24 * 60 * 60;
+                document.cookie = `techno_chatbot_lang=${encodeURIComponent(selectedLang)}; max-age=${maxAge}; path=/; SameSite=Lax`;
+                window.location.reload();
+            }
         });
         /* Reset */
         this.el.reset?.forEach(btn => btn.addEventListener('click', async () => {
