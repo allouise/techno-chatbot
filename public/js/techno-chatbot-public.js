@@ -1,6 +1,5 @@
 class TechnoChatbot {
     constructor() {
-        // DOM Elements
         this.el = {};
         
         this.botData = {};
@@ -33,7 +32,6 @@ class TechnoChatbot {
        ========================================================================== */
 
     async init() {
-        // localStorage.removeItem(this.storageKeys.session);
         this.cacheElements();
 
         if (!this.el.loader || !this.el.icon || !this.el.window || !this.el.messages || !this.el.input || !this.el.send){
@@ -199,6 +197,7 @@ class TechnoChatbot {
         this.el.languageSwitcher?.addEventListener('change', () => {
             const selectedLang = this.el.languageSwitcher.value;
             if (selectedLang) {
+                this.toggleLoader(true);
                 const maxAge = 30 * 24 * 60 * 60;
                 document.cookie = `techno_chatbot_lang=${encodeURIComponent(selectedLang)}; max-age=${maxAge}; path=/; SameSite=Lax`;
                 window.location.reload();
@@ -834,7 +833,7 @@ class TechnoChatbot {
             this.state = '';
             this.failedAnswer = 0;
             
-            this.sessionId = null; //need to test
+            this.sessionId = null;
 
             return true;
         } catch (err) {

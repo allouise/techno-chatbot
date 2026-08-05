@@ -522,28 +522,32 @@ class Techno_Chatbot_Admin_Fields_Texts {
         }
 
         $active_langs = self::get_active_languages();
-		if ( ! empty( $active_langs ) ) {
-			$translations = self::get_translations_for_key( $option );
+        if ( ! empty( $active_langs ) ) {
+            $translations = self::get_translations_for_key( $option );
 
-			echo '<div class="techno-chatbot-translations-block" style="margin-top: 10px; padding-left: 15px; border-left: 3px solid #2271b1;">';
-			echo '<p style="font-weight:600; margin-bottom:5px;">' . esc_html__( 'Translations:', 'techno-chatbot' ) . '</p>';
+            echo '<details class="techno-chatbot-translations-block" style="margin-top: 10px; margin-bottom: 5px;">';
+            echo '<summary style="font-weight: 600; cursor: pointer; user-select: none; color: #2271b1; font-size: 13px;">' . esc_html__( 'Translations', 'techno-chatbot' ) . ' (' . count( $active_langs ) . ')</summary>';
+            echo '<div style="margin-top: 8px; padding-left: 12px; border-left: 3px solid #2271b1;">';
 
-			foreach ( $active_langs as $code => $lang_label ) {
-				$trans_val = $translations[ $code ] ?? '';
-				$input_name = 'techno_chatbot_trans[' . esc_attr( $option ) . '][' . esc_attr( $code ) . ']';
+            foreach ( $active_langs as $code => $lang_label ) {
+                $trans_val  = $translations[ $code ] ?? '';
+                $input_name = 'techno_chatbot_trans[' . esc_attr( $option ) . '][' . esc_attr( $code ) . ']';
 
-				echo '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">';
-				echo '<span style="min-width: 70px; font-size: 12px; color: #50575e;">' . esc_html( $lang_label ) . ' (' . esc_html( $code ) . '):</span>';
+                echo '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">';
+                echo '<span style="min-width: 80px; font-size: 12px; color: #50575e;">' . esc_html( $lang_label ) . ' (' . esc_html( $code ) . '):</span>';
 
-				if ( $type === 'textarea' ) {
-					echo '<textarea name="' . $input_name . '" rows="2" style="width:100%; font-size: 13px;" placeholder="' . esc_attr( $placeholder ) . '">' . esc_textarea( $trans_val ) . '</textarea>';
-				} else {
-					echo '<input type="text" name="' . $input_name . '" value="' . esc_attr( $trans_val ) . '" class="regular-text" style="font-size: 13px;" placeholder="' . esc_attr( $placeholder ) . '" />';
-				}
-				echo '</div>';
-			}
-			echo '</div>';
-		}
+                if ( $type === 'textarea' ) {
+                    echo '<textarea name="' . $input_name . '" rows="2" style="width:100%; font-size: 13px;" placeholder="' . esc_attr( $placeholder ) . '">' . esc_textarea( $trans_val ) . '</textarea>';
+                } else {
+                    echo '<input type="text" name="' . $input_name . '" value="' . esc_attr( $trans_val ) . '" class="regular-text" style="font-size: 13px;" placeholder="' . esc_attr( $placeholder ) . '" />';
+                }
+                
+                echo '</div>';
+            }
+
+            echo '</div>';
+            echo '</details>';
+        }
     }
 
     /**
@@ -627,6 +631,72 @@ class Techno_Chatbot_Admin_Fields_Texts {
      */
     public function sanitize_textarea( $input ) {
         return wp_kses_post( $input );
+    }
+
+    /**
+     * Output JavaScript to append Expand/Collapse controls into the WP submit button wrapper.
+     */
+    public function render_translation_toggle_buttons() {
+        // 1. Ensure we are only on the specific admin page and tab
+        if ( ! is_admin() ) {
+            return;
+        }
+
+        $current_page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
+        $current_tab  = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : '';
+
+        if ( 'techno-chatbot-settings' !== $current_page || 'texts' !== $current_tab ) {
+            return;
+        }
+
+        // 2. Ensure active languages exist before outputting controls
+        $active_langs = self::get_active_languages();
+        if ( empty( $active_langs ) ) {
+            return;
+        }
+        ?>
+        <script type="text/javascript">
+            document.addEventListener('DOMContentLoaded', function() {
+                var submitContainer = document.querySelector('p.submit');
+                if (!submitContainer) return;
+
+                // Apply inline layout styling to the submit button container
+                submitContainer.style.display = 'flex';
+                submitContainer.style.alignItems = 'center';
+                submitContainer.style.gap = '10px';
+                submitContainer.style.flexWrap = 'wrap';
+
+                // Create buttons container
+                var controlsDiv = document.createElement('div');
+                controlsDiv.className = 'techno-chatbot-toggle-controls';
+                controlsDiv.style.display = 'inline-flex';
+                controlsDiv.style.gap = '8px';
+
+                var expandBtnText   = '<?php echo esc_js( __( 'Expand All Translations', 'techno-chatbot' ) ); ?>';
+                var collapseBtnText = '<?php echo esc_js( __( 'Collapse All Translations', 'techno-chatbot' ) ); ?>';
+
+                controlsDiv.innerHTML = 
+                    '<button type="button" class="button button-secondary" id="techno-expand-all">' + expandBtnText + '</button>' +
+                    '<button type="button" class="button button-secondary" id="techno-collapse-all">' + collapseBtnText + '</button>';
+
+                // Inject right next to Save Changes
+                submitContainer.appendChild(controlsDiv);
+
+                // Toggle logic
+                document.getElementById('techno-expand-all').addEventListener('click', function() {
+                    document.querySelectorAll('.techno-chatbot-translations-block').forEach(function(el) {
+                        el.setAttribute('open', '');
+                    });
+                });
+
+                document.getElementById('techno-collapse-all').addEventListener('click', function() {
+                    document.querySelectorAll('.techno-chatbot-translations-block').forEach(function(el) {
+                        el.removeAttribute('open');
+                    });
+                });
+            });
+        </script>
+        <?php
     }
 
     /**

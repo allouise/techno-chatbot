@@ -165,7 +165,7 @@ class Techno_Chatbot_Public {
 	 * @since    1.1.6
 	 * @return   string Active language code (defaults to 'en').
 	 */
-	private function get_current_language() {
+	private function get_current_language( $type = 'code' ) {
 		$languages = get_option( 'techno_chatbot_active_languages', array() );
 		if ( ! is_array( $languages ) ) {
 			$languages = array();
@@ -176,7 +176,13 @@ class Techno_Chatbot_Public {
 		}
 
 		$cookie_lang = isset( $_COOKIE['techno_chatbot_lang'] )? sanitize_text_field( wp_unslash( $_COOKIE['techno_chatbot_lang'] ) ) : '';
-		return ( ! empty( $cookie_lang ) && array_key_exists( $cookie_lang, $languages ) )? $cookie_lang : 'en';
+		$lang_code = ( ! empty( $cookie_lang ) && array_key_exists( $cookie_lang, $languages ) ) ? $cookie_lang : 'en';
+
+		if ( 'name' === $type ) {
+			return isset( $languages[ $lang_code ] ) ? $languages[ $lang_code ] : 'English';
+		}
+
+		return $lang_code;
 	}
 
 	/**
@@ -1138,6 +1144,8 @@ class Techno_Chatbot_Public {
 			return $cached;
 		}
 
+		$current_language = 'English';//$this->get_current_language('name');
+
 		$prompt = "You are a helpful customer support assistant.
 		Instructions:
 		- Use the provided context to answer the user's question naturally and conversationally.
@@ -1149,6 +1157,8 @@ class Techno_Chatbot_Public {
 		- If multiple facts are relevant, combine them into one clear explanation.
 		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>.
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
+		- Write your entire response strictly in $current_language.
+		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
 		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
 		Context:
 		$context_text
