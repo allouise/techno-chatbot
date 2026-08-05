@@ -410,32 +410,75 @@ class Techno_Chatbot_Public {
 	 * @since 1.0.0
 	 */
 	private function get_faq_data() {
-		$args = array(
-			'post_type'      => 'techno_chatbot_faq',
-			'post_status'    => 'publish',
-			'posts_per_page' => -1,
-			'meta_key'       => '_faq_priority',
-			'orderby'        => 'meta_value_num',
-			'order'          => 'DESC',
-		);
-		$query = new WP_Query( $args );
-		$faqs = array();
-		if ( $query->have_posts() ) {
-			while ( $query->have_posts() ) {
-				$query->the_post();
-				$questions = get_post_meta( get_the_ID(), '_possible_questions', true );
-				$answer    = get_post_meta( get_the_ID(), '_faq_answer', true );
-				$priority  = get_post_meta( get_the_ID(), '_faq_priority', true );
-				$faqs[] = array(
-					'questions' => array_map( 'trim', explode( ',', strtolower( $questions ) ) ),
-					'answer'    => wp_kses_post( $answer ),
-					'priority'  => intval( $priority ),
-				);
-			}
-			wp_reset_postdata();
-		}
-		return $faqs;
-	}
+        $current_lang = $this->get_current_language( 'code' );
+
+        $args = array(
+            'post_type'      => 'techno_chatbot_faq',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'meta_key'       => '_faq_priority',
+            'orderby'        => 'meta_value_num',
+            'order'          => 'DESC',
+        );
+        
+        $query = new WP_Query( $args );
+        $faqs  = array();
+
+        if ( $query->have_posts() ) {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'techno_cb_translations';
+
+            while ( $query->have_posts() ) {
+                $query->the_post();
+                $post_id = get_the_ID();
+
+                // 1. Fetch Primary / Fallback Values
+                $primary_questions = get_post_meta( $post_id, '_possible_questions', true );
+                $primary_answer    = get_post_meta( $post_id, '_faq_answer', true );
+                $priority          = get_post_meta( $post_id, '_faq_priority', true );
+
+                $questions_list = array_map( 'trim', explode( ',', strtolower( $primary_questions ) ) );
+                $answer_output  = wp_kses_post( $primary_answer );
+
+                // 2. Fetch Translation Override (if not primary language 'en')
+                if ( 'en' !== $current_lang ) {
+                    $q_key = "faq_{$post_id}_questions";
+                    $a_key = "faq_{$post_id}_answer";
+
+                    $translations = $wpdb->get_results(
+                        $wpdb->prepare(
+                            "SELECT option_key, option_value FROM {$table_name} WHERE lang_code = %s AND option_key IN (%s, %s)",
+                            $current_lang,
+                            $q_key,
+                            $a_key
+                        ),
+                        OBJECT_K
+                    );
+
+                    // Override Questions if translation exists
+                    if ( isset( $translations[ $q_key ] ) && ! empty( $translations[ $q_key ]->option_value ) ) {
+						$questions_list = array_map( 'trim', explode( ',', strtolower( $translations[ $q_key ]->option_value ) ) );
+                    }
+
+                    // Override Answer if translation exists
+                    if ( isset( $translations[ $a_key ] ) && ! empty( $translations[ $a_key ]->option_value ) ) {
+                        $answer_output = wp_kses_post( $translations[ $a_key ]->option_value );
+                    }
+                }
+
+				
+
+                $faqs[] = array(
+                    'questions' => $questions_list,
+                    'answer'    => $answer_output,
+                    'priority'  => intval( $priority ),
+                );
+            }
+            wp_reset_postdata();
+        }
+
+        return $faqs;
+    }
 
 	/**
 	 * Scheduled Validate License
