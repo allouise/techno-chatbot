@@ -67,7 +67,6 @@ You can customize the following components:
 == Changelog ==
 = 1.1.6 =
 * Language translation
-* Added free translation using LibreTranslate
 
 = 1.1.5 =
 * Added remaining allowance api

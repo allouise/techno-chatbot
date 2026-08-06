@@ -410,7 +410,7 @@ class Techno_Chatbot_Public {
 	 * @since 1.0.0
 	 */
 	private function get_faq_data() {
-        $current_lang = $this->get_current_language( 'code' );
+        $current_lang = 'en';//$this->get_current_language( 'code' );
 
         $args = array(
             'post_type'      => 'techno_chatbot_faq',
