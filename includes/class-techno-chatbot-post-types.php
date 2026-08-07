@@ -154,56 +154,170 @@ class Techno_Chatbot_Post_Types {
         wp_nonce_field( 'techno_chatbot_faq_nonce', 'techno_chatbot_faq_nonce_field' );
 
         $possible_questions = get_post_meta( $post->ID, '_possible_questions', true );
-        $answer = get_post_meta( $post->ID, '_faq_answer', true );
-        $priority = get_post_meta( $post->ID, '_faq_priority', true );
+        $answer             = get_post_meta( $post->ID, '_faq_answer', true );
+        $priority           = get_post_meta( $post->ID, '_faq_priority', true );
+        $secondary_langs    = get_option( 'techno_chatbot_active_languages', array() );
+
+        // Fetch existing translations from custom table
+        global $wpdb;
+        $table_name   = $wpdb->prefix . 'techno_cb_translations';
+        $translations = array();
+
+        if ( !empty( $secondary_langs ) ) {
+            $results = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT lang_code, option_key, option_value FROM {$table_name} WHERE option_key LIKE 'faq_%d_%%'",
+                    $post->ID
+                )
+            );
+
+            if ( !empty( $results ) ) {
+                foreach ( $results as $row ) {
+                    $translations[ $row->lang_code ][ $row->option_key ] = $row->option_value;
+                }
+            }
+        }
         ?>
 
-        <p>
-            <label><strong><?php _e( 'Possible Questions', 'techno-chatbot' ); ?></strong></label><br>
-            <input type="text" 
-                name="possible_questions" 
-                value="<?php echo esc_attr( $possible_questions ); ?>" 
-                style="width:100%;" />
-            <small style="color:#666;">
-                <?php _e( 'Separate questions by comma.', 'techno-chatbot' ); ?>
-            </small>
-        </p>
+        <?php if ( ! empty( $secondary_langs ) ) : ?>
+            <h2 class="nav-tab-wrapper techno-faq-tabs" style="padding-bottom:0; margin-bottom:15px;">
+                <a href="#techno-tab-default" class="nav-tab nav-tab-active"><?php _e( 'Default (EN)', 'techno-chatbot' ); ?></a>
+                <?php foreach ( $secondary_langs as $code => $lang ) : ?>
+                    <a href="#techno-tab-<?php echo esc_attr( $code ); ?>" class="nav-tab">
+                        <?php echo esc_html( strtoupper( $lang ) ); ?>
+                    </a>
+                <?php endforeach; ?>
+            </h2>
+        <?php endif; ?>
 
-        <p>
-            <label><strong><?php _e( 'Answer', 'techno-chatbot' ); ?></strong></label><br>
-            <?php wp_editor(
-                $answer,
-                'faq_answer_editor',
-                array(
-                    'textarea_name' => 'faq_answer', 
-                    'textarea_rows' => 6,
-                    'media_buttons' => false,
-                    'teeny' => true,
-                    'quicktags' => false,
-                    'tinymce' => array(
-                        'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
-                        'toolbar2' => '',
-                        'menubar'  => false,
-                        'branding' => false,
-                        'statusbar'=> false,
-                    ),
-                )
-            ); ?>
-        </p>
+        <!-- DEFAULT / PRIMARY LANGUAGE TAB -->
+        <div id="techno-tab-default" class="techno-faq-tab-content">
+            <p>
+                <label><strong><?php _e( 'Possible Questions', 'techno-chatbot' ); ?></strong></label><br>
+                <input type="text" 
+                    name="possible_questions" 
+                    value="<?php echo esc_attr( $possible_questions ); ?>" 
+                    style="width:100%;" />
+                <small style="color:#666;">
+                    <?php _e( 'Separate questions by comma.', 'techno-chatbot' ); ?>
+                </small>
+            </p>
 
-        <p>
-            <label><strong><?php _e( 'Priority', 'techno-chatbot' ); ?></strong></label><br>
-            <input type="number"
-                name="faq_priority"
-                value="<?php echo esc_attr( $priority ); ?>"
-                min="0"
-                step="1"
-                style="width:120px;" />
-            <small style="color:#666;">
-                <?php _e( 'Higher priority FAQs appear first.', 'techno-chatbot' ); ?>
-            </small>
-        </p>
+            <p>
+                <label><strong><?php _e( 'Answer', 'techno-chatbot' ); ?></strong></label><br>
+                <?php wp_editor(
+                    $answer,
+                    'faq_answer_editor',
+                    array(
+                        'textarea_name' => 'faq_answer', 
+                        'textarea_rows' => 6,
+                        'media_buttons' => false,
+                        'teeny'         => true,
+                        'quicktags'     => false,
+                        'tinymce'       => array(
+                            'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
+                            'toolbar2' => '',
+                            'menubar'  => false,
+                            'branding' => false,
+                            'statusbar'=> false,
+                        ),
+                    )
+                ); ?>
+            </p>
 
+            <p>
+                <label><strong><?php _e( 'Priority', 'techno-chatbot' ); ?></strong></label><br>
+                <input type="number"
+                    name="faq_priority"
+                    value="<?php echo esc_attr( $priority ); ?>"
+                    min="0"
+                    step="1"
+                    style="width:120px;" />
+                <small style="color:#666;">
+                    <?php _e( 'Higher priority FAQs appear first.', 'techno-chatbot' ); ?>
+                </small>
+            </p>
+        </div>
+
+        <!-- SECONDARY LANGUAGE TABS -->
+        <?php foreach ( $secondary_langs as $code => $lang ) : 
+            $lang_q_key = "faq_{$post->ID}_questions";
+            $lang_a_key = "faq_{$post->ID}_answer";
+            $saved_q = isset( $translations[ $code ][ $lang_q_key ] ) ? $translations[ $code ][ $lang_q_key ] : '';
+            $saved_a = isset( $translations[ $code ][ $lang_a_key ] ) ? $translations[ $code ][ $lang_a_key ] : '';
+
+            if ( ! empty( $saved_q ) ) {
+                $decoded = json_decode( $saved_q, true );
+                if ( is_array( $decoded ) ) {
+                    $saved_q = implode( ', ', $decoded );
+                }
+            }
+
+            // Editor IDs must be lowercase, alphanumeric, with no hyphens
+            $editor_id = 'faq_answer_editor_' . preg_replace( '/[^a-z0-9_]/', '', strtolower( $code ) );
+        ?>
+            <div id="techno-tab-<?php echo esc_attr( $code ); ?>" class="techno-faq-tab-content" style="display:none;">
+                <p>
+                    <label><strong><?php printf( esc_html__( 'Possible Questions (%s)', 'techno-chatbot' ), strtoupper( $code ) ); ?></strong></label><br>
+                    <input type="text" 
+                        name="trans_questions[<?php echo esc_attr( $code ); ?>]" 
+                        value="<?php echo esc_attr( $saved_q ); ?>" 
+                        style="width:100%;" 
+                        placeholder="<?php esc_attr_e( 'Leave empty to fallback to primary language', 'techno-chatbot' ); ?>" />
+                    <small style="color:#666;">
+                        <?php _e( 'Separate questions by comma.', 'techno-chatbot' ); ?>
+                    </small>
+                </p>
+
+                <p>
+                    <label><strong><?php printf( esc_html__( 'Answer (%s)', 'techno-chatbot' ), strtoupper( $code ) ); ?></strong></label><br>
+                    <?php wp_editor(
+                        $saved_a,
+                        $editor_id,
+                        array(
+                            'textarea_name' => 'trans_answers[' . esc_attr( $code ) . ']',
+                            'textarea_rows' => 6,
+                            'media_buttons' => false,
+                            'teeny'         => true,
+                            'quicktags'     => false,
+                            'tinymce'       => array(
+                                'toolbar1' => 'bold,italic,bullist,numlist,link,unlink,undo,redo',
+                                'toolbar2' => '',
+                                'menubar'  => false,
+                                'branding' => false,
+                                'statusbar'=> false,
+                            ),
+                        )
+                    ); ?>
+                </p>
+            </div>
+        <?php endforeach; ?>
+
+        <!-- Tab Switcher with TinyMCE Refresh Script -->
+        <script type="text/javascript">
+            jQuery(document).ready(function($) {
+                $('.techno-faq-tabs a').on('click', function(e) {
+                    e.preventDefault();
+                    $('.techno-faq-tabs a').removeClass('nav-tab-active');
+                    $(this).addClass('nav-tab-active');
+                    
+                    $('.techno-faq-tab-content').hide();
+                    var targetTab = $($(this).attr('href'));
+                    targetTab.show();
+
+                    // Refresh TinyMCE dimensions so toolbars render properly in newly visible tabs
+                    if (typeof tinymce !== 'undefined') {
+                        targetTab.find('.mce-tinymce').each(function() {
+                            var editorId = $(this).attr('id').replace('_parent', '');
+                            var editor = tinymce.get(editorId);
+                            if (editor) {
+                                editor.execCommand('mceAutoResize');
+                            }
+                        });
+                    }
+                });
+            });
+        </script>
         <?php
     }
 
@@ -212,7 +326,7 @@ class Techno_Chatbot_Post_Types {
 	 *
 	 * @since    1.0.0
 	 */
-    public function save_faq_meta( $post_id ) {
+   public function save_faq_meta( $post_id ) {
 
         if ( ! isset( $_POST['techno_chatbot_faq_nonce_field'] ) ) {
             return;
@@ -226,16 +340,61 @@ class Techno_Chatbot_Post_Types {
             return;
         }
 
+        // 1. Save Primary Meta Fields
         if ( isset( $_POST['possible_questions'] ) ) {
             update_post_meta( $post_id, '_possible_questions', sanitize_text_field( $_POST['possible_questions'] ) );
         }
 
         if ( isset( $_POST['faq_answer'] ) ) {
-            update_post_meta( $post_id, '_faq_answer', wp_kses_post( wp_unslash( $_POST['faq_answer'] ) ));
+            update_post_meta( $post_id, '_faq_answer', wp_kses_post( wp_unslash( $_POST['faq_answer'] ) ) );
         }
 
         if ( isset( $_POST['faq_priority'] ) ) {
             update_post_meta( $post_id, '_faq_priority', intval( $_POST['faq_priority'] ) );
+        }
+
+        // 2. Save Secondary Language Translations to Custom Table
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'techno_cb_translations';
+
+        $secondary_langs = get_option( 'techno_chatbot_active_languages', array() );
+
+        foreach ( $secondary_langs as $code => $lang ) {
+            $questions_raw = isset( $_POST['trans_questions'][ $code ] ) ? sanitize_text_field( $_POST['trans_questions'][ $code ] ) : '';
+            $answer_raw    = isset( $_POST['trans_answers'][ $code ] ) ? wp_kses_post( wp_unslash( $_POST['trans_answers'][ $code ] ) ) : '';
+
+            $q_key = "faq_{$post_id}_questions";
+            $a_key = "faq_{$post_id}_answer";
+
+            // Save Questions
+            if ( ! empty( $questions_raw ) ) {
+                $wpdb->replace(
+                    $table_name,
+                    array(
+                        'lang_code'    => $code,
+                        'option_key'   => $q_key,
+                        'option_value' => $questions_raw,
+                    ),
+                    array( '%s', '%s', '%s' )
+                );
+            } else {
+                $wpdb->delete( $table_name, array( 'lang_code' => $code, 'option_key' => $q_key ), array( '%s', '%s' ) );
+            }
+
+            // Save Answer
+            if ( ! empty( $answer_raw ) ) {
+                $wpdb->replace(
+                    $table_name,
+                    array(
+                        'lang_code'    => $code,
+                        'option_key'   => $a_key,
+                        'option_value' => $answer_raw,
+                    ),
+                    array( '%s', '%s', '%s' )
+                );
+            } else {
+                $wpdb->delete( $table_name, array( 'lang_code' => $code, 'option_key' => $a_key ), array( '%s', '%s' ) );
+            }
         }
     }
 

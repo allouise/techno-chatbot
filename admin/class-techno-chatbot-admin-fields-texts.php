@@ -103,12 +103,30 @@ class Techno_Chatbot_Admin_Fields_Texts {
         ),
 
         'techno_chatbot_inputtext' => array(
-            'label'       => 'Input text',
+            'label'       => 'Input text Default',
             'type'        => 'text',
             'section'     => 'texts_section',
             'default'     => 'Type your message...',
             'placeholder' => 'Type your message...',
             'description' => 'Chat Input placeholder.'
+        ),
+
+        'techno_chatbot_inputchoose' => array(
+            'label'       => 'Input text Choosing',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Choose an option...',
+            'placeholder' => 'Choose an option...',
+            'description' => 'Chat Input placeholder when choosing an option.'
+        ),
+
+        'techno_chatbot_inputwait' => array(
+            'label'       => 'Input text Waiting',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Please wait...',
+            'placeholder' => 'Please wait...',
+            'description' => 'Chat Input placeholder when processing data.'
         ),
 
         'techno_chatbot_sendbtn' => array(
@@ -118,6 +136,15 @@ class Techno_Chatbot_Admin_Fields_Texts {
             'default'     => 'Send',
             'placeholder' => 'Send',
             'description' => 'Send button text.'
+        ),
+
+        'techno_chatbot_menudisclaimer' => array(
+            'label'       => 'Menu disclaimer',
+            'type'        => 'text',
+            'section'     => 'texts_section',
+            'default'     => 'Disclaimer',
+            'placeholder' => 'Disclaimer',
+            'description' => 'Menu disclaimer button text.'
         ),
 
         'techno_chatbot_menulivechat' => array(
@@ -412,6 +439,16 @@ class Techno_Chatbot_Admin_Fields_Texts {
     );
 
     /**
+	 * Helper to get available target languages (e.g. Spanish, French, etc.)
+     * 
+	 * @since    1.1.6
+	 */
+	public static function get_active_languages() {
+        $saved_languages = get_option( 'techno_chatbot_active_languages', array() );
+        return apply_filters( 'techno_chatbot_active_languages', $saved_languages );
+    }
+
+    /**
 	 * Register fields
 	 *
 	 * @since    1.0.0
@@ -419,7 +456,6 @@ class Techno_Chatbot_Admin_Fields_Texts {
     public function register( $page_slug ) {
 
         foreach ( $this->sections as $section_id => $section ) {
-
             add_settings_section(
                 $section_id,
                 __( $section['title'], 'techno-chatbot' ),
@@ -457,6 +493,8 @@ class Techno_Chatbot_Admin_Fields_Texts {
                 )
             );
         }
+
+        $this->save_translations();
     }
 
     /**
@@ -474,38 +512,191 @@ class Techno_Chatbot_Admin_Fields_Texts {
         $value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 
         if ( $type === 'textarea' ) {
-
-            echo '<textarea 
-                    name="' . esc_attr( $option ) . '" 
-                    rows="' . esc_attr( $rows ) . '" 
-                    style="width:100%;"
-                    placeholder="' . esc_attr( $placeholder ) . '"
-                >' . esc_textarea( $value ) . '</textarea>';
-
+            echo '<textarea name="' . esc_attr( $option ) . '" rows="' . esc_attr( $rows ) . '" style="width:100%;" placeholder="' . esc_attr( $placeholder ) . '">' . esc_textarea( $value ) . '</textarea>';
         } else {
-
-            echo '<input 
-                    type="text"
-                    name="' . esc_attr( $option ) . '"
-                    value="' . esc_attr( $value ) . '"
-                    class="regular-text"
-                    placeholder="' . esc_attr( $placeholder ) . '"
-                />';
+            echo '<input type="text" name="' . esc_attr( $option ) . '" value="' . esc_attr( $value ) . '" class="regular-text" placeholder="' . esc_attr( $placeholder ) . '"/>';
         }
 
         if ( ! empty( $description ) ) {
+            echo '<p class="description">' . esc_html__( $description, 'techno-chatbot' ) . '</p>';
+        }
 
-            echo '<p class="description">'
-                . esc_html__( $description, 'techno-chatbot' ) .
-            '</p>';
+        $active_langs = self::get_active_languages();
+        if ( ! empty( $active_langs ) ) {
+            $translations = self::get_translations_for_key( $option );
+
+            echo '<details class="techno-chatbot-translations-block" style="margin-top: 10px; margin-bottom: 5px;">';
+            echo '<summary style="font-weight: 600; cursor: pointer; user-select: none; color: #2271b1; font-size: 13px;">' . esc_html__( 'Translations', 'techno-chatbot' ) . ' (' . count( $active_langs ) . ')</summary>';
+            echo '<div style="margin-top: 8px; padding-left: 12px; border-left: 3px solid #2271b1;">';
+
+            foreach ( $active_langs as $code => $lang_label ) {
+                $trans_val  = $translations[ $code ] ?? '';
+                $input_name = 'techno_chatbot_trans[' . esc_attr( $option ) . '][' . esc_attr( $code ) . ']';
+
+                echo '<div style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">';
+                echo '<span style="min-width: 80px; font-size: 12px; color: #50575e;">' . esc_html( $lang_label ) . ' (' . esc_html( $code ) . '):</span>';
+
+                if ( $type === 'textarea' ) {
+                    echo '<textarea name="' . $input_name . '" rows="2" style="width:100%; font-size: 13px;" placeholder="' . esc_attr( $placeholder ) . '">' . esc_textarea( $trans_val ) . '</textarea>';
+                } else {
+                    echo '<input type="text" name="' . $input_name . '" value="' . esc_attr( $trans_val ) . '" class="regular-text" style="font-size: 13px;" placeholder="' . esc_attr( $placeholder ) . '" />';
+                }
+                
+                echo '</div>';
+            }
+
+            echo '</div>';
+            echo '</details>';
         }
     }
+
+    /**
+	 * Save dynamic translations to custom table
+	 */
+	private function save_translations() {
+		if ( ! isset( $_POST['techno_chatbot_trans'] ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_cb_translations';
+		$translations_data = $_POST['techno_chatbot_trans'];
+
+		if ( is_array( $translations_data ) ) {
+			foreach ( $translations_data as $option_key => $lang_values ) {
+
+				// Ensure option key is valid
+				if ( ! isset( self::$fields[ $option_key ] ) ) {
+					continue;
+				}
+
+				$type = self::$fields[ $option_key ]['type'];
+
+				foreach ( $lang_values as $lang_code => $raw_value ) {
+					$clean_value = ( $type === 'textarea' ) ? wp_kses_post( $raw_value ) : sanitize_text_field( $raw_value );
+
+					if ( $clean_value !== '' ) {
+						$wpdb->replace(
+							$table,
+							array(
+								'lang_code'    => sanitize_text_field( $lang_code ),
+								'option_key'   => sanitize_text_field( $option_key ),
+								'option_value' => $clean_value,
+							),
+							array( '%s', '%s', '%s' )
+						);
+					} else {
+						// Delete entry if left blank
+						$wpdb->delete(
+							$table,
+							array(
+								'lang_code'  => sanitize_text_field( $lang_code ),
+								'option_key' => sanitize_text_field( $option_key ),
+							),
+							array( '%s', '%s' )
+						);
+					}
+				}
+			}
+		}
+	}
+
+    /**
+	 * Retrieve saved translations for a specific option key
+	 */
+	public static function get_translations_for_key( $key ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'techno_cb_translations';
+
+		$results = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT lang_code, option_value FROM {$table} WHERE option_key = %s",
+				$key
+			),
+			ARRAY_A
+		);
+
+		$translations = array();
+		if ( ! empty( $results ) ) {
+			foreach ( $results as $row ) {
+				$translations[ $row['lang_code'] ] = $row['option_value'];
+			}
+		}
+
+		return $translations;
+	}
 
     /**
      * Sanitize textarea input
      */
     public function sanitize_textarea( $input ) {
-        return wp_kses_post( $input ); // allows safe HTML
+        return wp_kses_post( $input );
+    }
+
+    /**
+     * Output JavaScript to append Expand/Collapse controls into the WP submit button wrapper.
+     */
+    public function render_translation_toggle_buttons() {
+        // 1. Ensure we are only on the specific admin page and tab
+        if ( ! is_admin() ) {
+            return;
+        }
+
+        $current_page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
+        $current_tab  = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : '';
+
+        if ( 'techno-chatbot-settings' !== $current_page || 'texts' !== $current_tab ) {
+            return;
+        }
+
+        // 2. Ensure active languages exist before outputting controls
+        $active_langs = self::get_active_languages();
+        if ( empty( $active_langs ) ) {
+            return;
+        }
+        ?>
+        <script type="text/javascript">
+            document.addEventListener('DOMContentLoaded', function() {
+                var submitContainer = document.querySelector('p.submit');
+                if (!submitContainer) return;
+
+                // Apply inline layout styling to the submit button container
+                submitContainer.style.display = 'flex';
+                submitContainer.style.alignItems = 'center';
+                submitContainer.style.gap = '10px';
+                submitContainer.style.flexWrap = 'wrap';
+
+                // Create buttons container
+                var controlsDiv = document.createElement('div');
+                controlsDiv.className = 'techno-chatbot-toggle-controls';
+                controlsDiv.style.display = 'inline-flex';
+                controlsDiv.style.gap = '8px';
+
+                var expandBtnText   = '<?php echo esc_js( __( 'Expand All Translations', 'techno-chatbot' ) ); ?>';
+                var collapseBtnText = '<?php echo esc_js( __( 'Collapse All Translations', 'techno-chatbot' ) ); ?>';
+
+                controlsDiv.innerHTML = 
+                    '<button type="button" class="button button-secondary" id="techno-expand-all">' + expandBtnText + '</button>' +
+                    '<button type="button" class="button button-secondary" id="techno-collapse-all">' + collapseBtnText + '</button>';
+
+                // Inject right next to Save Changes
+                submitContainer.appendChild(controlsDiv);
+
+                // Toggle logic
+                document.getElementById('techno-expand-all').addEventListener('click', function() {
+                    document.querySelectorAll('.techno-chatbot-translations-block').forEach(function(el) {
+                        el.setAttribute('open', '');
+                    });
+                });
+
+                document.getElementById('techno-collapse-all').addEventListener('click', function() {
+                    document.querySelectorAll('.techno-chatbot-translations-block').forEach(function(el) {
+                        el.removeAttribute('open');
+                    });
+                });
+            });
+        </script>
+        <?php
     }
 
     /**
@@ -513,10 +704,39 @@ class Techno_Chatbot_Admin_Fields_Texts {
 	 *
 	 * @since    1.0.0
 	 */
-    public static function get_value( $key ) {
-		$default = self::$fields[$key]['default'] ?? '';
-        $value = get_option( $key, $default );
-		return ( $default !== '' && $value === '' ) ? $default : $value;
+    public static function get_value( $key, $lang_code = 'en' ) {
+        if ( empty( $lang_code ) || 'en' === $lang_code ) {
+            $default = self::$fields[ $key ]['default'] ?? '';
+            $value   = get_option( $key, $default );
+            return ( '' !== $default && '' === $value ) ? $default : $value;
+        }
+
+        static $translations = array();
+        if ( ! isset( $translations[ $lang_code ] ) ) {
+            global $wpdb;
+            $table = $wpdb->prefix . 'techno_cb_translations';
+            $results = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT option_key, option_value FROM %i WHERE lang_code = %s",
+                    $table,
+                    $lang_code
+                ),
+                OBJECT_K
+            );
+
+            $translations[ $lang_code ] = array();
+            if ( ! empty( $results ) ) {
+                foreach ( $results as $row_key => $row ) {
+                    $translations[ $lang_code ][ $row_key ] = $row->option_value;
+                }
+            }
+        }
+
+        if ( ! empty( $translations[ $lang_code ][ $key ] ) ) {
+            return $translations[ $lang_code ][ $key ];
+        }
+
+        return self::get_value( $key, 'en' );
     }
     
 }

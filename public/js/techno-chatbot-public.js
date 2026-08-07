@@ -1,6 +1,5 @@
 class TechnoChatbot {
     constructor() {
-        // DOM Elements
         this.el = {};
         
         this.botData = {};
@@ -33,7 +32,6 @@ class TechnoChatbot {
        ========================================================================== */
 
     async init() {
-        // localStorage.removeItem(this.storageKeys.session);
         this.cacheElements();
 
         if (!this.el.loader || !this.el.icon || !this.el.window || !this.el.messages || !this.el.input || !this.el.send){
@@ -69,6 +67,7 @@ class TechnoChatbot {
             disclaimerModal: document.getElementById('techno-chatbot-disclaimer-modal'),
             transcriptRequest: document.getElementById('techno-chatbot-transcript-request'),
             statusDot: document.getElementById('techno-support-status-dot'),
+            languageSwitcher: document.getElementById('techno-chatbot-language-switcher'),
         };
     }
 
@@ -83,8 +82,8 @@ class TechnoChatbot {
         });
 
         this.inputPlaceholders = Object.freeze({
-            waiting: 'Please wait...',
-            options: 'Choose an option...',
+            waiting: this.botData.inputwait || '',
+            options: this.botData.inputchoose || '',
             default: this.botData.inputtxt || ''
         });
 
@@ -193,6 +192,16 @@ class TechnoChatbot {
             this.toggleMenu(false);
             if (this.recentSession == null) return;
             this.initRequestTranscript();
+        });
+        /* Switch Language */
+        this.el.languageSwitcher?.addEventListener('change', () => {
+            const selectedLang = this.el.languageSwitcher.value;
+            if (selectedLang) {
+                this.toggleLoader(true);
+                const maxAge = 30 * 24 * 60 * 60;
+                document.cookie = `techno_chatbot_lang=${encodeURIComponent(selectedLang)}; max-age=${maxAge}; path=/; SameSite=Lax`;
+                window.location.reload();
+            }
         });
         /* Reset */
         this.el.reset?.forEach(btn => btn.addEventListener('click', async () => {
@@ -824,7 +833,7 @@ class TechnoChatbot {
             this.state = '';
             this.failedAnswer = 0;
             
-            this.sessionId = null; //need to test
+            this.sessionId = null;
 
             return true;
         } catch (err) {

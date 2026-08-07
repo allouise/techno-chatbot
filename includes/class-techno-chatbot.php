@@ -148,6 +148,11 @@ class Techno_Chatbot {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-texts.php';
 
 		/**
+		 * The class responsible for text fields.
+		 */
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-languages.php';
+
+		/**
 		 * The class responsible for styles fields.
 		 */
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-techno-chatbot-admin-fields-styles.php';
@@ -194,9 +199,11 @@ class Techno_Chatbot {
 	private function define_admin_hooks() {
 
 		$plugin_admin = new Techno_Chatbot_Admin( $this->get_plugin_name(), $this->get_version() );
+		$plugin_admin_texts = new Techno_Chatbot_Admin_Fields_Texts( $this->get_plugin_name(), $this->get_version() );
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
+		$this->loader->add_action( 'admin_footer', $plugin_admin_texts, 'render_translation_toggle_buttons' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'hide_everything_from_support' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'block_everything_from_support' );
 		$this->loader->add_filter( 'admin_body_class', $plugin_admin, 'admin_body_class' );

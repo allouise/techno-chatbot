@@ -82,6 +82,7 @@ class Techno_Chatbot_Public {
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-public.js', array(), $this->version, true );
 
+		$current_language = $this->get_current_language();
 		$aitraining_plan = techno_chatbot_feature('ai_training');
     	$aitraining_enabled = $aitraining_plan['allowed'] === true;
 		$livechat_plan = techno_chatbot_feature('live_chat');
@@ -90,45 +91,46 @@ class Techno_Chatbot_Public {
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
-			// 'disclaimerMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg'),
-			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg'),
-			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt'),
-			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message'),
-			'nextStepMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_next_step'),
-			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message'),
-			'idleSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_agents_message'),
-			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message'),
-			'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname'),
+			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg', $current_language),
+			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt', $current_language),
+			'noAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message', $current_language),
+			'nextStepMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_next_step', $current_language),
+			'offlineSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_offline_agents_message', $current_language),
+			'idleSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_agents_message', $current_language),
+			'transferredToSupport' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_transferred_live_message', $current_language),
+			'getName' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getname', $current_language),
 			'liveChatGetName' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_livechatgetname'),
-			'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default'),
-			'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish'),
-			'askEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_askemail'),
-			'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit'),
-			'errorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_error'),
-			'cerrorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_criticalerror'),
-			'phoneError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_phone'),
-			'emailError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_email'),
-			'cPhoneLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cphoneLabel'),
-			'cEmailLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cemailLabel'),
-			'menuLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menulivechat'),
-			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall'),
-			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail'),
-			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset'),
-			'menuHistorySend' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend'),
-			'menuLeave' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuleave'),
-			'historySent' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent'),
-			'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg'),
-			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext'),
-			'end_msg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat'),
-			'end_msgidleguest' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message'),
+			'noAnswerFinalDefault' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_no_answer_message_final_default', $current_language),
+			'getContactThxMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_getcontact_finish', $current_language),
+			'askEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_askemail', $current_language),
+			'spamLimitMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_submissionspam_limit', $current_language),
+			'errorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_error', $current_language),
+			'cerrorMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_criticalerror', $current_language),
+			'phoneError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_phone', $current_language),
+			'emailError' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_invalid_email', $current_language),
+			'cPhoneLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cphoneLabel', $current_language),
+			'cEmailLabel' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_cemailLabel', $current_language),
+			'menuLivechat' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menulivechat', $current_language),
+			'menuCall' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menucall', $current_language),
+			'menuEmail' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuemail', $current_language),
+			'menuReset' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset', $current_language),
+			'menuHistorySend' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend', $current_language),
+			'menuLeave' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuleave', $current_language),
+			'historySent' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_historysent', $current_language),
+			'endChatMsg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchatmsg', $current_language),
+			'inputtxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext', $current_language),
+			'inputwait' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputwait', $current_language),
+			'inputchoose' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputchoose', $current_language),
+			'end_msg' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_endchat', $current_language),
+			'end_msgidleguest' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message', $current_language),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
 			'timeToCall' => get_option('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 			'greetingsIntent' =>  explode(',', Techno_Chatbot_Admin_Fields_General::get_value( 'techno_chatbot_greetings_intent' )),
-			'greetingsIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_greetings_intent_answer' ),
+			'greetingsIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_greetings_intent_answer', $current_language ),
 			'genericHelpIntent' =>  explode(',', Techno_Chatbot_Admin_Fields_General::get_value( 'techno_chatbot_generichelp_intent' )),
-			'genericHelpIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_generichelp_intent_answer' ),
+			'genericHelpIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_generichelp_intent_answer', $current_language ),
 			'faq' => $this->get_faq_data()
 		);
 
@@ -156,6 +158,40 @@ class Techno_Chatbot_Public {
 		);
 
 	}
+
+	/**
+	 * Helper to determine the active frontend language.
+	 *
+	 * @since    1.1.6
+	 * @return   string Active language code (defaults to 'en').
+	 */
+	private function get_current_language( $type = 'code' ) {
+        $languages = get_option( 'techno_chatbot_active_languages', array() );
+        if ( ! is_array( $languages ) ) {
+            $languages = array();
+        }
+        
+        if ( ! isset( $languages['en'] ) ) {
+            $languages = array( 'en' => 'English' ) + $languages;
+        }
+
+        $cookie_lang = isset( $_COOKIE['techno_chatbot_lang'] ) ? sanitize_text_field( wp_unslash( $_COOKIE['techno_chatbot_lang'] ) ) : '';
+        $lang_code   = ( ! empty( $cookie_lang ) && array_key_exists( $cookie_lang, $languages ) ) ? $cookie_lang : 'en';
+        $lang_name   = isset( $languages[ $lang_code ] ) ? $languages[ $lang_code ] : 'English';
+
+        if ( 'full' === $type ) {
+            return array(
+                'code' => $lang_code,
+                'name' => $lang_name,
+            );
+        }
+
+        if ( 'name' === $type ) {
+            return $lang_name;
+        }
+
+        return $lang_code;
+    }
 
 	/**
 	 * Get Client IP
@@ -231,22 +267,30 @@ class Techno_Chatbot_Public {
 		$basic_chat = techno_chatbot_feature('basic_chat');
 		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
 
-		$headertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_header');
-		$icontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_icontext');
-		$chaticontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_chaticontext');
+		$current_language = $this->get_current_language();
+		$headertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_header', $current_language);
+		$icontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_icontext', $current_language);
+		$chaticontxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_chaticontext', $current_language);
 		$chaticontype = Techno_Chatbot_Admin_Fields_Styles::get_value('techno_chatbot_icontype');
-		$inputtxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext');
-		$sendbtn = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_sendbtn');
-		$menutranscripttxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend');
-		$menuresettxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset');
+		$inputtxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_inputtext', $current_language);
+		$sendbtn = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_sendbtn', $current_language);
+		$menudisclaimertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menudisclaimer', $current_language);
+		$menutranscripttxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menuhistorysend', $current_language);
+		$menuresettxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_menureset', $current_language);
 		$disclaimerEnabled = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer');
-		$disclaimer = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg');
-		$disclaimerFullMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimerfullmsg');
-
+		$disclaimer = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimermsg', $current_language);
+		$disclaimerFullMsg = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_disclaimerfullmsg', $current_language);
+		$multilang = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_multilang', $current_language);
 		$chaticonval = get_option( 'techno_chatbot_icon' );
 		$chaticon = !empty($chaticonval)? "<img src='$chaticonval' alt='".__( 'Techno chatbot Icon', 'techno-chatbot' )."'/>" : '💬';
 		$livechat_plan = techno_chatbot_feature('live_chat');
     	$livechat_enabled = $livechat_plan['allowed'] === true;
+
+		$languages = get_option( 'techno_chatbot_active_languages', array() );
+		if ( ! is_array( $languages ) ) $languages = array();
+		unset( $languages['en'] );
+		$languages = array( 'en' => 'English' ) + $languages;
+
 		include plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-public-chatbot.php';
 	}
 
@@ -374,32 +418,75 @@ class Techno_Chatbot_Public {
 	 * @since 1.0.0
 	 */
 	private function get_faq_data() {
-		$args = array(
-			'post_type'      => 'techno_chatbot_faq',
-			'post_status'    => 'publish',
-			'posts_per_page' => -1,
-			'meta_key'       => '_faq_priority',
-			'orderby'        => 'meta_value_num',
-			'order'          => 'DESC',
-		);
-		$query = new WP_Query( $args );
-		$faqs = array();
-		if ( $query->have_posts() ) {
-			while ( $query->have_posts() ) {
-				$query->the_post();
-				$questions = get_post_meta( get_the_ID(), '_possible_questions', true );
-				$answer    = get_post_meta( get_the_ID(), '_faq_answer', true );
-				$priority  = get_post_meta( get_the_ID(), '_faq_priority', true );
-				$faqs[] = array(
-					'questions' => array_map( 'trim', explode( ',', strtolower( $questions ) ) ),
-					'answer'    => wp_kses_post( $answer ),
-					'priority'  => intval( $priority ),
-				);
-			}
-			wp_reset_postdata();
-		}
-		return $faqs;
-	}
+        $current_lang = $this->get_current_language( 'code' );
+
+        $args = array(
+            'post_type'      => 'techno_chatbot_faq',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'meta_key'       => '_faq_priority',
+            'orderby'        => 'meta_value_num',
+            'order'          => 'DESC',
+        );
+        
+        $query = new WP_Query( $args );
+        $faqs  = array();
+
+        if ( $query->have_posts() ) {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'techno_cb_translations';
+
+            while ( $query->have_posts() ) {
+                $query->the_post();
+                $post_id = get_the_ID();
+
+                // 1. Fetch Primary / Fallback Values
+                $primary_questions = get_post_meta( $post_id, '_possible_questions', true );
+                $primary_answer    = get_post_meta( $post_id, '_faq_answer', true );
+                $priority          = get_post_meta( $post_id, '_faq_priority', true );
+
+                $questions_list = array_map( 'trim', explode( ',', strtolower( $primary_questions ) ) );
+                $answer_output  = wp_kses_post( $primary_answer );
+
+                // 2. Fetch Translation Override (if not primary language 'en')
+                if ( 'en' !== $current_lang ) {
+                    $q_key = "faq_{$post_id}_questions";
+                    $a_key = "faq_{$post_id}_answer";
+
+                    $translations = $wpdb->get_results(
+                        $wpdb->prepare(
+                            "SELECT option_key, option_value FROM {$table_name} WHERE lang_code = %s AND option_key IN (%s, %s)",
+                            $current_lang,
+                            $q_key,
+                            $a_key
+                        ),
+                        OBJECT_K
+                    );
+
+                    // Override Questions if translation exists
+                    if ( isset( $translations[ $q_key ] ) && ! empty( $translations[ $q_key ]->option_value ) ) {
+						$questions_list = array_map( 'trim', explode( ',', strtolower( $translations[ $q_key ]->option_value ) ) );
+                    }
+
+                    // Override Answer if translation exists
+                    if ( isset( $translations[ $a_key ] ) && ! empty( $translations[ $a_key ]->option_value ) ) {
+                        $answer_output = wp_kses_post( $translations[ $a_key ]->option_value );
+                    }
+                }
+
+				
+
+                $faqs[] = array(
+                    'questions' => $questions_list,
+                    'answer'    => $answer_output,
+                    'priority'  => intval( $priority ),
+                );
+            }
+            wp_reset_postdata();
+        }
+
+        return $faqs;
+    }
 
 	/**
 	 * Scheduled Validate License
@@ -1100,8 +1187,12 @@ class Techno_Chatbot_Public {
 			$context_text .= "SOURCE:\n" . $text . "\n\n";
 		}
 
+		$current_language = $this->get_current_language('full');
+		$lang_code = $current_language['code'];
+		$lang_name = $current_language['name'];
+
 		/* AI Cache */
-		$cache_key = 'techno_ai_ans_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
+		$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
 		$cached = get_transient($cache_key);
 		if ($cached !== false) {
 			$cached['cached'] = true;
@@ -1119,6 +1210,8 @@ class Techno_Chatbot_Public {
 		- If multiple facts are relevant, combine them into one clear explanation.
 		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>.
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
+		- Write your entire response strictly in $lang_name.
+		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
 		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
 		Context:
 		$context_text

@@ -9,7 +9,7 @@
  * Plugin Name:       Techno Chatbot
  * Plugin URI:        https://technodreamwebdesign.com/techno-chatbot
  * Description:       Technodream Chatbot
- * Version:           1.1.5
+ * Version:           1.1.6
  * Author:            Technodream
  * Author URI:        https://technodreamwebdesign.com/techno-chatbot/
  * Text Domain:       techno-chatbot
@@ -24,10 +24,11 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Current plugin version.
  */
-define( 'TECHNO_CHATBOT_VERSION', '1.1.5' );
+define( 'TECHNO_CHATBOT_VERSION', '1.1.6' );
 define( 'TECHNO_CHATBOT_FILEBASE', plugin_basename( __FILE__ ) );
 define( 'TECHNO_CHATBOT_FOLDER_URL', plugins_url( '', __FILE__ ) );
 define( 'TECHNO_CHATBOT_SUPPORT_EMAIL', 'customersupport2@technodreamcenter.com' );
+define ( 'TECHNO_CHATBOT_SUPPORTED_LANGUAGE', [ 'Afrikaans' => 'af', 'Albanian' => 'sq', 'Amharic' => 'am', 'Arabic' => 'ar', 'Armenian' => 'hy', 'Azerbaijani' => 'az', 'Basque' => 'eu', 'Belarusian' => 'be', 'Bengali' => 'bn', 'Bosnian' => 'bs', 'Bulgarian' => 'bg', 'Burmese' => 'my', 'Catalan' => 'ca', 'Cebuano' => 'ceb', 'Chinese (Simplified)' => 'zh-CN', 'Chinese (Traditional)' => 'zh-TW', 'Cantonese' => 'yue', 'Croatian' => 'hr', 'Czech' => 'cs', 'Danish' => 'da', 'Dutch' => 'nl', 'Esperanto' => 'eo', 'Estonian' => 'et', 'Filipino (Tagalog)' => 'tl', 'Finnish' => 'fi', 'French' => 'fr', 'Galician' => 'gl', 'Georgian' => 'ka', 'German' => 'de', 'Greek' => 'el', 'Gujarati' => 'gu', 'Haitian Creole' => 'ht', 'Hausa' => 'ha', 'Hebrew' => 'he', 'Hindi' => 'hi', 'Hungarian' => 'hu', 'Icelandic' => 'is', 'Igbo' => 'ig', 'Ilocano' => 'ilo', 'Indonesian' => 'id', 'Irish' => 'ga', 'Italian' => 'it', 'Japanese' => 'ja', 'Javanese' => 'jv', 'Kannada' => 'kn', 'Kazakh' => 'kk', 'Khmer' => 'km', 'Kinyarwanda' => 'rw', 'Korean' => 'ko', 'Kurdish' => 'ku', 'Kyrgyz' => 'ky', 'Lao' => 'lo', 'Latin' => 'la', 'Latvian' => 'lv', 'Lithuanian' => 'lt', 'Luxembourgish' => 'lb', 'Macedonian' => 'mk', 'Malay' => 'ms', 'Malayalam' => 'ml', 'Maltese' => 'mt', 'Maori' => 'mi', 'Marathi' => 'mr', 'Mongolian' => 'mn', 'Nepali' => 'ne', 'Norwegian' => 'no', 'Odia' => 'or', 'Pashto' => 'ps', 'Persian (Farsi)' => 'fa', 'Polish' => 'pl', 'Portuguese' => 'pt', 'Punjabi' => 'pa', 'Romanian' => 'ro', 'Russian' => 'ru', 'Samoan' => 'sm', 'Scottish Gaelic' => 'gd', 'Serbian' => 'sr', 'Shona' => 'sn', 'Sindhi' => 'sd', 'Sinhala' => 'si', 'Slovak' => 'sk', 'Slovenian' => 'sl', 'Somali' => 'so', 'Spanish' => 'es', 'Sundanese' => 'su', 'Swahili' => 'sw', 'Swedish' => 'sv', 'Tamil' => 'ta', 'Tatar' => 'tt', 'Telugu' => 'te', 'Thai' => 'th', 'Turkish' => 'tr', 'Turkmen' => 'tk', 'Ukrainian' => 'uk', 'Urdu' => 'ur', 'Uzbek' => 'uz', 'Vietnamese' => 'vi', 'Welsh' => 'cy', 'Xhosa' => 'xh', 'Yiddish' => 'yi', 'Yoruba' => 'yo', 'Zulu' => 'zu', ] );
 
 /**
  * The code that runs during plugin activation.

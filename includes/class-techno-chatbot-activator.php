@@ -38,6 +38,7 @@ class Techno_Chatbot_Activator {
 
 		self::create_cb_messages_table();
 		self::create_cb_conversation_table();
+		self::create_cb_translations_table();
 		self::techno_chatbot_add_role();
 		self::techno_chatbot_add_admin_capability();
 
@@ -103,6 +104,32 @@ class Techno_Chatbot_Activator {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 	}
+
+	/**
+     * Create translations table
+     *
+     * @since    1.1.6
+     */
+    public static function create_cb_translations_table() {
+        global $wpdb;
+        $table   = $wpdb->prefix . 'techno_cb_translations';
+        $charset = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE IF NOT EXISTS {$table} (
+            id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            lang_code    VARCHAR(10) NOT NULL,
+            option_key   VARCHAR(191) NOT NULL,
+            option_value LONGTEXT DEFAULT NULL,
+            created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            UNIQUE KEY idx_lang_key (lang_code, option_key),
+            INDEX idx_lang (lang_code)
+        ) {$charset};";
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        dbDelta( $sql );
+    }
 
 	/**
 	 * Create the live chat messages DB table

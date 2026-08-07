@@ -46,6 +46,7 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; flex-shrink: 0; transition: background-color 0.3s ease; } 
 .techno-status-dot.online { background-color: #22c55e; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25); } 
 .techno-status-dot.offline { background-color: #9ca3af; }
+.techno-chatbot-menu #techno-chatbot-language-switcher { padding: 5px 0; border-radius: 0; border: none; font-size: 16px; cursor: pointer; outline: none; color: var(--techno-header-text); font-weight: bold; margin: 0 0 0 5px; max-width: 80px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Messages */ 
 #techno-chatbot-messages { display: flex; flex: 1; flex-direction: column; padding: 50px 10px 25px 10px; overflow-y: auto; font-size: var(--techno-chatbot-chatmsgsize); position: relative; } 
