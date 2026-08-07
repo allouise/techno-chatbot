@@ -166,24 +166,32 @@ class Techno_Chatbot_Public {
 	 * @return   string Active language code (defaults to 'en').
 	 */
 	private function get_current_language( $type = 'code' ) {
-		$languages = get_option( 'techno_chatbot_active_languages', array() );
-		if ( ! is_array( $languages ) ) {
-			$languages = array();
-		}
-		
-		if ( ! isset( $languages['en'] ) ) {
-			$languages = array( 'en' => 'English' ) + $languages;
-		}
+        $languages = get_option( 'techno_chatbot_active_languages', array() );
+        if ( ! is_array( $languages ) ) {
+            $languages = array();
+        }
+        
+        if ( ! isset( $languages['en'] ) ) {
+            $languages = array( 'en' => 'English' ) + $languages;
+        }
 
-		$cookie_lang = isset( $_COOKIE['techno_chatbot_lang'] )? sanitize_text_field( wp_unslash( $_COOKIE['techno_chatbot_lang'] ) ) : '';
-		$lang_code = ( ! empty( $cookie_lang ) && array_key_exists( $cookie_lang, $languages ) ) ? $cookie_lang : 'en';
+        $cookie_lang = isset( $_COOKIE['techno_chatbot_lang'] ) ? sanitize_text_field( wp_unslash( $_COOKIE['techno_chatbot_lang'] ) ) : '';
+        $lang_code   = ( ! empty( $cookie_lang ) && array_key_exists( $cookie_lang, $languages ) ) ? $cookie_lang : 'en';
+        $lang_name   = isset( $languages[ $lang_code ] ) ? $languages[ $lang_code ] : 'English';
 
-		if ( 'name' === $type ) {
-			return isset( $languages[ $lang_code ] ) ? $languages[ $lang_code ] : 'English';
-		}
+        if ( 'full' === $type ) {
+            return array(
+                'code' => $lang_code,
+                'name' => $lang_name,
+            );
+        }
 
-		return $lang_code;
-	}
+        if ( 'name' === $type ) {
+            return $lang_name;
+        }
+
+        return $lang_code;
+    }
 
 	/**
 	 * Get Client IP
@@ -410,7 +418,7 @@ class Techno_Chatbot_Public {
 	 * @since 1.0.0
 	 */
 	private function get_faq_data() {
-        $current_lang = 'en';//$this->get_current_language( 'code' );
+        $current_lang = $this->get_current_language( 'code' );
 
         $args = array(
             'post_type'      => 'techno_chatbot_faq',
@@ -1179,15 +1187,17 @@ class Techno_Chatbot_Public {
 			$context_text .= "SOURCE:\n" . $text . "\n\n";
 		}
 
+		$current_language = $this->get_current_language('full');
+		$lang_code = $current_language['code'];
+		$lang_name = $current_language['name'];
+
 		/* AI Cache */
-		$cache_key = 'techno_ai_ans_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
+		$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
 		$cached = get_transient($cache_key);
 		if ($cached !== false) {
 			$cached['cached'] = true;
 			return $cached;
 		}
-
-		$current_language = 'English';//$this->get_current_language('name');
 
 		$prompt = "You are a helpful customer support assistant.
 		Instructions:
@@ -1200,14 +1210,14 @@ class Techno_Chatbot_Public {
 		- If multiple facts are relevant, combine them into one clear explanation.
 		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>.
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
-		- Write your entire response strictly in $current_language.
+		- Write your entire response strictly in $lang_name.
 		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
 		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
 		Context:
 		$context_text
 		Question:
 		$question";
-	
+	error_log($prompt);
 		$response = wp_remote_post(
 			'https://api.openai.com/v1/chat/completions',
 			[
