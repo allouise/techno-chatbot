@@ -129,7 +129,7 @@ body.techno-chatbot_page_techno-chatbot-settings .wrap form[action="options.php"
 .techno-progress-bar-fill { height: 100%; background-color: #2563eb; border-radius: 4px; } 
 .techno-stats-inline { display: flex; align-items: center; justify-content: space-around; padding-top: 8px; } 
 .techno-stat-item { text-align: center; } 
-.techno-stat-number { display: block; font-size: 28px; font-weight: 700; color: #0f172a; } 
+.techno-stat-number { display: block; font-size: 28px; font-weight: 700; color: #0f172a; text-decoration: none; } 
 .techno-stat-label { font-size: 13px; color: #64748b; } 
 .techno-stat-divider { width: 1px; height: 40px; background-color: #e2e8f0; } 
 .techno-dashboard-footer { border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; } 

@@ -74,12 +74,12 @@
                 </div>
                 <div class="techno-card-body techno-stats-inline">
                     <div class="techno-stat-item">
-                        <span class="techno-stat-number" id="techno-faq-count"><?php echo $faq_count; ?></span>
+                        <a class="techno-stat-number" href="<?php echo add_query_arg([ 'post_type' => 'techno_chatbot_faq' ], admin_url('edit.php')); ?>" id="techno-faq-count"><?php echo $faq_count; ?></a>
                         <span class="techno-stat-label">FAQ Count</span>
                     </div>
                     <div class="techno-stat-divider"></div>
                     <div class="techno-stat-item">
-                        <span class="techno-stat-number" id="techno-ai-source-count"><?php echo $crawled_count; ?></span>
+                        <a class="techno-stat-number" href="<?php echo add_query_arg([ 'post_type' => 'techno_chatbot_aidb' ], admin_url('edit.php')); ?>" id="techno-ai-source-count"><?php echo $crawled_count; ?></a>
                         <span class="techno-stat-label">AI Source Count</span>
                     </div>
                 </div>
