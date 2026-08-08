@@ -287,9 +287,21 @@ class Techno_Chatbot_Public {
     	$livechat_enabled = $livechat_plan['allowed'] === true;
 
 		$languages = get_option( 'techno_chatbot_active_languages', array() );
-		if ( ! is_array( $languages ) ) $languages = array();
-		unset( $languages['en'] );
-		$languages = array( 'en' => 'English' ) + $languages;
+		$license_data = (array) get_option( 'techno_chatbot_license_data', array() );
+		$language_limit = (int) ( $license_data['language_count'] ?? 0 );
+
+		if ( $language_limit > 0 ) {
+			if ( ! is_array( $languages ) ) {
+				$languages = array();
+			}
+			unset( $languages['en'] );
+			if ( count( $languages ) > $language_limit ) {
+				$languages = array_slice( $languages, 0, $language_limit, true );
+			}
+			$languages = array( 'en' => 'English' ) + $languages;
+		} else {
+			$languages = array( 'en' => 'English' );
+		}
 
 		include plugin_dir_path( __FILE__ ) . 'partials/techno-chatbot-public-chatbot.php';
 	}

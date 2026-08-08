@@ -34,7 +34,7 @@
                     <h2 class="techno-card-title">Current Plan</h2>
                     <span class="techno-badge <?php echo ($license_data['status'] != 'active')? 'inactive' : '' ?>"><?php echo ucwords($license_data['status']); ?></span>
                 </div>
-                <div class="techno-card-body">
+                <div class="techno-card-body techno-stats-inline">
                     <div class="techno-metric-group">
                         <span class="techno-metric-label">Plan Name</span>
                         <span class="techno-metric-value" id="techno-plan-name"><?php echo ucwords($license_data['plan']); ?></span>
@@ -46,7 +46,7 @@
                 </div>
             </div>
 
-            <!-- Card 2: AI Assistance & Usage -->
+            <!-- Card 2: AI Assistance & Usage / Multi-language limits -->
             <div class="techno-card techno-card-ai">
                 <div class="techno-card-header">
                     <h2 class="techno-card-title">AI Assistance</h2>
@@ -60,7 +60,7 @@
                         </div>
                         <!-- Usage Bar -->
                         <div class="techno-progress-bar-bg">
-                            <div class="techno-progress-bar-fill" style="width: <?php echo $remaining_percentage; ?>%;"></div>
+                            <div class="techno-progress-bar-fill <?php echo $remaining_percentage >= 90 ? 'danger' : ( $remaining_percentage >= 60 ? 'warning' : '' ); ?>" style="width: <?php echo esc_attr( $remaining_percentage ); ?>%;"></div>
                         </div>
                     </div>
                 </div>
@@ -81,6 +81,26 @@
                     <div class="techno-stat-item">
                         <a class="techno-stat-number" href="<?php echo add_query_arg([ 'post_type' => 'techno_chatbot_aidb' ], admin_url('edit.php')); ?>" id="techno-ai-source-count"><?php echo $crawled_count; ?></a>
                         <span class="techno-stat-label">AI Source Count</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4: Multi-language -->
+            <div class="techno-card techno-card-multilang">
+                <div class="techno-card-header">
+                    <h2 class="techno-card-title">Multi Language</h2>
+                    <span class="techno-status-pill <?php echo ($language_count >= 0)? 'active' : ''; ?>" id="techno-ai-status"><?php echo ($language_limit >= 0)? 'Active' : 'Inactive'; ?></span>
+                </div>
+                <div class="techno-card-body">
+                    <div class="techno-usage-details">
+                        <div class="techno-usage-text">
+                            <span class="techno-metric-label">Language Limit</span>
+                            <span class="techno-usage-numbers"><strong><?php echo $active_languages; ?></strong> / <span id="techno-ai-limit"><?php echo $language_limit; ?> languages</span></span>
+                        </div>
+                        <!-- Usage Bar -->
+                        <div class="techno-progress-bar-bg">
+                            <div class="techno-progress-bar-fill <?php echo $langused_percentage >= 90 ? 'danger' : ( $langused_percentage >= 60 ? 'warning' : '' ); ?>" style="width: <?php echo esc_attr( $langused_percentage ); ?>%;"></div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -123,10 +123,22 @@ class Techno_Chatbot_Admin_Fields_Languages {
 		}
 
         $languages = get_option( 'techno_chatbot_active_languages', array() );
+        $active_languages = count( (array) $languages );
         $supported_languages = defined( 'TECHNO_CHATBOT_SUPPORTED_LANGUAGE' ) ? TECHNO_CHATBOT_SUPPORTED_LANGUAGE : array();
+
+        $license_data = (array) get_option('techno_chatbot_license_data', []);
+        $language_limit = (int) ( $license_data['language_count'] ?? 0 );
+        
         ?>
         <p class="description" style="margin-bottom: 12px;">
-            <?php esc_html_e( 'Select secondary languages enabled for your chatbot from the supported list.', 'techno-chatbot' ); ?>
+            <?php 
+            echo wp_kses_post(
+                sprintf(
+                    __( 'You have <strong>(%d)</strong> language limit.<br/> Select secondary languages enabled for your chatbot from the supported list.', 'techno-chatbot' ),
+                    (int) $language_limit
+                )
+            );
+            ?>
         </p>
 
         <table class="widefat striped" id="td-chatbot-languages-table" style="max-width: 600px; margin-bottom: 12px;">
@@ -174,12 +186,26 @@ class Techno_Chatbot_Admin_Fields_Languages {
 
         if ( $disabled == '' ) {
         ?>
-            <button type="button" class="button button-secondary" id="add-lang-row">
-                + <?php esc_html_e( 'Add Language', 'techno-chatbot' ); ?>
-            </button>
+            <?php if( $active_languages > $language_limit ) { ?>
+                <p style="color: #ff0000;">
+                    <?php 
+                    printf( esc_html__( 'Warning: You have exceeded your allowed limit. The chatbot will only display the first %d language(s) based on your limit.', 'techno-chatbot' ), (int) $language_limit ); 
+                    ?>
+                </p>
+            <?php } ?>
+
+            <?php if( $language_limit >= $active_languages ) { ?>
+                <button type="button" class="button button-secondary" id="add-lang-row">
+                    + <?php esc_html_e( 'Add Language', 'techno-chatbot' ); ?>
+                </button>
+            <?php }else { ?>
+                <p>Contact us at <a sytle="color: #0072ff; font-weight: bold;" href="mailto:<?php echo TECHNO_CHATBOT_SUPPORT_EMAIL; ?>" target="_blank"><?php echo TECHNO_CHATBOT_SUPPORT_EMAIL; ?></a> for more language limit.</p>
+            <?php } ?>
 
             <script type="text/javascript">
                 jQuery(document).ready(function($) {
+                    var limit = <?php echo $language_limit; ?>;
+
                     var languageOptionsHtml = '<option value=""><?php echo esc_js( __( '-- Select Language --', 'techno-chatbot' ) ); ?></option>';
                     <?php foreach ( $supported_languages as $lang_name => $lang_code ) : ?>
                         languageOptionsHtml += '<option value="<?php echo esc_js( $lang_name ); ?>" data-code="<?php echo esc_js( $lang_code ); ?>"><?php echo esc_html( $lang_name ); ?></option>';
@@ -187,6 +213,13 @@ class Techno_Chatbot_Admin_Fields_Languages {
 
                     $('#add-lang-row').on('click', function(e) {
                         e.preventDefault();
+
+                        var currentRowCount = $('#td-chatbot-languages-body tr').length;
+                        if (currentRowCount >= limit) {
+                            alert('You can only add up to ' + limit + ' language(s) basing on your plan.');
+                            return;
+                        }
+
                         var newRow = `
                             <tr>
                                 <td>
@@ -201,6 +234,7 @@ class Techno_Chatbot_Admin_Fields_Languages {
                                     <button type="button" class="button remove-lang-row" style="color: #fff; background:#b32d2e; border-color: #b32d2e;">&times;</button>
                                 </td>
                             </tr>`;
+                        
                         $('#td-chatbot-languages-body').append(newRow);
                     });
 

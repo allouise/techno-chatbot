@@ -307,6 +307,7 @@ class Techno_Chatbot_Admin {
 			'status'              => 'Invalid',
 			'expiry_date'         => '',
 			'ai_assistance_limit' => 0,
+			'language_limit' 	  => 0,
 			'last_check'          => '',
 		];
 		$license_data = wp_parse_args((array) get_option('techno_chatbot_license_data', []), $default_license);
@@ -316,7 +317,15 @@ class Techno_Chatbot_Admin {
 		$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
 		$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
 		$chatbot_status       = ($enabled && !empty($basic_chat['allowed'])) ? 'Active' : 'Disabled';
-		$counts = get_transient('techno_chatbot_dashboard_counts');
+		$counts 			  = get_transient('techno_chatbot_dashboard_counts');
+		$active_languages 	  = count( (array) get_option( 'techno_chatbot_active_languages', array() ) );
+		$language_limit   	  = (int) ( $license_data['language_count'] ?? 0 );
+
+		if ( $language_limit > 0 ) {
+			$langused_percentage = min( 100, round( ( $active_languages / $language_limit ) * 100, 1 ) );
+		} else {
+			$langused_percentage = 100;
+		}
 
 		if (false === $counts) {
 			global $wpdb;
