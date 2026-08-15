@@ -201,6 +201,7 @@ class Techno_Chatbot {
 		$plugin_admin = new Techno_Chatbot_Admin( $this->get_plugin_name(), $this->get_version() );
 		$plugin_admin_texts = new Techno_Chatbot_Admin_Fields_Texts( $this->get_plugin_name(), $this->get_version() );
 
+		$this->loader->add_filter( 'woocommerce_prevent_admin_access', $plugin_admin, 'prevent_woocommerce_admin_redirect' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_footer', $plugin_admin_texts, 'render_translation_toggle_buttons' );
