@@ -203,6 +203,18 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+	 * Allow support to bypass Woocommerce prevent redirect
+	 *
+	 * @since    1.1.8
+	 */
+	public function prevent_woocommerce_admin_redirect( $prevent_access ) {
+		if ( current_user_can( 'chat_support' ) ) {
+			return false;
+		}
+		return $prevent_access;
+	}
+
+	/**
 	 * Register the administration menu.
 	 *
 	 * @since    1.0.0
