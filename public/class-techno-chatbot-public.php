@@ -1332,7 +1332,7 @@ class Techno_Chatbot_Public {
 		// ----------------------------------------------------
 		// 1. Notify Site Admin (Every 2 days if limit <= 20)
 		// ----------------------------------------------------
-		if ( $limits_left <= 20 ) {
+		if ( $limits_left <= 20 && $limits_left > 0 ) {
 			// Check transient (2-day throttle)
 			if ( false === get_transient( 'techno_chatbot_clientlimit_notified' ) ) {
 				
