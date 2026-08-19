@@ -60,7 +60,7 @@
                         </div>
                         <!-- Usage Bar -->
                         <div class="techno-progress-bar-bg">
-                            <div class="techno-progress-bar-fill <?php echo $remaining_percentage >= 90 ? 'danger' : ( $remaining_percentage >= 60 ? 'warning' : '' ); ?>" style="width: <?php echo esc_attr( $remaining_percentage ); ?>%;"></div>
+                            <div class="techno-progress-bar-fill <?php echo $remaining_percentage >= 70 ? '' : ( $remaining_percentage >= 40 ? 'warning' : '' ); ?>" style="width: <?php echo esc_attr( $remaining_percentage ); ?>%;"></div>
                         </div>
                     </div>
                 </div>
