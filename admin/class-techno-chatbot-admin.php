@@ -376,6 +376,37 @@ class Techno_Chatbot_Admin {
 		$faq_count     = $counts['faq'];
 		$crawled_count = $counts['crawled'];
 
+		// --- NEW: Inquiries Date Filtering & Data Retrieval ---
+		$start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : date('Y-m-01');
+		$end_date   = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : date('Y-m-t');
+
+		global $wpdb;
+		$table_conversations = $wpdb->prefix . 'techno_cb_conversations';
+		$table_messages      = $wpdb->prefix . 'techno_cb_messages';
+		$start_datetime = $start_date . ' 00:00:00';
+		$end_datetime   = $end_date . ' 23:59:59';
+		$total_inquiries = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(id) FROM {$table_conversations} WHERE created_at >= %s AND created_at <= %s",
+				$start_datetime,
+				$end_datetime
+			)
+		);
+		$live_chat_inquiries = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT c.id) 
+				FROM {$table_conversations} c 
+				INNER JOIN {$table_messages} m ON c.id = m.conversation_id 
+				WHERE m.message_type = %s 
+				AND c.created_at >= %s 
+				AND c.created_at <= %s",
+				'name_input',
+				$start_datetime,
+				$end_datetime
+			)
+		);
+		$normal_inquiries = max(0, $total_inquiries - $live_chat_inquiries);
+
 		include_once plugin_dir_path(__FILE__) . 'partials/techno-chatbot-admin-dashboard.php';
 	}
 

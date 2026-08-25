@@ -105,6 +105,35 @@
                 </div>
             </div>
 
+            <!-- Card 5: Inquiries Stats -->
+            <div class="techno-card techno-card-inquiries">
+                <div class="techno-card-header">
+                    <h2 class="techno-card-title"><?php esc_html_e( 'Inquiries', 'techno-chatbot' ); ?></h2>
+                    <form method="GET" action="" class="techno-date-filter-form" style="display: flex; gap: 5px; align-items: center;">
+                        <input type="hidden" name="page" value="<?php echo esc_attr( $_GET['page'] ?? '' ); ?>">
+                        <input type="date" name="start_date" value="<?php echo esc_attr($start_date); ?>" onchange="this.form.submit()" class="techno-date-input" />
+                        <span>-</span>
+                        <input type="date" name="end_date" value="<?php echo esc_attr($end_date); ?>" onchange="this.form.submit()" class="techno-date-input" />
+                    </form>
+                </div>
+                <div class="techno-card-body techno-stats-inline">
+                    <div class="techno-stat-item">
+                        <span class="techno-stat-number" id="techno-total-inquiries"><?php echo $total_inquiries; ?></span>
+                        <span class="techno-stat-label"><?php esc_html_e( 'Total', 'techno-chatbot' ); ?></span>
+                    </div>
+                    <div class="techno-stat-divider"></div>
+                    <div class="techno-stat-item">
+                        <span class="techno-stat-number" id="techno-normal-inquiries"><?php echo $normal_inquiries; ?></span>
+                        <span class="techno-stat-label"><?php esc_html_e( 'Normal', 'techno-chatbot' ); ?></span>
+                    </div>
+                    <div class="techno-stat-divider"></div>
+                    <div class="techno-stat-item">
+                        <span class="techno-stat-number" id="techno-livechat-inquiries"><?php echo $live_chat_inquiries; ?></span>
+                        <span class="techno-stat-label"><?php esc_html_e( 'Live Chat', 'techno-chatbot' ); ?></span>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Dashboard Footer & Support -->
