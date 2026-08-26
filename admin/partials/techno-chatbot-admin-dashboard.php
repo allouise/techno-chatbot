@@ -89,7 +89,7 @@
             <div class="techno-card techno-card-multilang">
                 <div class="techno-card-header">
                     <h2 class="techno-card-title">Multi Language</h2>
-                    <span class="techno-status-pill <?php echo ($language_count >= 0)? 'active' : ''; ?>" id="techno-ai-status"><?php echo ($language_limit >= 0)? 'Active' : 'Inactive'; ?></span>
+                    <span class="techno-status-pill <?php echo ($language_limit >= 0)? 'active' : ''; ?>" id="techno-ai-status"><?php echo ($language_limit >= 0)? 'Active' : 'Inactive'; ?></span>
                 </div>
                 <div class="techno-card-body">
                     <div class="techno-usage-details">
