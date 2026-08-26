@@ -598,6 +598,34 @@ class Techno_Chatbot_Public {
 			}
 		}
 
+		/* Send tracker to admin */
+		$inquiry_tracker = get_option( 'techno_chatbot_inquirytracker', '0' );
+        if ( ! empty( $inquiry_tracker ) && '0' !== (string) $inquiry_tracker ) {
+            // Get emails option or fallback to admin email
+            $to_notify = get_option( 'techno_chatbot_emails', '' );
+            
+            if ( empty( trim( $to_notify ) ) ) {
+                $to_notify = get_option( 'admin_email' );
+            }
+
+            $recipients = array_map( 'trim', explode( ',', $to_notify ) );
+            $recipients = array_filter( $recipients, 'is_email' );
+
+            if ( ! empty( $recipients ) ) {
+                $subject = 'Your Techno Chatbot Is Assisting a Website Visitor';
+                
+                $body  = '<p>Hi!,</p>';
+                $body .= '<p>We’re glad to let you know that your <strong>Techno Chatbot is currently assisting a website visitor</strong>.</p>';
+                $body .= '<p>Please note that the conversation may be transferred to a <strong>live chat representative only if the visitor requests live assistance and you are currently online and available</strong>.</p>';
+                $body .= '<p>If live assistance is not requested or no representative is available, the <strong>Techno Chatbot will continue assisting the visitor and answering their questions</strong>.</p>';
+                $body .= '<p>Thank you!</p>';
+
+                $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+                wp_mail( $recipients, $subject, $body, $headers );
+            }
+        }
+
         wp_send_json_success( [ 'id' => $conversation_id ] );
 	}
 
