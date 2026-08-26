@@ -105,6 +105,14 @@ class Techno_Chatbot_Admin_Fields_General {
 			'features'	  => array('multi_lang')
 		),
 
+		'techno_chatbot_inquirytracker' => array(
+			'label'       => 'Inquiry Tracker',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 0,
+			'description' => 'This will allow admin to receive a notification per each inquiry real time',
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'Notification Emails',
 			'type'        => 'text',

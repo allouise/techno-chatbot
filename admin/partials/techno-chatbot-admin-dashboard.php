@@ -124,12 +124,12 @@
                     <div class="techno-stat-divider"></div>
                     <div class="techno-stat-item">
                         <span class="techno-stat-number" id="techno-normal-inquiries"><?php echo $normal_inquiries; ?></span>
-                        <span class="techno-stat-label"><?php esc_html_e( 'Normal', 'techno-chatbot' ); ?></span>
+                        <span class="techno-stat-label"><?php esc_html_e( 'AI-Assisted Inquiries', 'techno-chatbot' ); ?></span>
                     </div>
                     <div class="techno-stat-divider"></div>
                     <div class="techno-stat-item">
                         <span class="techno-stat-number" id="techno-livechat-inquiries"><?php echo $live_chat_inquiries; ?></span>
-                        <span class="techno-stat-label"><?php esc_html_e( 'Live Chat', 'techno-chatbot' ); ?></span>
+                        <span class="techno-stat-label"><?php esc_html_e( 'Live Chat Requests', 'techno-chatbot' ); ?></span>
                     </div>
                 </div>
             </div>
