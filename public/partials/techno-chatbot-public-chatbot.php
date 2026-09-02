@@ -27,7 +27,7 @@
 </div>
 
 <!-- Chat Window -->
-<div id="techno-chatbot-window" class="techno-chatbot-hidden">
+<div id="techno-chatbot-window" class="<?php echo ((bool) $openonload) ? '' : 'techno-chatbot-hidden'; ?>">
 
 	<div class="techno-chatbot-header">
 		<span style="line-height: 100%;">
