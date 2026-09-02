@@ -102,6 +102,13 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'description' => 'Require name before transferring client to live chat.',
 		),
 
+		'techno_chatbot_openonload' => array(
+			'label'       => 'Opened Chatbox',
+			'type'        => 'checkbox',
+			'section'     => 'behavior_section',
+			'default'     => '',
+			'description' => 'Open Chatbox on page load',
+		),
 	);
 
     /**
