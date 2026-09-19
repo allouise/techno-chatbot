@@ -114,7 +114,7 @@ class Techno_Chatbot_Admin_Fields_General {
 		),
 
 		'techno_chatbot_emails' => array(
-			'label'       => 'Notification Emails',
+			'label'       => 'AI Chatbot Notification Emails',
 			'type'        => 'text',
 			'section'     => 'general_section',
 			'default'     => '',
