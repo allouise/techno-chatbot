@@ -68,7 +68,8 @@ You can customize the following components:
 = 1.2.4 =
 * Updated package names
 * Updated admin labels
-* Fixed notification emails not sending
+* Added notification for Follow up request
+* Fixed history too long unnamed chats
 
 = 1.2.3 =
 * Auto Open Feature

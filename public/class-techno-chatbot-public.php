@@ -619,7 +619,7 @@ class Techno_Chatbot_Public {
 			}
 
 			if ( ! empty( $recipients ) ) {
-				$subject = 'Techno Chatbot: Assisting Visitor';
+				$subject = 'TD Chatbot: Assisting Visitor';
 				
 				$body  = '<p>Hi!,</p>';
 				$body .= "<p>We're glad to let you know that your <strong>Techno Chatbot is currently assisting a website visitor</strong>.</p>";
@@ -703,6 +703,8 @@ class Techno_Chatbot_Public {
 		/* Check Conversation & Session ID */
 		$conversation_id = isset($_POST['conversation_id'])? sanitize_text_field($_POST['conversation_id']) : null;
 		$session_id = isset( $_POST['session_id'] )? sanitize_text_field( wp_unslash( $_POST['session_id'] ) ) : '';
+		$state = isset( $_POST['state'] )? sanitize_text_field( $_POST['state'] ) : '';
+		
         if ( ! $conversation_id || ! $session_id ) {
 			wp_send_json_error( [ 'message' => 'Missing session or conversation parameters' ], 400 );
 		}
@@ -713,6 +715,12 @@ class Techno_Chatbot_Public {
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'techno_cb_conversations';
+
+		// Query for customer name prior to updating the row
+		$customer_name = $wpdb->get_var(
+			$wpdb->prepare( "SELECT name FROM {$table} WHERE id = %d AND session_id = %s", $conversation_id, $session_id )
+		);
+		
 		$updated = $wpdb->query(
 			$wpdb->prepare( "UPDATE {$table} SET ended_at = %s WHERE id = %d AND session_id = %s", current_time( 'mysql' ), $conversation_id, $session_id )
 		);
@@ -740,7 +748,7 @@ class Techno_Chatbot_Public {
 						$admin_emails = $parsed_emails;
 					}
 				}
-				$subject = sprintf( __( '[New Lead] Chat Conversation #%d Transcript', 'techno-chatbot' ), $conversation_id );
+				$subject = __( 'TD Chatbot - Chat Transcript', 'techno-chatbot' );
 				$this->send_email_transcript( $admin_emails, $messages, $subject );
 			}
 
@@ -757,6 +765,75 @@ class Techno_Chatbot_Public {
 					break; // Stop after finding the first matching message
 				}
 			}
+		}
+
+		// ---- Send Follow up message ----
+		if ( 'followup_request' === $state ) {
+			$emails_option = get_option( 'techno_chatbot_emails' );
+			$admin_emails  = [ sanitize_email( get_option( 'admin_email' ) ) ];
+
+			if ( ! empty( $emails_option ) ) {
+				$parsed_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( ',', $emails_option ) ) ) );
+				if ( ! empty( $parsed_emails ) ) {
+					$admin_emails = $parsed_emails;
+				}
+			}
+
+			$client_name = ! empty( $customer_name ) ? sanitize_text_field( $customer_name ) : 'Not provided';
+			$client_email = 'Not provided';
+			$client_phone = 'Not provided';
+			$preferred_time   = 'Not specified';
+
+			if ( ! empty( $chat_data['messages'] ) ) {
+				foreach ( $chat_data['messages'] as $msg ) {
+					$type    = $msg['message_type'] ?? '';
+					$content = sanitize_text_field( $msg['message'] ?? $msg['content'] ?? '' );
+
+					// Check for Email
+					if ( 'Not provided' === $client_email && in_array( $type, [ 'email_input_answer', 'email_end_input_answer' ], true ) ) {
+						$sanitized_email = sanitize_email( $content );
+						if ( is_email( $sanitized_email ) ) {
+							$client_email = $sanitized_email;
+						}
+					}
+
+					// Check for Phone
+					if ( 'Not provided' === $client_phone && 'phone_input_answer' === $type ) {
+						if ( ! empty( $content ) ) {
+							$client_phone = $content;
+						}
+					}
+
+					// Check for Best Time to Call
+					if ( 'Not specified' === $preferred_time && 'time_input_answer' === $type ) {
+						if ( ! empty( $content ) ) {
+							$preferred_time = $content;
+						}
+					}
+				}
+			}
+
+			// Prepare email details
+			$history_url = admin_url( 'admin.php?page=techno-chatbot-livechat&tab=history' );
+			$subject = __( 'TD Chatbot - Follow-up Request', 'techno-chatbot' );
+			$body  = '<p>' . __( 'Hello,', 'techno-chatbot' ) . '</p>';
+			$body .= '<p>' . __( 'A customer has requested a follow-up at the end of their chat session.', 'techno-chatbot' ) . '</p>';
+			$body .= '<ul>';
+			$body .= '<li><strong>' . __( 'Conversation ID:', 'techno-chatbot' ) . '</strong> ' . esc_html( $conversation_id ) . '</li>';
+			$body .= '<li><strong>' . __( 'Customer Name:', 'techno-chatbot' ) . '</strong> ' . esc_html( $client_name ) . '</li>';
+			$body .= '<li><strong>' . __( 'Customer Email:', 'techno-chatbot' ) . '</strong> ' . esc_html( $client_email ) . '</li>';
+			$body .= '<li><strong>' . __( 'Customer Phone:', 'techno-chatbot' ) . '</strong> ' . esc_html( $client_phone ) . '</li>';
+			$body .= '<li><strong>' . __( 'Best Time to Call:', 'techno-chatbot' ) . '</strong> ' . esc_html( $preferred_time ) . '</li>';
+			$body .= '</ul>';
+			$body .= '<p>' . sprintf(
+				__( 'Please <a href="%s">review the chat transcript in the dashboard</a> to assist them.', 'techno-chatbot' ),
+				esc_url( $history_url )
+			) . '</p>';
+
+			// Set HTML headers
+			$headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+			wp_mail( $admin_emails, $subject, $body, $headers );
 		}
 
 		wp_send_json_success( [ 'message' => 'Conversation ended successfully' ] );
@@ -1394,7 +1471,7 @@ class Techno_Chatbot_Public {
 
 				// Send email to client
 				if ( ! empty( $recipients ) ) {
-					$subject = 'Techno Chatbot - AI Assistance Limit Update';
+					$subject = 'TD Chatbot - AI Assistance Limit Update';
 					$response_label = ( $limits_left === 1 ) ? 'response' : 'responses';
 					$message = sprintf(
 						"Notice: You have %d AI %s remaining on your plan. Please reach out to <a href=\"mailto:%s\">%s</a> to renew your balance. Once depleted, AI replies will be paused automatically.",

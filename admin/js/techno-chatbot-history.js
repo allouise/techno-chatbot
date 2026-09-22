@@ -12,10 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportHistory = document.getElementById('export-history');
     const selectAllVisitor = document.getElementById('history-select-all');
 
-    if (visitorList){
+    if (visitorList) {
         visitorList.addEventListener('click', async (event) => {
             const visitor = event.target.closest('[data-session]');
-            if (!visitor)  return;
+            if (!visitor) return;
 
             document.querySelectorAll('.open-history').forEach(item => item.classList.remove('active'));
             visitor.classList.add('active');
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if(getHistoryList){
+    if (getHistoryList) {
         getHistoryList.addEventListener('click', loadVisitors);
     }
 
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
     if (exportHistory) {
         exportHistory.addEventListener('click', () => {
             const sessions = getSelectedSessions();
@@ -143,37 +143,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function loadVisitors(){
-        if(!fromDate || !toDate) return;
-        if( !fromDate.value || !toDate.value ) return;
+    async function loadVisitors() {
+        if (!fromDate || !toDate) return;
+        if (!fromDate.value || !toDate.value) return;
 
-        visitorList.innerHTML='';
+        visitorList.innerHTML = '';
         con.classList.add('loading');
 
         const form = new FormData();
-        form.append('action','techno_chat_history_list');
-        form.append('nonce',technoHistory.nonce);
-        form.append('from',fromDate.value);
-        form.append('to',toDate.value);
+        form.append('action', 'techno_chat_history_list');
+        form.append('nonce', technoHistory.nonce);
+        form.append('from', fromDate.value);
+        form.append('to', toDate.value);
 
         const response = await fetch(
             technoHistory.ajax_url,
             {
-                method:'POST',
-                body:form
+                method: 'POST',
+                body: form
             }
         );
 
         const json = await response.json();
         con.classList.remove('loading');
-        if(!json.success){
-            if( visitorListControl ) visitorListControl.classList.add('disabled');
+        if (!json.success) {
+            if (visitorListControl) visitorListControl.classList.add('disabled');
             return;
         }
-        if(json.data.length === 0){
-            if( visitorListControl ) visitorListControl.classList.add('disabled');
-            visitorList.innerHTML=
-            `<li class="techno-history-empty">
+        if (json.data.length === 0) {
+            if (visitorListControl) visitorListControl.classList.add('disabled');
+            visitorList.innerHTML =
+                `<li class="techno-history-empty">
                 No chat history found from
                 ${formatDate(fromDate.value)}
                 to
@@ -183,9 +183,9 @@ document.addEventListener('DOMContentLoaded', () => {
             header.innerHTML = 'History: N/A';
             return;
         }
-        
-        if( visitorListControl ) visitorListControl.classList.remove('disabled');
-        json.data.forEach(chat=>{
+
+        if (visitorListControl) visitorListControl.classList.remove('disabled');
+        json.data.forEach(chat => {
             visitorList.insertAdjacentHTML(
                 'beforeend',
                 visitorHtml(chat)
@@ -202,16 +202,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getSelectedSessions() {
-        if( !visitorList ) return [];
+        if (!visitorList) return [];
         return [...visitorList.querySelectorAll('[name="selected-visitors[]"]:checked')]
             .map(cb => cb.value);
     }
 
-    function visitorHtml(chat){
+    function visitorHtml(chat) {
         let first = new Date(chat.created_at);
         let last = new Date(chat.ended_at);
-        let span = formatChatSpan(first,last);
-        let name = chat.name ? titleCase(chat.name) : chat.session_id;
+        let span = formatChatSpan(first, last);
+        let name = chat.name ? titleCase(chat.name) : `Anon ID: ${chat.session_id.slice(0, 3)}...`;
 
         return `<li class="techno-history-visitor">
                 <input type="checkbox" name="selected-visitors[]" value="${chat.id}"/>
@@ -225,25 +225,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     }
 
-    function formatChatSpan(first,last){
-        const same = first.toDateString()===last.toDateString();
+    function formatChatSpan(first, last) {
+        const same = first.toDateString() === last.toDateString();
         const options = {
-            month:'short',
-            day:'numeric',
-            year:'numeric',
-            hour:'numeric',
-            minute:'2-digit'
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
         };
 
-        if(same) return first.toLocaleString([],options);
-        return first.toLocaleString([],options) +' - '+ last.toLocaleString([],options);
+        if (same) return first.toLocaleString([], options);
+        return first.toLocaleString([], options) + ' - ' + last.toLocaleString([], options);
     }
 
-    function formatDate(date){
-        return new Date(date).toLocaleDateString([],{
-            month:'short',
-            day:'numeric',
-            year:'numeric'
+    function formatDate(date) {
+        return new Date(date).toLocaleDateString([], {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
         });
     }
 

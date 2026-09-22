@@ -37,7 +37,7 @@
                 <div class="techno-card-body techno-stats-inline">
                     <div class="techno-metric-group">
                         <span class="techno-metric-label">Plan Name</span>
-                        <span class="techno-metric-value" id="techno-plan-name"><?php echo ucwords($license_data['plan']); ?></span>
+                        <span class="techno-metric-value" id="techno-plan-name"><?php echo esc_html( techno_chatbot_get_plan_label( $license_data['plan'] ) ); ?></span>
                     </div>
                     <div class="techno-metric-group">
                         <span class="techno-metric-label">Last Check</span>
