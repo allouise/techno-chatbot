@@ -1,7 +1,7 @@
 class TechnoChatbot {
     constructor() {
         this.el = {};
-        
+
         this.botData = {};
         this.config = null;
         this.storageKeys = null;
@@ -34,9 +34,9 @@ class TechnoChatbot {
     async init() {
         this.cacheElements();
 
-        if (!this.el.loader || !this.el.icon || !this.el.window || !this.el.messages || !this.el.input || !this.el.send){
+        if (!this.el.loader || !this.el.icon || !this.el.window || !this.el.messages || !this.el.input || !this.el.send) {
             console.warn('TechnoChatbot: Required DOM elements are missing. Class initialization stopped.');
-            return false; 
+            return false;
         };
 
         this.setupConfigurations();
@@ -97,7 +97,7 @@ class TechnoChatbot {
             supportIdleTime: parseInt(this.botData.idleTimer) || 0,
             liveChatEnabled: Boolean(this.botData.liveChatEnabled),
             allowed_types: ['phone_input', 'email_input', 'time_input', 'name_input', 'email_end_input'],
-            allowed_states: ['request_transcript'],
+            allowed_states: ['request_transcript', 'followup_request'],
             timeFormatter: new Intl.DateTimeFormat('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -128,8 +128,8 @@ class TechnoChatbot {
     }
 
     async socketIdleCheck(socket_error = false) {
-        if(!this.config.liveChatEnabled || this.socketId == null) return;
-        
+        if (!this.config.liveChatEnabled || this.socketId == null) return;
+
         const idleTime = this.config.supportIdleTime;
 
         this.clearIdleDisconnectTimer();
@@ -245,14 +245,14 @@ class TechnoChatbot {
 
         this.el.messages.appendChild(typing);
         this.scrollToBottom();
-        
+
         return typing;
     }
 
-    hideTyping(){
+    hideTyping() {
         const typing = this.el.messages.querySelector('.techno-chatbot-message.typing');
         if (!typing) return;
-        
+
         typing.remove();
         this.disableInput(false);
         this.el.input.placeholder = this.inputPlaceholders.default;
@@ -278,7 +278,7 @@ class TechnoChatbot {
     }
 
     updateTranscriptButtonVisibility() {
-        if (!this.el.transcriptRequest) return;        
+        if (!this.el.transcriptRequest) return;
         const shouldHide = this.state === 'request_transcript' || this.recentSession == null || this.socketId != null;
         this.el.transcriptRequest.classList.toggle('techno-cb-hide', shouldHide);
     }
@@ -321,10 +321,10 @@ class TechnoChatbot {
         if (type === 'system') {
             this.showOptions(this.optionType.noAnswer);
             displayedOptions = true;
-        }else if (type === 'system_end') {
+        } else if (type === 'system_end') {
             this.showOptions(this.optionType.endLive);
             displayedOptions = true;
-        }else if(this.config.allowed_types.includes(type)) {
+        } else if (this.config.allowed_types.includes(type)) {
             this.requireInput = type;
         }
 
@@ -413,6 +413,7 @@ class TechnoChatbot {
             await this.addMessage(visitorText, 'visitor');
             await this.addMessage(botLabel, 'bot', true, `${method}_input`);
             this.requireInput = `${method}_input`;
+            this.setState('followup_request');
 
             this.hideTyping();
             return;
@@ -422,31 +423,31 @@ class TechnoChatbot {
             case 'livechat':
                 await this.addMessage(this.botData.menuLivechat, 'visitor');
                 await this.transferLiveChat();
-            break;
+                break;
 
             case 'email_end':
                 await this.addMessage(this.botData.menuHistorySend, 'visitor');
                 await this.addMessage(this.botData.askEmail, 'bot', true, 'email_end_input');
                 this.requireInput = 'email_end_input';
-            break;
+                break;
 
             case 'end':
                 await this.addMessage(this.botData.menuLeave, 'visitor');
                 this.finishInput(this.botData.endChatMsg);
-            break;
+                break;
 
             case 'restart':
                 await this.reset();
-            break;
+                break;
         }
 
         this.hideTyping();
     }
 
-    async finishInput( last_msg = '' ){
-        if( this.conversationId == null ) return;
+    async finishInput(last_msg = '') {
+        if (this.conversationId == null) return;
 
-        if( this.state == 'request_transcript' ){
+        if (this.state == 'request_transcript') {
             await this.requestTranscript();
             return;
         }
@@ -508,11 +509,11 @@ class TechnoChatbot {
             this.socketName = visitorName;
             this.updateConversation(visitorName);
         }
-        
+
         await this.addMessage(this.botData.transferredToSupport, 'bot', true);
-        this.socket.emit("visitor-join", { 
-            session_id: this.socketId, 
-            visitor_name: this.socketName 
+        this.socket.emit("visitor-join", {
+            session_id: this.socketId,
+            visitor_name: this.socketName
         });
     }
 
@@ -520,20 +521,20 @@ class TechnoChatbot {
        Storage & Local State
        ========================================================================== */
 
-    async reset( clear_only = false, msg = '' ) {
+    async reset(clear_only = false, msg = '') {
 
         this.el.messages.innerHTML = '';
         this.showTyping();
 
         try {
-            msg = (msg != '')? msg : this.botData.menuReset;
-            if( clear_only === true ){
+            msg = (msg != '') ? msg : this.botData.menuReset;
+            if (clear_only === true) {
                 this.addMessage(msg, 'visitor', false);
 
                 localStorage.removeItem(this.storageKeys.session);
                 localStorage.removeItem(this.storageKeys.failedanswer);
                 localStorage.removeItem(this.storageKeys.state);
-                
+
                 this.conversationId = null;
                 this.socketId = null;
                 this.socketName = null;
@@ -541,7 +542,7 @@ class TechnoChatbot {
                 this.state = '';
                 this.failedAnswer = 0;
                 this.sessionId = null;
-            }else{
+            } else {
                 await this.addMessage(msg, 'visitor');
                 await this.stopConversation();
                 await this.getConversation();
@@ -554,12 +555,12 @@ class TechnoChatbot {
         }
     }
 
-    getState(){
+    getState() {
         return localStorage.getItem(this.storageKeys.state) || null;
     }
 
-    setState(state){
-        if(this.config.allowed_states.includes(state)){
+    setState(state) {
+        if (this.config.allowed_states.includes(state)) {
             this.state = state;
             localStorage.setItem(this.storageKeys.state, state);
         }
@@ -680,7 +681,7 @@ class TechnoChatbot {
     }
 
     async getConversation() {
-        if (this.sessionId == null){
+        if (this.sessionId == null) {
             if (this.botData.welcomeMessage) {
                 this.addMessage(this.botData.welcomeMessage, 'bot', false);
             }
@@ -719,9 +720,9 @@ class TechnoChatbot {
 
             const messages = data.data?.messages;
 
-            if( this.socketId != null ){
-                this.socket.emit("visitor-join", { 
-                    session_id: this.socketId, 
+            if (this.socketId != null) {
+                this.socket.emit("visitor-join", {
+                    session_id: this.socketId,
                     visitor_name: this.socketName
                 });
             }
@@ -750,7 +751,7 @@ class TechnoChatbot {
 
         const sessionId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const params = { session_id: sessionId };
-        if ( this.botData.welcomeMessage ) {
+        if (this.botData.welcomeMessage) {
             params.message = this.botData.welcomeMessage;
         }
 
@@ -774,7 +775,7 @@ class TechnoChatbot {
     }
 
     async updateConversation(name = '') {
-        if (this.conversationId == null || this.sessionId == null || this.socketId == null ) {
+        if (this.conversationId == null || this.sessionId == null || this.socketId == null) {
             console.warn("Cannot update conversation: Missing required session data.");
             return false;
         }
@@ -811,28 +812,29 @@ class TechnoChatbot {
         try {
             const res = await this.apiCall("techno_end_conversation", {
                 session_id: this.sessionId,
-                conversation_id: this.conversationId
+                conversation_id: this.conversationId,
+                state: this.state
             });
             const data = await res.json();
             if (!data.success) {
                 throw new Error(data.data?.message || "Failed to end conversation");
             }
 
-            if( this.socketId != null ){
+            if (this.socketId != null) {
                 this.socket.emit("end-chat", { session_id: this.socketId });
             }
 
             localStorage.removeItem(this.storageKeys.session);
             localStorage.removeItem(this.storageKeys.failedanswer);
             localStorage.removeItem(this.storageKeys.state);
-            
+
             this.conversationId = null;
             this.socketId = null;
             this.socketName = null;
             this.requireInput = '';
             this.state = '';
             this.failedAnswer = 0;
-            
+
             this.sessionId = null;
 
             return true;
@@ -851,7 +853,7 @@ class TechnoChatbot {
             if (data.success) {
                 return data.data;
             }
-            if(data.data.transfer_to_qa){
+            if (data.data.transfer_to_qa) {
                 return data.data;
             }
             return null;
@@ -862,7 +864,7 @@ class TechnoChatbot {
     }
 
     async addMessage(text, sender, save = true, type = 'text', token = null) {
-        if( save === true && ( this.conversationId == null || this.sessionId == null ) ) return;
+        if (save === true && (this.conversationId == null || this.sessionId == null)) return;
 
         const message = document.createElement('div');
         message.className = `techno-chatbot-message ${sender}`;
@@ -896,7 +898,7 @@ class TechnoChatbot {
         const res = await this.apiCall("techno_save_chat_message", params, { urlEncoded: true, keepalive: true });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            if( data.data.message ){
+            if (data.data.message) {
                 this.addMessage(data.data.message, 'bot', false);
             }
             throw new Error(`Failed to save message (${res.status})`);
@@ -909,7 +911,7 @@ class TechnoChatbot {
         this.toggleLoader(true);
 
         try {
-            
+
             this.showTyping();
 
             /* destory the state early */
@@ -926,7 +928,7 @@ class TechnoChatbot {
 
             const data = await res.json();
             this.hideTyping();
-            
+
             if (data.success) {
                 await this.addMessage(this.botData.historySent, 'bot', true);
             } else {
@@ -966,20 +968,20 @@ class TechnoChatbot {
                 });
             };
 
-            if ( this.botData?.greetingsIntent?.length > 0 && this.botData?.greetingsIntentAnswer && matchesKeyword(this.botData.greetingsIntent) ) {
+            if (this.botData?.greetingsIntent?.length > 0 && this.botData?.greetingsIntentAnswer && matchesKeyword(this.botData.greetingsIntent)) {
                 answer = this.botData.greetingsIntentAnswer;
                 this.resetFailCount();
-            } else if ( this.botData?.genericHelpIntent?.length > 0 && this.botData?.genericHelpIntentAnswer && matchesKeyword(this.botData.genericHelpIntent) ) {
+            } else if (this.botData?.genericHelpIntent?.length > 0 && this.botData?.genericHelpIntentAnswer && matchesKeyword(this.botData.genericHelpIntent)) {
                 answer = this.botData.genericHelpIntentAnswer;
                 this.resetFailCount();
             }
 
-            if ( this.botData.aiEnabled == 1 && answer == null ) {
+            if (this.botData.aiEnabled == 1 && answer == null) {
                 const aiResponse = await this.findAIAnswer(message);
 
-                if( aiResponse.transfer_to_qa && aiResponse.transfer_to_qa == true ){
+                if (aiResponse.transfer_to_qa && aiResponse.transfer_to_qa == true) {
                     this.botData.aiEnabled = 0;
-                    
+
                     await new Promise(resolve => setTimeout(resolve, 300));
                     answer = this.findFaqAnswer(message);
                     if (answer === this.botData.noAnswer) {
@@ -987,11 +989,11 @@ class TechnoChatbot {
                     } else {
                         this.resetFailCount();
                     }
-                }else{
+                } else {
                     answer = aiResponse?.answer;
-                    tokens = { 
-                        prompt_tokens: aiResponse?.prompt_tokens ?? 0, 
-                        completion_tokens: aiResponse?.completion_tokens ?? 0 
+                    tokens = {
+                        prompt_tokens: aiResponse?.prompt_tokens ?? 0,
+                        completion_tokens: aiResponse?.completion_tokens ?? 0
                     };
 
                     if (answer && answer !== "NO_ANSWER") {
@@ -1000,7 +1002,7 @@ class TechnoChatbot {
                         error = true;
                     }
                 }
-            } else if( answer == null ) {
+            } else if (answer == null) {
                 await new Promise(resolve => setTimeout(resolve, 300));
                 answer = this.findFaqAnswer(message);
                 if (answer === this.botData.noAnswer) {
@@ -1023,10 +1025,10 @@ class TechnoChatbot {
 
             this.hideTyping();
 
-            if( options != '' ){
+            if (options != '') {
                 await this.addMessage(answer, 'bot', true, 'system', tokens);
                 this.showOptions(options);
-            }else{
+            } else {
                 await this.addMessage(answer, 'bot', true, 'text', tokens);
             }
 
@@ -1041,7 +1043,7 @@ class TechnoChatbot {
         const now = Date.now();
         if (now - this.lastSendTime < this.minSendInterval) {
             this.addMessage(this.botData.spamLimitMsg, 'bot', false);
-            return; 
+            return;
         }
 
         if (this.isProcessing) return;
@@ -1059,7 +1061,7 @@ class TechnoChatbot {
                 await this.startConversation();
             }
 
-            if( ( this.botData.transferLiveChatKeywords && this.botData.transferLiveChatKeywords.length > 0 ) || ( this.botData.transferKeywords && this.botData.transferKeywords.length > 0 ) ){
+            if ((this.botData.transferLiveChatKeywords && this.botData.transferLiveChatKeywords.length > 0) || (this.botData.transferKeywords && this.botData.transferKeywords.length > 0)) {
                 const normalizedText = this.normalizeText(userMessage);
                 const matchesKeyword = (keywords) => Array.isArray(keywords) && keywords.some(k => k && normalizedText.includes(this.normalizeText(k)));
 
@@ -1075,7 +1077,7 @@ class TechnoChatbot {
                 if (matchesKeyword(this.botData.transferKeywords)) {
                     await this.addMessage(userMessage, 'visitor');
                     this.resetFailCount();
-                    
+
                     const replyMsg = this.botData.nextStepMsg || this.botData.noAnswerFinalDefault || this.botData.noAnswer || '...';
                     await this.addMessage(replyMsg, 'bot', true, 'system');
                     this.showOptions(this.optionType.noAnswer);
@@ -1095,7 +1097,7 @@ class TechnoChatbot {
                     }
 
                     await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
-                    
+
                     if (parseInt(this.botData.timeToCall, 10) === 1) {
                         await this.addMessage(this.botData.timeToCallTxt, 'bot', true, 'time_input');
                         this.requireInput = 'time_input';
@@ -1112,7 +1114,7 @@ class TechnoChatbot {
                         await this.addMessage(this.botData.emailError, 'bot', true, currentType);
                         return;
                     }
-                    
+
                     await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
                     await this.finishInput();
                     this.requireInput = '';
@@ -1125,7 +1127,7 @@ class TechnoChatbot {
                         await this.addMessage(this.botData.emailError, 'bot', true, currentType);
                         return;
                     }
-                    
+
                     await this.addMessage(userMessage, 'visitor', true, `${currentType}_answer`);
                     await this.finishInput(this.botData.historySent);
                     this.requireInput = '';
@@ -1151,14 +1153,14 @@ class TechnoChatbot {
             await this.addMessage(userMessage, 'visitor');
 
             /* Transferred to Live Chat Message */
-            if(this.socket && this.socket.connected && this.socketId != null){
+            if (this.socket && this.socket.connected && this.socketId != null) {
                 this.socket.emit("send-message", {
                     session_id: this.socketId,
                     message: userMessage,
                     sender: "visitor"
                 });
                 return;
-            }else{
+            } else {
                 /* FAQ/AI Answers */
                 await this.handleFaqReply(userMessage);
             }
@@ -1168,18 +1170,18 @@ class TechnoChatbot {
         }
     }
 
-    handleReceivedMessage(msg){
+    handleReceivedMessage(msg) {
         const message = (msg.message || '').trim();
-        if(!message || message == '') return;
+        if (!message || message == '') return;
 
-        if(msg.type == 'text'){
+        if (msg.type == 'text') {
             this.addMessage(message, msg.sender, false);
-        }else if(msg.type == 'system_end'){
+        } else if (msg.type == 'system_end') {
             this.addMessage(this.botData.end_msg, msg.sender, false);
             this.showOptions(this.optionType.endLive);
-        }else if(msg.type == 'end_idlelive'){
+        } else if (msg.type == 'end_idlelive') {
             this.reset(true, this.botData.end_msgidleguest);
-        }else if(msg.session_id == this.socketId){
+        } else if (msg.session_id == this.socketId) {
             this.addMessage(message, msg.sender, false);
         }
     }
@@ -1221,13 +1223,13 @@ class TechnoChatbot {
                 socket.connect();
             }
         });
-        
+
         this.socket.on("connect_error", (err) => {
             if (err.message === "invalid session id") {
                 socket.connect();
             }
             if (!this.hasHandledConnectError) {
-                this.hasHandledConnectError = true;       
+                this.hasHandledConnectError = true;
                 this.supportOnline = false;
                 this.socketIdleCheck(true);
             }

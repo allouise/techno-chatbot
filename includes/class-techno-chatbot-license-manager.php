@@ -36,6 +36,18 @@ class Techno_Chatbot_License_Manager {
 		'free' => [ 'label' => 'Free', 'url' => '#', 'features' => [ 
 		
 		] ], 
+		// Backward compatibility for old 'standard' package
+		'standard' => [ 'label' => 'Package 1', 'url' => '#', 'features' => [ 
+			'basic_chat' => 'Basic Chat',
+			'multi_lang' => 'Multi Language'
+		] ], 
+		// Backward compatibility for old 'master' package
+		'master' => [ 'label' => 'Package 2', 'url' => '#', 'features' => [
+			'basic_chat' => 'Basic Chat',
+			'live_chat' => 'Live Chat',
+			'ai_training' => 'Ai Training',
+			'multi_lang' => 'Multi Language'
+		] ],
 		'package1' => [ 'label' => 'Package 1', 'url' => '#', 'features' => [ 
 			'basic_chat' => 'Basic Chat',
 			'multi_lang' => 'Multi Language'
@@ -45,7 +57,8 @@ class Techno_Chatbot_License_Manager {
 			'live_chat' => 'Live Chat',
 			'ai_training' => 'Ai Training',
 			'multi_lang' => 'Multi Language'
-		] ] ];
+		] ],
+	];
 
     /**
      * Class instance
@@ -177,11 +190,43 @@ class Techno_Chatbot_License_Manager {
 	}
 
 	/**
-	 * Get plan data
+	 * Get all plans
+	 *
+	 * @since    1.0.0
+	 * @return   array
 	 */
-	private function get_plan_data($plan = null) {
-		$plan = $plan ?: $this->get_plan();
+	public function get_plans() {
+		return $this->plugin_plans;
+	}
+
+	/**
+	 * Get plan data
+	 *
+	 * @since    1.0.0
+	 * @param    string|null $plan Plan slug/key.
+	 * @return   array
+	 */
+	public function get_plan_data($plan = null) {
+		$plan = $plan ? strtolower($plan) : $this->get_plan();
 		return $this->plugin_plans[$plan] ?? $this->plugin_plans['free'];
+	}
+
+	/**
+	 * Get plan label
+	 *
+	 * @since    1.0.0
+	 * @param    string|null $plan Plan slug/key.
+	 * @return   string
+	 */
+	public function get_plan_label($plan = null) {
+		$plan_key  = $plan ? strtolower($plan) : $this->get_plan();
+		$plan_data = $this->plugin_plans[$plan_key] ?? null;
+
+		if (!empty($plan_data['label'])) {
+			return $plan_data['label'];
+		}
+
+		return ucfirst($plan ?: 'Free');
 	}
 
 	/**

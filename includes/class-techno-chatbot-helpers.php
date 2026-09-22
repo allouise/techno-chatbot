@@ -7,6 +7,10 @@ function techno_chatbot_license() {
     return Techno_Chatbot_License_Manager::instance();
 }
 
+function techno_chatbot_get_plan_label($plan = null) {
+    return techno_chatbot_license()->get_plan_label($plan);
+}
+
 function techno_chatbot_feature($features){
     if (techno_chatbot_license()->has_feature($features)) {
         return [

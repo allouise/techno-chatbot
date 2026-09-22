@@ -266,7 +266,7 @@ class Techno_Chatbot_Admin_Fields_License {
 			]);
 
 			$status = ucfirst($license_data['status'] ?? 'Inactive');
-			$plan = ucfirst($license_data['plan'] ?? 'Free');
+			$plan = techno_chatbot_license()->get_plan_label($license_data['plan'] ?? 'free');
 			$expiry_date = !empty($license_data['expiry_date']) ? date('M d, Y', strtotime($license_data['expiry_date'])) : 'Lifetime';
 			$last_check = !empty($license_data['last_check']) ? date('Y-m-d H:i:s', $license_data['last_check']) : '';
 			$ai_assistance_limit = (int) ( $license_data['ai_assistance_limit'] ?? 0 );
