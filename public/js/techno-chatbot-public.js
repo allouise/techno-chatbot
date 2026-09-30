@@ -682,11 +682,13 @@ class TechnoChatbot {
 
     async getConversation() {
         if (this.sessionId == null) {
-            if (this.botData.welcomeMessage) {
-                this.addMessage(this.botData.welcomeMessage, 'bot', false);
-            }
-            this.toggleLoader(false);
-            return null
+            const hasMessages = this.el.messages && this.el.messages.children.length > 0;
+
+			if (this.botData.welcomeMessage && !hasMessages) {
+				this.addMessage(this.botData.welcomeMessage, 'bot', false);
+			}
+			this.toggleLoader(false);
+			return null;
         };
 
         this.toggleLoader(true);
@@ -1266,3 +1268,30 @@ class TechnoChatbot {
 document.addEventListener('DOMContentLoaded', () => {
     window.technoChatbotInstance = new TechnoChatbot();
 });
+
+if( window.technoChatbot?.jsPagesFix === '1' ){
+    let lastUrl = window.location.href;
+    function handlePageChange() {
+        if (window.technoChatbotInstance) {
+            if (window.technoChatbotInstance.socket) {
+                window.technoChatbotInstance.socket.disconnect();
+            }
+            if (window.technoChatbotInstance.idleDisconnectTimer) {
+                clearTimeout(window.technoChatbotInstance.idleDisconnectTimer);
+            }
+            window.technoChatbotInstance = null;
+        }
+        window.technoChatbotInstance = new TechnoChatbot();
+    }
+
+    const observer = new MutationObserver(() => {
+        if (window.location.href !== lastUrl) {
+            lastUrl = window.location.href;
+            handlePageChange();
+        }
+    });
+    const targetNode = document.querySelector('#content') || document.body;
+    if (targetNode) {
+        observer.observe(targetNode, { childList: true, subtree: true });
+    }
+}

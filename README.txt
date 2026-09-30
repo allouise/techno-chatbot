@@ -65,6 +65,11 @@ You can customize the following components:
 * Transfer rules and escalation behavior
 
 == Changelog ==
+= 1.2.5 =
+* Added show chatbot on specific pages only
+* Fix for issues on pages loaded with js
+* Added how to enable browser notification PDF
+
 = 1.2.4 =
 * Updated package names
 * Updated admin labels

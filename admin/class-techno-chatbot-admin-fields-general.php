@@ -113,6 +113,14 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'This will allow admin to receive a notification per each inquiry real time',
 		),
 
+		'techno_chatbot_pagecontentjs' => array(
+			'label'       => 'JS Loaded Page Fix',
+			'type'        => 'checkbox',
+			'section'     => 'general_section',
+			'default'     => 0,
+			'description' => 'Check this checkbox to fix incompatibilities with pages loaded via js',
+		),
+
 		'techno_chatbot_emails' => array(
 			'label'       => 'AI Chatbot Notification Emails',
 			'type'        => 'text',
@@ -120,6 +128,15 @@ class Techno_Chatbot_Admin_Fields_General {
 			'default'     => '',
 			'placeholder' => '',
 			'description' => 'Admin emails to receive notifications. Separate emails with comma. e.g. (email1@email.com, email2@email.com). If blank default email to receive the notifications will be Wordpress administration email.',
+		),
+
+		'techno_chatbot_spages' => array(
+			'label'       => 'Show Only',
+			'type'        => 'text',
+			'section'     => 'general_section',
+			'default'     => '',
+			'placeholder' => '',
+			'description' => 'When this field is filled, Chatbot will only to these pages. Enter IDs separated with comma. e.g. (1, 2, 3). If blank default will be all pages',
 		),
 
         // Intents

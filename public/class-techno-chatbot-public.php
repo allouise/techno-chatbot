@@ -62,7 +62,7 @@ class Techno_Chatbot_Public {
 	public function enqueue_styles() {
 		$enabled = get_option( 'techno_chatbot_enabled', 1 );
 		$basic_chat = techno_chatbot_feature('basic_chat');
-		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
+		if ( ! $enabled || $basic_chat['allowed'] != true || ! $this->is_chatbot_allowed_on_page() ) return;
 
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/techno-chatbot-public.css', array(), $this->version, 'all' );
 		$custom_css = $this->generate_dynamic_css();
@@ -78,7 +78,7 @@ class Techno_Chatbot_Public {
 	public function enqueue_scripts() {
 		$enabled = get_option( 'techno_chatbot_enabled', 1 );
 		$basic_chat = techno_chatbot_feature('basic_chat');
-		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
+		if ( ! $enabled || $basic_chat['allowed'] != true || ! $this->is_chatbot_allowed_on_page() ) return;
 
 		wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/techno-chatbot-public.js', array(), $this->version, true );
 
@@ -90,6 +90,7 @@ class Techno_Chatbot_Public {
 		$script_array = array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
+			'jsPagesFix' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_pagecontentjs'),
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg', $current_language),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt', $current_language),
@@ -256,6 +257,25 @@ class Techno_Chatbot_Public {
 	}
 
 	/**
+	 * Check if chatbot is allowed on current page/post.
+	 *
+	 * @since    1.2.5
+	 * @return   bool
+	 */
+	private function is_chatbot_allowed_on_page() {
+		$spages = get_option( 'techno_chatbot_spages', '' );
+
+		if ( empty( trim( $spages ) ) ) {
+			return true;
+		}
+
+		$allowed_pages = array_filter( array_map( 'absint', array_map( 'trim', explode( ',', $spages ) ) ) );
+		$current_page_id = get_queried_object_id();
+
+		return in_array( $current_page_id, $allowed_pages, true );
+	}
+
+	/**
 	 * Render the floating chatbot icon on the frontend.
 	 *
 	 * Hooked into wp_footer
@@ -265,7 +285,7 @@ class Techno_Chatbot_Public {
 	public function render_chatbot_icon() {
 		$enabled = get_option( 'techno_chatbot_enabled', 1 );
 		$basic_chat = techno_chatbot_feature('basic_chat');
-		if ( ! $enabled || $basic_chat['allowed'] != true ) return;
+		if ( ! $enabled || $basic_chat['allowed'] != true || ! $this->is_chatbot_allowed_on_page() ) return;
 
 		$current_language = $this->get_current_language();
 		$headertxt = Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_header', $current_language);
