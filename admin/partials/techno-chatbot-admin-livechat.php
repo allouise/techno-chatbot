@@ -1,5 +1,5 @@
 <div id="techno-livechat-admin">
-    <a id="notifHowTo"><span>ℹ️</span> How to enable <strong>Desktop & Browser Notification</strong></a>
+    <a id="notifHowTo" href="<?php echo esc_url( plugins_url( 'Techno Chatbot - Browser Notification Setup Guide.pdf', dirname( __DIR__ ) ) ); ?>" target="_blank" rel="noopener noreferrer"><span>ℹ️</span> How to enable <strong>Desktop & Browser Notification</strong></a>
     <!-- Left panel: active visitors -->
     <div id="techno-livechat-admin-visitors">
 
