@@ -90,7 +90,6 @@ class Techno_Chatbot_Public {
 		$script_array = array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 			'nonce' => wp_create_nonce('techno_chatbot_nonce'),
-			'jsPagesFix' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_pagecontentjs'),
 			'disclaimerEnabled' => Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_disclaimer'),
 			'welcomeMessage' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_welcomemsg', $current_language),
 			'timeToCallTxt' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_timetocall_txt', $current_language),
@@ -619,41 +618,32 @@ class Techno_Chatbot_Public {
 			}
 		}
 
-		/* Send tracker to admin */
+        wp_send_json_success( [ 'id' => $conversation_id ] );
+	}
+
+	/**
+	 * Send tracker email
+	 *
+	 * @since    1.2.6
+	 */
+	public function send_tracker_email() {
+		check_ajax_referer( 'techno_chatbot_nonce', 'nonce' );
+
 		$inquiry_tracker = get_option( 'techno_chatbot_inquirytracker', '0' );
-		if ( ! empty( $inquiry_tracker ) && '0' !== (string) $inquiry_tracker ) {
-
-			// 1. Fetch custom email setting
-			$to_notify = get_option( 'techno_chatbot_emails', '' );
-
-			// 2. Parse and filter valid emails
-			$raw_recipients = array_map( 'trim', explode( ',', $to_notify ) );
-			$recipients     = array_filter( $raw_recipients, 'is_email' );
-
-			// 3. Fallback to admin email if no valid custom emails were found
-			if ( empty( $recipients ) ) {
-				$admin_email = get_option( 'admin_email' );
-				if ( is_email( $admin_email ) ) {
-					$recipients = [ $admin_email ];
-				}
-			}
-
-			if ( ! empty( $recipients ) ) {
-				$subject = 'TD Chatbot: Assisting Visitor';
-				
-				$body  = '<p>Hi!,</p>';
-				$body .= "<p>We're glad to let you know that your <strong>Techno Chatbot is currently assisting a website visitor</strong>.</p>";
-				$body .= '<p>Please note that the conversation may be transferred to a <strong>live chat representative only if the visitor requests live assistance and you are currently online and available</strong>.</p>';
-				$body .= '<p>If live assistance is not requested or no representative is available, the <strong>Techno Chatbot will continue assisting the visitor and answering their questions</strong>.</p>';
-				$body .= '<p>Thank you!</p>';
-
-				$headers = [ 'Content-Type: text/html; charset=UTF-8' ];
-
-				wp_mail( $recipients, $subject, $body, $headers );
-			}
+		if ( empty( $inquiry_tracker ) || '0' === (string) $inquiry_tracker ) {
+			wp_send_json_success();
 		}
 
-        wp_send_json_success( [ 'id' => $conversation_id ] );
+		$recipients = techno_chatbot_get_admin_emails();
+		if ( ! empty( $recipients ) ) {
+			$subject = 'TD Chatbot: Assisting Visitor';
+			$body  = '<p>Hi!,</p><p>We\'re glad to let you know that your <strong>Techno Chatbot is currently assisting a website visitor</strong>.</p>';
+			$headers = [ 'Content-Type: text/html; charset=UTF-8' ];
+
+			wp_mail( $recipients, $subject, $body, $headers );
+		}
+
+		wp_send_json_success();
 	}
 
 	/**
@@ -748,6 +738,8 @@ class Techno_Chatbot_Public {
 		if ( false === $updated ) wp_send_json_error( [ 'message' => 'Database error while ending conversation' ], 500 );
 		if ( 0 === $updated ) wp_send_json_error( [ 'message' => 'Conversation not found or already ended' ], 404 );
 
+		$admin_emails = techno_chatbot_get_admin_emails();
+
 		// --- Retrieve messages to send transcript ---
 		$chat_data = $this->get_chat_messages( $session_id );
 		if ( ! empty( $chat_data['success'] ) && ! empty( $chat_data['messages'] ) ) {
@@ -758,16 +750,7 @@ class Techno_Chatbot_Public {
 			$required_types = [ 'email_input_answer', 'phone_input_answer' ];
 			$has_contact_info = ! empty( array_intersect( $required_types, $message_types ) );
 
-			if ( $has_contact_info ) {
-				$emails_option = get_option( 'techno_chatbot_emails' );
-				$admin_emails  = [ sanitize_email( get_option( 'admin_email' ) ) ];
-
-				if ( ! empty( $emails_option ) ) {
-					$parsed_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( ',', $emails_option ) ) ) );
-					if ( ! empty( $parsed_emails ) ) {
-						$admin_emails = $parsed_emails;
-					}
-				}
+			if ( $has_contact_info && !empty( $admin_emails ) ) {				
 				$subject = __( 'TD Chatbot - Chat Transcript', 'techno-chatbot' );
 				$this->send_email_transcript( $admin_emails, $messages, $subject );
 			}
@@ -788,17 +771,7 @@ class Techno_Chatbot_Public {
 		}
 
 		// ---- Send Follow up message ----
-		if ( 'followup_request' === $state ) {
-			$emails_option = get_option( 'techno_chatbot_emails' );
-			$admin_emails  = [ sanitize_email( get_option( 'admin_email' ) ) ];
-
-			if ( ! empty( $emails_option ) ) {
-				$parsed_emails = array_filter( array_map( 'sanitize_email', array_map( 'trim', explode( ',', $emails_option ) ) ) );
-				if ( ! empty( $parsed_emails ) ) {
-					$admin_emails = $parsed_emails;
-				}
-			}
-
+		if ( 'followup_request' === $state && !empty( $admin_emails ) ) {
 			$client_name = ! empty( $customer_name ) ? sanitize_text_field( $customer_name ) : 'Not provided';
 			$client_email = 'Not provided';
 			$client_phone = 'Not provided';
@@ -1469,28 +1442,10 @@ class Techno_Chatbot_Public {
 			if ( false === get_transient( 'techno_chatbot_clientlimit_notified' ) ) {
 				
 				// Resolve email recipients
-				$emails_option = get_option( 'techno_chatbot_emails', '' );
-				$recipients    = [];
-
-				if ( ! empty( $emails_option ) ) {
-					$emails = preg_split( '/[\r\n,]+/', $emails_option );
-					foreach ( $emails as $email ) {
-						$email = sanitize_email( trim( $email ) );
-						if ( is_email( $email ) ) {
-							$recipients[] = $email;
-						}
-					}
-				}
-
-				if ( empty( $recipients ) ) {
-					$admin_email = sanitize_email( get_option( 'admin_email' ) );
-					if ( is_email( $admin_email ) ) {
-						$recipients[] = $admin_email;
-					}
-				}
+				$recipients = techno_chatbot_get_admin_emails();
 
 				// Send email to client
-				if ( ! empty( $recipients ) ) {
+				if ( !empty( $recipients ) ) {
 					$subject = 'TD Chatbot - AI Assistance Limit Update';
 					$response_label = ( $limits_left === 1 ) ? 'response' : 'responses';
 					$message = sprintf(

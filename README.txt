@@ -65,6 +65,11 @@ You can customize the following components:
 * Transfer rules and escalation behavior
 
 == Changelog ==
+= 1.2.6 =
+* Remvoal of Fix for issues on pages loaded with js
+* Created separate function for sending tracker email from create_conversation function to scheduled WP cron event to lighten the load
+* Helper for extracting admin emails
+
 = 1.2.5 =
 * Added show chatbot on specific pages only
 * Fix for issues on pages loaded with js
