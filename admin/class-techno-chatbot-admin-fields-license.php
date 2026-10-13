@@ -243,6 +243,8 @@ class Techno_Chatbot_Admin_Fields_License {
 					value="' . esc_attr( $display_value ) . '"
 					class="regular-text '.$disabled.'"
 					style="width:100%;"
+					autocomplete="off"
+					readonly onfocus="this.removeAttribute(\'readonly\');"
 					placeholder="' . ( $type === 'password' && !empty($value)? '********' : esc_attr( $placeholder ) ) . '"
 					'.( $input_type == 'url'? 'pattern="https?://.*"' : '' ).'
 				/>';
