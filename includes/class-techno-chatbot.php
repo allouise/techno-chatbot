@@ -214,6 +214,10 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'add_meta_boxes', $this->post_types, 'add_meta_boxes' );
     	$this->loader->add_action( 'save_post_techno_chatbot_faq', $this->post_types, 'save_faq_meta' );
 		$this->loader->add_action( 'save_post_techno_chatbot_aidb', $this->post_types, 'save_aidb_meta' );
+		$this->loader->add_filter( 'manage_edit-techno_chatbot_aidb_columns', $this->post_types, 'add_aidb_column' );
+		$this->loader->add_action( 'manage_techno_chatbot_aidb_posts_custom_column', $this->post_types, 'render_aidb_column', 10, 2 );
+		$this->loader->add_filter( 'views_edit-techno_chatbot_aidb', $this->post_types, 'add_aidb_post_type_views' );
+		$this->loader->add_action( 'pre_get_posts', $this->post_types, 'filter_aidb_requests' );
 
 		$this->loader->add_filter( 'plugin_action_links_' . TECHNO_CHATBOT_FILEBASE, $plugin_admin, 'add_settings_link' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_plugin_admin_menu' );

@@ -989,21 +989,35 @@ class Techno_Chatbot_Admin {
 		}
 
 		$post_id = intval($_POST['post_id']);
-		$url = get_post_meta($post_id, '_page_url', true);
+		$stored_url = get_post_meta($post_id, '_page_url', true);
 
-		if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+		if (empty($stored_url)) {
 			wp_send_json_error('Invalid URL');
 		}
 
-		$target_host  = parse_url($url, PHP_URL_HOST);
-		$site_host = parse_url(home_url(), PHP_URL_HOST);
-		$target_host_clean = preg_replace('/^www\./', '', strtolower($target_host));
-		$site_host_clean = preg_replace('/^www\./', '', strtolower($site_host));
-		if ($target_host_clean !== $site_host_clean) {
-			wp_send_json_error('Unauthorized URL: You can only crawl content from ' . $site_host_clean);
+		// Convert relative path back to a full URL for crawling
+		$url = home_url( $stored_url );
+
+		if (!filter_var($url, FILTER_VALIDATE_URL)) {
+			wp_send_json_error('Invalid URL');
 		}
 
 		$clean_text = '';
+
+		// Initialize AI DB type and post ID defaults
+		$ai_db_type   = 'file';
+		$ai_db_postID = 0;
+
+		$wp_post_id = url_to_postid($url);
+		if ($wp_post_id) {
+			$ai_db_postID = $wp_post_id;
+			$ai_db_type   = get_post_type($wp_post_id);
+		} else {
+			$attachment_id = attachment_url_to_postid($url);
+			if ($attachment_id) {
+				$ai_db_postID = $attachment_id;
+			}
+		}
 
 		// Extract file extension from URL
 		$path_info = pathinfo(parse_url($url, PHP_URL_PATH));
@@ -1029,13 +1043,11 @@ class Techno_Chatbot_Admin {
 			}
 
 			$raw_text = wp_remote_retrieve_body($response);
-			// Clean up whitespace & linebreaks
 			$clean_text = preg_replace('/\s+/', ' ', $raw_text);
 			$clean_text = trim($clean_text);
 		} 
 		// 3. HANDLE REGULAR HTML / WORDPRESS POSTS
 		else {
-			$wp_post_id = url_to_postid($url);
 			if ($wp_post_id) {
 				$wp_post = get_post($wp_post_id);
 				if (!$wp_post) wp_send_json_error('Post not found');
@@ -1045,7 +1057,6 @@ class Techno_Chatbot_Admin {
 				$clean_text = preg_replace('/\s+/', ' ', $clean_text);
 				$clean_text = trim($clean_text);
 			} else {
-				// EXTERNAL URL FALLBACK
 				$response = wp_remote_get($url, [
 					'timeout'    => 20,
 					'user-agent' => 'TechnoChatbotCrawler/1.0',
@@ -1086,11 +1097,12 @@ class Techno_Chatbot_Admin {
 		}
 
 		// SAVE
-		update_post_meta($post_id, '_crawled_content', $clean_text);
 		update_post_meta($post_id, '_ai_clean_text', $clean_text);
 		update_post_meta($post_id, '_ai_embeddings', $embedded_chunks);
 		update_post_meta($post_id, '_ai_last_crawled', current_time('mysql'));
 		update_post_meta($post_id, '_ai_status', 'crawled');
+		update_post_meta($post_id, '_ai_db_type', $ai_db_type);
+		update_post_meta($post_id, '_ai_db_postID', $ai_db_postID);
 
 		wp_send_json_success([
 			'message' => 'Crawled successfully',

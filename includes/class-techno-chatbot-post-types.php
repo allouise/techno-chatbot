@@ -73,7 +73,7 @@ class Techno_Chatbot_Post_Types {
                 'name'          => __( 'Techno Chatbot AI Knowldegebase', 'techno-chatbot' ),
                 'singular_name' => __( 'AI Knowldegebase', 'techno-chatbot' ),
                 'menu_name'     => __( 'AI Knowldegebase', 'techno-chatbot' ),
-                'add_new_item'  => __( 'Add New AI Knowldegebase', 'techno-chatbot' ),
+                'add_new_item'  => __( 'Add AI Knowldegebase', 'techno-chatbot' ),
                 'edit_item'     => __( 'Edit AI Knowldegebase', 'techno-chatbot' ),
                 'not_found'     => __( 'No AI Knowldegebase found', 'techno-chatbot' ),
             ),
@@ -408,28 +408,42 @@ class Techno_Chatbot_Post_Types {
         wp_nonce_field( 'techno_chatbot_aidb_nonce', 'techno_chatbot_aidb_nonce_field' );
 
         $page_url = get_post_meta( $post->ID, '_page_url', true );
-        $crawled_content = get_post_meta( $post->ID, '_crawled_content', true );
         $ai_clean_text = get_post_meta( $post->ID, '_ai_clean_text', true );
+
         $ai_embeddings = get_post_meta( $post->ID, '_ai_embeddings', true );
+        $ai_embeddings = ! empty( $ai_embeddings ) ? $ai_embeddings : 'N/A';
+
         $ai_last_crawled = get_post_meta( $post->ID, '_ai_last_crawled', true );
+        $ai_last_crawled = ! empty( $ai_last_crawled ) ? $ai_last_crawled : 'N/A';
+
         $ai_status = get_post_meta( $post->ID, '_ai_status', true );
-        $ai_enabled = get_post_meta( $post->ID, '_ai_enabled', true );
+        $ai_status = ! empty( $ai_status ) ? $ai_status : 'N/A';
+
+        $ai_db_type = get_post_meta( $post->ID, '_ai_db_type', true );
+        $ai_db_type = ! empty( $ai_db_type ) ? $ai_db_type : 'N/A';
+
+        $ai_db_postID = get_post_meta( $post->ID, '_ai_db_postID', true );
+        $ai_db_postID = ! empty( $ai_db_postID ) ? $ai_db_postID : 'N/A';
 
         $ai_check = techno_chatbot_feature('ai_training');
     	$ai_allowed = $ai_check['allowed'] === true;
         $disabledmsg = $ai_check['message'];
         $post_status = get_post_status( $post->ID );
+        $button_label = !empty( $ai_clean_text ) ? __( 'Re-crawl This Source', 'techno-chatbot' ) : __( 'Crawl This Source', 'techno-chatbot' );
+
+        $ai_clean_text = ! empty( $ai_clean_text ) ? $ai_clean_text : 'N/A';
+
         if( $ai_allowed && $post_status === 'publish' ){ ?>
             <p>
-                <button type="button" class="button button-primary" id="techno-crawl-page">
-                    Crawl This Source
+                <button type="button" class="button button-primary" id="techno-crawl-page" data-default-text="<?php echo esc_attr( $button_label ); ?>">
+                    <?php echo esc_html( $button_label ); ?>
                 </button>
             </p>
         <?php }else{ ?>
             <div style="display:flex;align-items: center;gap: 20px;">
                 <p>
-                    <button type="button" class="button button-primary" disabled>
-                        Crawl This Source
+                    <button type="button" class="button button-primary" disabled data-default-text="<?php echo esc_attr( $button_label ); ?>">
+                        <?php echo esc_html( $button_label ); ?>
                     </button>
                 </p>
                 <?php techno_chatbot_msgformat($disabledmsg); ?>
@@ -443,33 +457,28 @@ class Techno_Chatbot_Post_Types {
         </p>
 
         <p>
-            <label><strong><?php _e( 'Crawled Content', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( $crawled_content ); ?></div>
+            <label><strong><?php _e( 'Type', 'techno-chatbot' ); ?></strong></label><br>
+            <div><?php echo esc_textarea( $ai_db_type ); ?> | ID: <?php echo esc_textarea( $ai_db_postID ); ?></div>
         </p>
 
         <p>
-            <label><strong><?php _e( 'AI Clean Text', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( $ai_clean_text ); ?></div>
+            <label><strong><?php _e( 'Clean Text', 'techno-chatbot' ); ?></strong></label><br>
+            <div><?php echo esc_textarea( $ai_clean_text ); ?></div>
         </p>
 
         <p>
-            <label><strong><?php _e( 'AI Embeddings', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content" style=" width: 100%; height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; "><?php echo esc_textarea( is_array($ai_embeddings)? print_r($ai_embeddings, true) : $ai_embeddings ); ?></div>
+            <label><strong><?php _e( 'Embeddings', 'techno-chatbot' ); ?></strong></label><br>
+            <div style=" width: 100%; height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; "><?php echo esc_textarea( is_array($ai_embeddings)? print_r($ai_embeddings, true) : $ai_embeddings ); ?></div>
         </p>
 
         <p>
-            <label><strong><?php _e( 'AI Last Crawled', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( $ai_last_crawled ); ?></div>
+            <label><strong><?php _e( 'Last Crawled', 'techno-chatbot' ); ?></strong></label><br>
+            <div><?php echo esc_textarea( $ai_last_crawled ); ?></div>
         </p>
 
         <p>
-            <label><strong><?php _e( 'AI Status', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( $ai_status ); ?></div>
-        </p>
-
-        <p>
-            <label><strong><?php _e( 'AI Enabled', 'techno-chatbot' ); ?></strong></label><br>
-            <div class="crawled_content"><?php echo esc_textarea( $ai_enabled ); ?></div>
+            <label><strong><?php _e( 'Status', 'techno-chatbot' ); ?></strong></label><br>
+            <div><?php echo esc_textarea( $ai_status ); ?></div>
         </p>
 
         <?php
@@ -495,8 +504,146 @@ class Techno_Chatbot_Post_Types {
         }
 
         if ( isset( $_POST['page_url'] ) ) {
-            update_post_meta( $post_id, '_page_url', sanitize_text_field( $_POST['page_url'] ) );
+            $url = sanitize_text_field( $_POST['page_url'] );
+
+            if ( ! empty( $url ) ) {
+                // If it's a full URL, validate that it belongs to the current site host
+                if ( filter_var( $url, FILTER_VALIDATE_URL ) ) {
+                    $target_host       = parse_url( $url, PHP_URL_HOST );
+                    $site_host         = parse_url( home_url(), PHP_URL_HOST );
+                    $target_host_clean = preg_replace( '/^www\./', '', strtolower( $target_host ) );
+                    $site_host_clean   = preg_replace( '/^www\./', '', strtolower( $site_host ) );
+
+                    if ( $target_host_clean === $site_host_clean ) {
+                        $path = parse_url( $url, PHP_URL_PATH );
+                        update_post_meta( $post_id, '_page_url', sanitize_text_field( $path ) );
+                    }
+                } else {
+                    // If the user pasted a relative path directly (e.g. /22-woodbrook-drive-ridge/)
+                    $path = '/' . ltrim( $url, '/' );
+                    update_post_meta( $post_id, '_page_url', sanitize_text_field( $path ) );
+                }
+            } else {
+                update_post_meta( $post_id, '_page_url', '' );
+            }
         }
 
+    }
+
+    /**
+	 * Add AI DB Columns
+	 *
+	 * @since    1.2.6
+	 */
+    public function add_aidb_column( $columns ) {
+        $new_columns = array();
+        foreach ( $columns as $key => $title ) {
+            $new_columns[ $key ] = $title;
+            if ( 'title' === $key ) {
+                $new_columns['techno_post_type'] = __( 'Post Type', 'techno-chatbot' );
+            }
+        }
+        return $new_columns;
+    }
+
+    /**
+	 * Render AI DB Columns
+	 *
+	 * @since    1.2.6
+	 */
+    public function render_aidb_column( $column_name, $post_id = 0 ) {
+        if ( 'techno_post_type' === $column_name && $post_id ) {
+            $target_post_id = get_post_meta( $post_id, '_ai_db_postID', true );
+            
+            if ( ! empty( $target_post_id ) && intval( $target_post_id ) > 0 ) {
+                $post_type_obj = get_post_type_object( get_post_type( $target_post_id ) );
+                echo esc_html( $post_type_obj ? $post_type_obj->labels->singular_name : get_post_type( $target_post_id ) );
+            } else {
+                $ai_db_type = get_post_meta( $post_id, '_ai_db_type', true );
+                echo esc_html( ! empty( $ai_db_type ) ? ucfirst( $ai_db_type ) : __( 'N/A', 'techno-chatbot' ) );
+            }
+        }
+    }
+
+    /**
+	 * Add AI DB list view
+	 *
+	 * @since    1.2.6
+	 */
+    public function add_aidb_post_type_views( $views ) {
+        global $wpdb;
+        $current = isset( $_GET['techno_ai_type_filter'] ) ? sanitize_text_field( $_GET['techno_ai_type_filter'] ) : '';
+
+        // Fetch distinct types and their counts from postmeta and posts tables
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT pm.meta_value AS type, COUNT(p.ID) AS total 
+                FROM {$wpdb->postmeta} pm
+                INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+                WHERE pm.meta_key = %s 
+                AND pm.meta_value != '' 
+                AND p.post_type = %s 
+                AND p.post_status != 'trash'
+                GROUP BY pm.meta_value",
+                '_ai_db_type',
+                'techno_chatbot_aidb'
+            ),
+            ARRAY_A
+        );
+
+        if ( ! empty( $results ) ) {
+            foreach ( $results as $row ) {
+                $type  = $row['type'];
+                $count = $row['total'];
+                $class = ( $current === $type ) ? 'current' : '';
+                $url   = admin_url( 'edit.php?post_type=techno_chatbot_aidb&techno_ai_type_filter=' . urlencode( $type ) );
+                
+                $label = $type;
+                if ( 'file' === $type ) {
+                    $label = __( 'Files', 'techno-chatbot' );
+                } else {
+                    $post_type_obj = get_post_type_object( $type );
+                    if ( $post_type_obj ) {
+                        $label = $post_type_obj->labels->name;
+                    } else {
+                        $label = ucfirst( $type );
+                    }
+                }
+
+                $views[ 'techno_type_' . $type ] = sprintf(
+                    '<a href="%s" class="%s">%s <span class="count">(%s)</span></a>',
+                    esc_url( $url ),
+                    esc_attr( $class ),
+                    esc_html( $label ),
+                    esc_html( $count )
+                );
+            }
+        }
+
+        return $views;
+    }
+
+    /**
+	 * Query AI DB list view
+	 *
+	 * @since    1.2.6
+	 */
+    public function filter_aidb_requests( $query ) {
+        global $pagenow;
+        if ( is_admin() && 'edit.php' === $pagenow && $query->get( 'post_type' ) === 'techno_chatbot_aidb' ) {
+            if ( isset( $_GET['techno_ai_type_filter'] ) && ! empty( $_GET['techno_ai_type_filter'] ) ) {
+                $filter_type = sanitize_text_field( $_GET['techno_ai_type_filter'] );
+                $meta_query  = $query->get( 'meta_query' );
+                if ( ! is_array( $meta_query ) ) {
+                    $meta_query = array();
+                }
+                $meta_query[] = array(
+                    'key'     => '_ai_db_type',
+                    'value'   => $filter_type,
+                    'compare' => '=',
+                );
+                $query->set( 'meta_query', $meta_query );
+            }
+        }
     }
 }

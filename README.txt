@@ -71,6 +71,8 @@ You can customize the following components:
 * Helper for extracting admin emails
 * Customized AI Prompt
 * Disallow autocomplete in License Tab
+* Removed Unused postmetas
+* Added AI Database post list column and grouping
 
 = 1.2.5 =
 * Added show chatbot on specific pages only
