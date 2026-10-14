@@ -67,7 +67,7 @@ You can customize the following components:
 == Changelog ==
 = 1.2.6 =
 * Remvoal of Fix for issues on pages loaded with js
-* Created separate function for sending tracker email from create_conversation function to scheduled WP cron event to lighten the load
+* Created separate function for sending tracker email from create_conversation function to lighten the load
 * Helper for extracting admin emails
 * Disallow autocomplete in License Tab
 * Removed Unused postmetas
