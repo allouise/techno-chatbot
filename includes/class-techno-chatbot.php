@@ -219,6 +219,11 @@ class Techno_Chatbot {
 		$this->loader->add_filter( 'views_edit-techno_chatbot_aidb', $this->post_types, 'add_aidb_post_type_views' );
 		$this->loader->add_action( 'pre_get_posts', $this->post_types, 'filter_aidb_requests' );
 
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_search_posts', $this->post_types, 'search_posts_for_exclude' );
+		$this->loader->add_action( 'admin_footer', $this->post_types, 'render_manage_multiple_modal' );
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_batch_crawl', $plugin_admin, 'batch_crawl_posts' );
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_batch_delete_aidb', $plugin_admin, 'batch_delete_aidb_posts' );
+
 		$this->loader->add_filter( 'plugin_action_links_' . TECHNO_CHATBOT_FILEBASE, $plugin_admin, 'add_settings_link' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_plugin_admin_menu' );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );

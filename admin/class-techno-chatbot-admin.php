@@ -989,125 +989,130 @@ class Techno_Chatbot_Admin {
 		}
 
 		$post_id = intval($_POST['post_id']);
-		$stored_url = get_post_meta($post_id, '_page_url', true);
+		$result = $this->process_knowledgebase_crawl( $post_id );
 
-		if (empty($stored_url)) {
-			wp_send_json_error('Invalid URL');
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( $result->get_error_message() );
 		}
 
-		// Convert relative path back to a full URL for crawling
+		$clean_text = get_post_meta( $post_id, '_ai_clean_text', true );
+		$chunks = $this->chunk_text( $clean_text );
+
+		wp_send_json_success([
+			'message' => 'Crawled successfully',
+			'chunks'  => count($chunks)
+		]);
+	}
+
+	/**
+	 * Core Knowledgebase Crawler Helper
+	 *
+	 * @since    1.2.6
+	 * @param    int $aidb_post_id Knowledgebase post ID.
+	 * @return   true|WP_Error True on success or WP_Error on failure.
+	 */
+	private function process_knowledgebase_crawl( $aidb_post_id ) {
+		$stored_url = get_post_meta( $aidb_post_id, '_page_url', true );
+
+		if ( empty( $stored_url ) ) {
+			return new WP_Error( 'invalid_url', 'Invalid URL' );
+		}
+
 		$url = home_url( $stored_url );
 
-		if (!filter_var($url, FILTER_VALIDATE_URL)) {
-			wp_send_json_error('Invalid URL');
+		if ( ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+			return new WP_Error( 'invalid_url', 'Invalid URL' );
 		}
 
 		$clean_text = '';
-
-		// Initialize AI DB type and post ID defaults
 		$ai_db_type   = 'file';
 		$ai_db_postID = 0;
 
-		$wp_post_id = url_to_postid($url);
-		if ($wp_post_id) {
+		$wp_post_id = url_to_postid( $url );
+		if ( $wp_post_id ) {
 			$ai_db_postID = $wp_post_id;
-			$ai_db_type   = get_post_type($wp_post_id);
+			$ai_db_type   = get_post_type( $wp_post_id );
 		} else {
-			$attachment_id = attachment_url_to_postid($url);
-			if ($attachment_id) {
+			$attachment_id = attachment_url_to_postid( $url );
+			if ( $attachment_id ) {
 				$ai_db_postID = $attachment_id;
 			}
 		}
 
-		// Extract file extension from URL
-		$path_info = pathinfo(parse_url($url, PHP_URL_PATH));
-		$extension = isset($path_info['extension']) ? strtolower($path_info['extension']) : '';
+		$path_info = pathinfo( parse_url( $url, PHP_URL_PATH ) );
+		$extension = isset( $path_info['extension'] ) ? strtolower( $path_info['extension'] ) : '';
 
-		// 1. HANDLE PDF FILES
-		if ($extension === 'pdf') {
-			$clean_text = $this->extract_pdf_content($url);
-			if (is_wp_error($clean_text)) {
-				wp_send_json_error($clean_text->get_error_message());
+		if ( $extension === 'pdf' ) {
+			$clean_text = $this->extract_pdf_content( $url );
+			if ( is_wp_error( $clean_text ) ) {
+				return $clean_text;
 			}
-		} 
-		// 2. HANDLE TXT FILES
-		elseif ($extension === 'txt') {
-			$response = wp_remote_get($url, [
+		} elseif ( $extension === 'txt' ) {
+			$response = wp_remote_get( $url, [
 				'timeout'    => 20,
-				'sslverify' => false,
+				'sslverify'  => false,
 				'user-agent' => 'TechnoChatbotCrawler/1.0',
-			]);
+			] );
 
-			if (is_wp_error($response)) {
-				wp_send_json_error($response->get_error_message());
+			if ( is_wp_error( $response ) ) {
+				return $response;
 			}
 
-			$raw_text = wp_remote_retrieve_body($response);
-			$clean_text = preg_replace('/\s+/', ' ', $raw_text);
-			$clean_text = trim($clean_text);
-		} 
-		// 3. HANDLE REGULAR HTML / WORDPRESS POSTS
-		else {
-			if ($wp_post_id) {
-				$wp_post = get_post($wp_post_id);
-				if (!$wp_post) wp_send_json_error('Post not found');
+			$raw_text = wp_remote_retrieve_body( $response );
+			$clean_text = trim( preg_replace( '/\s+/', ' ', $raw_text ) );
+		} else {
+			if ( $wp_post_id ) {
+				$wp_post = get_post( $wp_post_id );
+				if ( ! $wp_post ) {
+					return new WP_Error( 'post_not_found', 'Post not found' );
+				}
 				
-				$content = apply_filters('the_content', $wp_post->post_content);
-				$clean_text = wp_strip_all_tags($content);
-				$clean_text = preg_replace('/\s+/', ' ', $clean_text);
-				$clean_text = trim($clean_text);
+				$content = apply_filters( 'the_content', $wp_post->post_content );
+				$clean_text = trim( preg_replace( '/\s+/', ' ', wp_strip_all_tags( $content ) ) );
 			} else {
-				$response = wp_remote_get($url, [
+				$response = wp_remote_get( $url, [
 					'timeout'    => 20,
 					'user-agent' => 'TechnoChatbotCrawler/1.0',
-				]);
-				if (is_wp_error($response)) {
-					wp_send_json_error($response->get_error_message());
+				] );
+				if ( is_wp_error( $response ) ) {
+					return $response;
 				}
-				$html = wp_remote_retrieve_body($response);
-				$clean_text = $this->extract_main_content($html);
+				$html = wp_remote_retrieve_body( $response );
+				$clean_text = $this->extract_main_content( $html );
 			}
 		}
 
-		if (empty($clean_text)) {
-			wp_send_json_error('No content could be extracted from the source.');
+		if ( empty( $clean_text ) ) {
+			return new WP_Error( 'empty_content', 'No content could be extracted from the source.' );
 		}
 
-		// CHUNK CONTENT
-		$chunks = $this->chunk_text($clean_text);
-
-		// EMBEDDING
-		$results = $this->create_embeddings_batch($chunks);
-		if (!$results) {
-			wp_send_json_error('Embedding failed');
+		$chunks = $this->chunk_text( $clean_text );
+		$results = $this->create_embeddings_batch( $chunks );
+		if ( ! $results ) {
+			return new WP_Error( 'embedding_failed', 'Embedding failed' );
 		}
 
 		$embedded_chunks = [];
-		foreach ($results as $item) {
-			if (!isset($item['embedding'])) {
+		foreach ( $results as $item ) {
+			if ( ! isset( $item['embedding'] ) ) {
 				continue;
 			}
 
 			$index = $item['index'];
-
 			$embedded_chunks[] = [
 				'text'      => $chunks[$index] ?? '',
 				'embedding' => $item['embedding']
 			];
 		}
 
-		// SAVE
-		update_post_meta($post_id, '_ai_clean_text', $clean_text);
-		update_post_meta($post_id, '_ai_embeddings', $embedded_chunks);
-		update_post_meta($post_id, '_ai_last_crawled', current_time('mysql'));
-		update_post_meta($post_id, '_ai_status', 'crawled');
-		update_post_meta($post_id, '_ai_db_type', $ai_db_type);
-		update_post_meta($post_id, '_ai_db_postID', $ai_db_postID);
+		update_post_meta( $aidb_post_id, '_ai_clean_text', $clean_text );
+		update_post_meta( $aidb_post_id, '_ai_embeddings', $embedded_chunks );
+		update_post_meta( $aidb_post_id, '_ai_last_crawled', current_time( 'mysql' ) );
+		update_post_meta( $aidb_post_id, '_ai_status', 'crawled' );
+		update_post_meta( $aidb_post_id, '_ai_db_type', $ai_db_type );
+		update_post_meta( $aidb_post_id, '_ai_db_postID', $ai_db_postID );
 
-		wp_send_json_success([
-			'message' => 'Crawled successfully',
-			'chunks'  => count($chunks)
-		]);
+		return true;
 	}
 
 	/**
@@ -1339,4 +1344,160 @@ class Techno_Chatbot_Admin {
 
 		return $body['data'];
 	}
+
+	/**
+     * AJAX Handler: Batch Crawl Posts.
+     * 
+     * @since 1.2.6
+     */
+    public function batch_crawl_posts() {
+        check_ajax_referer( 'techno_batch_crawl_nonce', 'nonce' );
+
+		if ( ! current_user_can( 'techno_chat_support' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permission denied', 'techno-chatbot' ) ) );
+		}
+
+		$ai_allowed = techno_chatbot_feature('ai_training');
+		if ( empty( $ai_allowed['allowed'] ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid Plan', 'techno-chatbot' ) ) );
+		}
+
+        $post_types = isset( $_POST['post_types'] ) ? array_map( 'sanitize_text_field', $_POST['post_types'] ) : array();
+        $exclude_ids = isset( $_POST['exclude_ids'] ) ? array_map( 'intval', $_POST['exclude_ids'] ) : array();
+        $paged = isset( $_POST['paged'] ) ? intval( $_POST['paged'] ) : 1;
+		$incoming_duplicates= isset( $_POST['duplicates'] ) ? intval( $_POST['duplicates'] ) : 0;
+        $posts_per_page = 10;
+
+        if ( empty( $post_types ) ) {
+            wp_send_json_error( array( 'message' => __( 'Please select at least one post type.', 'techno-chatbot' ) ) );
+        }
+
+        $args = array(
+            'post_type'      => $post_types,
+            'post_status'    => 'publish',
+            'posts_per_page' => $posts_per_page,
+            'paged'          => $paged,
+            'post__not_in'   => $exclude_ids,
+            'fields'         => 'ids',
+        );
+
+        $query = new WP_Query( $args );
+        $total_posts = $query->found_posts;
+        $post_ids = $query->posts;
+
+        if ( empty( $post_ids ) && $paged === 1 ) {
+            wp_send_json_error( array( 'message' => __( 'No posts found matching the criteria.', 'techno-chatbot' ) ) );
+        }
+
+		$batch_duplicates = 0;
+        foreach ( $post_ids as $pid ) {
+			$existing = get_posts( array(
+				'post_type'   => 'techno_chatbot_aidb',
+				'post_status' => 'any',
+				'meta_query'  => array(
+					array(
+						'key'   => '_ai_db_postID',
+						'value' => $pid,
+					),
+				),
+				'posts_per_page' => 1,
+			) );
+
+			// Skip if already indexed in the AI Knowledgebase
+			if ( ! empty( $existing ) ) {
+				$batch_duplicates++;
+				continue;
+			}
+
+			$aidb_post_id = wp_insert_post( array(
+				'post_title'   => get_the_title( $pid ),
+				'post_type'    => 'techno_chatbot_aidb',
+				'post_status'  => 'publish',
+			) );
+
+			if ( $aidb_post_id && ! is_wp_error( $aidb_post_id ) ) {
+				$permalink = get_permalink( $pid );
+				$relative_path = wp_parse_url( $permalink, PHP_URL_PATH );
+				update_post_meta( $aidb_post_id, '_page_url', $relative_path );
+				update_post_meta( $aidb_post_id, '_ai_db_postID', $pid );
+				update_post_meta( $aidb_post_id, '_ai_db_type', get_post_type( $pid ) );
+				$this->process_knowledgebase_crawl( $aidb_post_id );
+			}
+		}
+
+		$total_duplicates = $incoming_duplicates + $batch_duplicates;
+        $processed_count = min( $paged * $posts_per_page, $total_posts );
+        $percent = $total_posts > 0 ? min( round( ( $processed_count / $total_posts ) * 100 ), 100 ) : 100;
+        $has_more = $processed_count < $total_posts;
+
+        wp_send_json_success( array(
+            'percent'    => $percent,
+            'message'    => sprintf( __( 'Processed %d of %d posts... (%d duplicates skipped)', 'techno-chatbot' ), $processed_count, $total_posts, $total_duplicates ),
+            'has_more'   => $has_more,
+            'duplicates' => $total_duplicates,
+        ) );
+    }
+
+	/**
+     * AJAX Handler: Batch Delete All AI Knowledgebase Posts.
+     * 
+     * @since 1.2.6
+     */
+    public function batch_delete_aidb_posts() {
+        check_ajax_referer( 'techno_batch_delete_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'techno_chat_support' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied', 'techno-chatbot' ) ) );
+        }
+
+        $posts_per_page = 20;
+        
+        $query = new WP_Query( array(
+            'post_type'      => 'techno_chatbot_aidb',
+            'post_status'    => 'any',
+            'posts_per_page' => $posts_per_page,
+            'fields'         => 'ids',
+        ) );
+
+        $total_posts = $query->found_posts;
+        $post_ids = $query->posts;
+
+        if ( empty( $post_ids ) ) {
+            wp_send_json_success( array(
+                'percent'  => 100,
+                'message'  => __( 'All AI Knowledgebase posts have been permanently deleted.', 'techno-chatbot' ),
+                'has_more' => false,
+            ) );
+        }
+
+        foreach ( $post_ids as $pid ) {
+            wp_delete_post( $pid, true ); // true forces permanent deletion (bypasses trash)
+        }
+
+        // Re-query to count remaining posts for accurate progress percentage calculation
+        $remaining_query = new WP_Query( array(
+            'post_type'      => 'techno_chatbot_aidb',
+            'post_status'    => 'any',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+        ) );
+        $remaining_posts = $remaining_query->found_posts;
+        
+        $deleted_count = max( 0, $total_posts - $remaining_posts );
+        // If total_posts started at 0, avoid division by zero
+        $initial_total = $total_posts > 0 ? $total_posts : 1; 
+        $percent = min( round( ( $deleted_count / $initial_total ) * 100 ), 100 );
+        
+        // If query still returns posts, there's more to process
+        $has_more = $remaining_posts > 0;
+        if ( !$has_more ) {
+            $percent = 100;
+        }
+
+        wp_send_json_success( array(
+            'percent'  => $percent,
+            'message'  => sprintf( __( 'Permanently deleted %d of %d AI knowledgebase posts...', 'techno-chatbot' ), $deleted_count, $initial_total ),
+            'has_more' => $has_more,
+        ) );
+    }
 }
