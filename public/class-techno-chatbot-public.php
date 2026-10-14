@@ -925,6 +925,11 @@ class Techno_Chatbot_Public {
 				'ol'     => [],
 				'li'     => [],
 				'br'     => [],
+				'a'      => [
+					'href'   => [],
+					'target' => [],
+					'rel'    => [],
+				],
 			];
 			$message = wp_kses( $raw_message, $allowed_html );
 		} else {
@@ -1222,12 +1227,22 @@ class Techno_Chatbot_Public {
 	 *
 	 * @since    1.0.0
 	 */
-	private function find_relevant_chunks($question, $limit = 3) {
+	private function find_relevant_chunks($question) {
 		$question_embedding = $this->create_embedding($question);
 
 		if (!$question_embedding) return [];
 
+		$limit = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_airelchunk');
+		$max_chunks_per_page = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aipagechunk');
+		$threshold_multiplier = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithreshold');
+		
+		// Fallback safety if option is empty or zero
+		if ($threshold_multiplier <= 0) {
+			$threshold_multiplier = 0.80;
+		}
 		$results = [];
+		$page_counts = [];
+
 		$posts = get_posts([
 			'post_type'   => 'techno_chatbot_aidb',
 			'numberposts' => -1,
@@ -1240,8 +1255,21 @@ class Techno_Chatbot_Public {
 			if (is_string($chunks)) $chunks = maybe_unserialize($chunks);
 			if (empty($chunks)) continue;
 
+			$original_post_id = get_post_meta($post->ID, '_ai_db_postID', true);
+			$source_url = $original_post_id ? get_permalink($original_post_id) : home_url(get_post_meta($post->ID, '_page_url', true));
+			$source_title = get_the_title($original_post_id ?: $post->ID);
+
 			foreach ($chunks as $chunk) {
 				if ( empty($chunk['embedding']) || !is_array($chunk['embedding']) || empty($chunk['text']) ) continue;
+
+				// Enforce per-page limit
+				$page_key = $source_url ?: $source_title;
+				if (!isset($page_counts[$page_key])) {
+					$page_counts[$page_key] = 0;
+				}
+				if ($page_counts[$page_key] >= $max_chunks_per_page) {
+					continue; // Skip if this page already reached the chunk limit
+				}
 
 				$similarity = $this->cosine_similarity(
 					$question_embedding,
@@ -1252,7 +1280,11 @@ class Techno_Chatbot_Public {
 					'text'       => $chunk['text'],
 					'similarity' => $similarity,
 					'score'      => $similarity * $lengthPenalty,
+					'url'        => $source_url,
+					'title'      => $source_title,
 				];
+
+				$page_counts[$page_key]++;
 			}
 		}
 		if (empty($results)) return [];
@@ -1262,7 +1294,7 @@ class Techno_Chatbot_Public {
 		/* Set Threshold 
 		Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
 		$minimumFloor = 0.12; 
-		$threshold = max($minimumFloor, $bestSimilarity * 0.80);
+		$threshold = max($minimumFloor, $bestSimilarity * $threshold_multiplier);
 		/* Keep only relevant chunks */
 		$results = array_filter($results, function ($chunk) use ($threshold) {
 			return $chunk['similarity'] >= $threshold;
@@ -1279,17 +1311,7 @@ class Techno_Chatbot_Public {
 	private function ask_openai($question, $context_chunks) {
 		$api_key = get_option('techno_chatbot_openai_secret');
 
-		if (!$api_key) {
-			error_log('TechnoChatbot OpenAI API key not configured.');
-			return [
-				'answer' => 'NO_ANSWER',
-				'tokens' => 0,
-				'prompt_tokens' => 0,
-				'completion_tokens' => 0
-			];
-		}
-
-		if (empty($context_chunks)) {
+		if (!$api_key || empty($context_chunks)) {
 			return [
 				'answer' => 'NO_ANSWER',
 				'tokens' => 0,
@@ -1299,14 +1321,36 @@ class Techno_Chatbot_Public {
 		}
 
 		$context_text = '';
+		$sources = [];
 		foreach ($context_chunks as $chunk) {
 			$text = $this->limit_context_tokens($chunk['text'], 800);
-			$context_text .= "SOURCE:\n" . $text . "\n\n";
+			$context_text .= "SOURCE [Title: {$chunk['title']}, URL: {$chunk['url']}]:\n" . $text . "\n\n";
+        
+			if (!empty($chunk['url'])) {
+				$sources[] = [
+					'title' => $chunk['title'],
+					'url'   => $chunk['url']
+				];
+			}
+		}
+
+		$sources = array_unique($sources, SORT_REGULAR);
+		$sources = array_slice($sources, 0, 3);
+		$sources_instruction = '';
+		if (!empty($sources)) {
+			$sources_instruction = "If the user's query relates to the information found in the context, naturally include a clean list of the most relevant source links and integrate a short sentence inviting them to read more (e.g., 'You can learn more on our [Page Title](URL) page' or 'For more details, check out our [Page Title](URL) page') at the end of your response using standard HTML anchor tags.";
 		}
 
 		$current_language = $this->get_current_language('full');
 		$lang_code = $current_language['code'];
 		$lang_name = $current_language['name'];
+
+		// Retrieve admin custom prompt setting
+		$custom_prompt = trim( get_option( 'techno_chatbot_customprompt', '' ) );
+		$custom_prompt_instruction = '';
+		if ( ! empty( $custom_prompt ) ) {
+			$custom_prompt_instruction = "- " . $custom_prompt;
+		}
 
 		/* AI Cache */
 		$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
@@ -1322,19 +1366,22 @@ class Techno_Chatbot_Public {
 		- Always produce a complete, self-contained answer.
 		- Keep answers direct, concise, informative, and avoid repeating information.
 		- Do NOT assume the user has seen previous messages or context.
-		- Do NOT refer to previous answers, earlier messages, or the provided context.
-		- Do NOT use wording that depends on prior conversation unless the current question clearly defines it.
-		- If multiple facts are relevant, combine them into one clear explanation.
-		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>.
+		- Pay close attention to synonyms and alternative phrasings (e.g., 'service area', 'locations covered', 'where do you operate', 'delivery zones', or regional lists).
+		- $sources_instruction
+		" . ( ! empty( $custom_prompt_instruction ) ? "{$custom_prompt_instruction}\n		" : "" ) . "
+		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>, <li>, <a>.
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
 		- Write your entire response strictly in $lang_name.
 		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
+		- If the exact answer or pricing details are not explicitly present in the provided context, do not guess or use external data. Instead, respond only with: 'NO_ANSWER'.
 		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
 		Context:
 		$context_text
 		Question:
 		$question";
 	
+	error_log( 'Prompt: ' . $prompt . "\n\n" );
+
 		$response = wp_remote_post(
 			'https://api.openai.com/v1/chat/completions',
 			[

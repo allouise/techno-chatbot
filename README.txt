@@ -69,10 +69,12 @@ You can customize the following components:
 * Remvoal of Fix for issues on pages loaded with js
 * Created separate function for sending tracker email from create_conversation function to scheduled WP cron event to lighten the load
 * Helper for extracting admin emails
-* Customized AI Prompt
 * Disallow autocomplete in License Tab
 * Removed Unused postmetas
 * Added AI Database post list column and grouping
+* Added Custom AI Prompt
+* Added AI Custom Setting thresholds
+* Added AI answer to add links
 
 = 1.2.5 =
 * Added show chatbot on specific pages only

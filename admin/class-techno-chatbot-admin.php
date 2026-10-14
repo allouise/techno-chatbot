@@ -1086,8 +1086,23 @@ class Techno_Chatbot_Admin {
 			return new WP_Error( 'empty_content', 'No content could be extracted from the source.' );
 		}
 
-		$chunks = $this->chunk_text( $clean_text );
+		$post_title = '';
+		if ( $ai_db_postID > 0 ) {
+			$post_title = get_the_title( $ai_db_postID );
+		} else {
+			$post_title = get_the_title( $aidb_post_id );
+		}
+
+		$raw_chunks = $this->chunk_text( $clean_text );
+		
+		// Prepend page/post title to every chunk for precise semantic signals
+		$chunks = [];
+		foreach ( $raw_chunks as $chunk ) {
+			$chunks[] = "Page: {$post_title} > Content: {$chunk}";
+		}
+
 		$results = $this->create_embeddings_batch( $chunks );
+		
 		if ( ! $results ) {
 			return new WP_Error( 'embedding_failed', 'Embedding failed' );
 		}
@@ -1297,8 +1312,9 @@ class Techno_Chatbot_Admin {
 			}
 		}
 
-		if (trim($current) !== '') {
-			$chunks[] = trim($current);
+		$current = trim($current);
+		if ($current !== '') {
+			$chunks[] = $current;
 		}
 
 		return $chunks;
