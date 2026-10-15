@@ -56,7 +56,10 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 	private $sections = array(
 
 		'behavior_section' => array(
-			'title' => 'Behavior Settings',
+			'title' => 'Chatbot Behavior',
+		),
+		'aibehavior_section' => array(
+			'title' => 'AI Behavior',
 		),
 
 	);
@@ -109,6 +112,47 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'default'     => '',
 			'description' => 'Open Chatbox on page load',
 		),
+
+		'techno_chatbot_customprompt' => array(
+            'label'       => 'Custom Prompt',
+            'type'        => 'textarea',
+            'section'     => 'aibehavior_section',
+            'rows'        => 2,
+			'maxlength'	  => 500,
+            'default'     => '',
+            'description' => 'FOR ADMINISTRATIVE USE ONLY'
+        ),
+
+		'techno_chatbot_aipagechunk' => array(
+			'label'       => 'AI Page Chunk Limit',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 2,
+			'min'         => 1,
+			'max'         => 3,
+			'description' => 'Returned Page chunk by AI (Max of 3)',
+		),
+
+		'techno_chatbot_airelchunk' => array(
+			'label'       => 'AI Relevant Chunk Limit',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 5,
+			'min'         => 1,
+			'max'         => 10,
+			'description' => 'Returned Relevant chunk by AI (Max of 10)',
+		),
+
+		'techno_chatbot_aithreshold' => array(
+			'label'       => 'AI Similarity Threshold Multiplier',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 0.80,
+			'min'         => 0.01,
+			'max'         => 1.00,
+			'step'        => '0.01',
+			'description' => 'Multiplier applied to best match similarity score (Default: 0.80)',
+		),
 	);
 
     /**
@@ -131,14 +175,22 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 
 		foreach ( self::$fields as $option => $data ) {
 
+			if ( $data['type'] === 'number' ) {
+				$sanitize_callback = array( $this, 'sanitize_number' );
+			} elseif ( $data['type'] === 'textarea' ) {
+				$sanitize_callback = array( $this, 'sanitize_textarea' );
+			} elseif ( $data['type'] === 'checkbox' ) {
+				$sanitize_callback = array( $this, 'sanitize_checkbox' );
+			} else {
+				$sanitize_callback = 'sanitize_text_field';
+			}
+
 			register_setting(
 				'techno_chatbot_behaviors_group',
 				$option,
 				array(
-					'sanitize_callback' => $data['type'] === 'checkbox'
-						? array( $this, 'sanitize_checkbox' )
-						: 'sanitize_text_field',
-					'default' => $data['default'],
+					'sanitize_callback' => $sanitize_callback,
+					'default'           => $data['default'],
 				)
 			);
 
@@ -155,10 +207,13 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 					'description' => $data['description'] ?? '',
 					'placeholder' => $data['placeholder'] ?? '',
 					'min'         => $data['min'] ?? '',
+					'step'        => $data['step'] ?? '',
 					'unit'        => $data['unit'] ?? '',
 					'disabled' 	  => $data['disabled'] ?? '',
 					'options' 	  => $data['options'] ?? array(),
 					'features'	  => $data['features'] ?? '',
+					'rows'        => $data['rows'] ?? 4,
+					'maxlength'   => $data['maxlength'] ?? 500,
 				)
 			);
 
@@ -182,6 +237,8 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 		$placeholder = $args['placeholder'];
 		$min         = $args['min'];
 		$unit        = $args['unit'];
+		$rows        = $args['rows'];
+		$maxlength   = $args['maxlength'];
 		$value       = get_option( $option, $default );
 		$value		 = ( $default !== '' && $value === '' ) ? $default : $value;
 		$disabled    = ( isset($args['disabled']) && $args['disabled'] == 1 )? 'disabled' : '';
@@ -206,11 +263,13 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			}
 			echo '</label>';
 		} elseif ( $type === 'number' ) {
+			$step = isset( $args['step'] ) ? 'step="' . esc_attr( $args['step'] ) . '"' : '';
 			echo '<input '.$disabled.'
 					type="number"
 					name="' . esc_attr( $option ) . '"
 					value="' . esc_attr( $value ) . '"
 					min="' . esc_attr( $min ) . '"
+					' . $step . '
 					style="width:100px;"
 				/>';
 			if ( ! empty( $unit ) ) {
@@ -246,7 +305,9 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 					</option>';
 			}
 			echo '</select>';
-		}
+		} elseif ( $type === 'textarea' ) {
+            echo '<textarea name="' . esc_attr( $option ) . '" maxlength="'. esc_attr( $maxlength ) .'" rows="' . esc_attr( $rows ) . '" style="width:100%;" placeholder="' . esc_attr( $placeholder ) . '">' . esc_textarea( $value ) . '</textarea>';
+        } 
 
 		if ( ! empty( $description ) && $type !== 'checkbox' ) {
 			echo '<p class="description">'
@@ -268,6 +329,44 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 	 */
 	public function sanitize_checkbox( $value ) {
 		return ( isset( $value ) && 1 == $value ) ? 1 : 0;
+	}
+
+	/**
+     * Sanitize textarea input
+	 * 
+	 * @since    1.2.6
+     */
+    public function sanitize_textarea( $input ) {
+        return wp_kses_post( $input );
+    }
+
+	/**
+	 * Sanitize and enforce min/max bounds for float/number inputs
+	 *
+	 * @since    1.2.6
+	 */
+	public function sanitize_number( $value ) {
+		// Allow blank values to pass through if submitted empty
+		if ( '' === trim( $value ) ) {
+			return '';
+		}
+
+		$val = floatval( $value );
+
+		// Look up constraints from field definitions
+		foreach ( self::$fields as $key => $data ) {
+			if ( isset( $_POST[$key] ) ) {
+				if ( isset( $data['min'] ) && '' !== $data['min'] && $val < floatval( $data['min'] ) ) {
+					return floatval( $data['min'] );
+				}
+				if ( isset( $data['max'] ) && '' !== $data['max'] && $val > floatval( $data['max'] ) ) {
+					return floatval( $data['max'] );
+				}
+				return $val;
+			}
+		}
+
+		return $val;
 	}
 
 	/**

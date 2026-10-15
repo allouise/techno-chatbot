@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!button) return;
 
+    // Grab the initial state from the data attribute
+    const defaultText = button.getAttribute("data-default-text") || "Crawl This Source";
+
     button.addEventListener("click", async function () {
 
         button.disabled = true;
@@ -28,18 +31,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 setTimeout(() => {
                     window.location.reload();
                 }, 800);
+                return; // Exit early to prevent resetting text before reload
             } else {
                 alert("Error: " + data.data);
-
-                button.disabled = false;
-                button.innerText = "Crawl This Source";
             }
 
         } catch (error) {
             alert("Request failed");
         }
 
+        // Revert on failure or error
         button.disabled = false;
-        button.innerText = "Crawl This Source";
+        button.innerText = defaultText;
     });
 });

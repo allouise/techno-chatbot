@@ -214,6 +214,15 @@ class Techno_Chatbot {
 		$this->loader->add_action( 'add_meta_boxes', $this->post_types, 'add_meta_boxes' );
     	$this->loader->add_action( 'save_post_techno_chatbot_faq', $this->post_types, 'save_faq_meta' );
 		$this->loader->add_action( 'save_post_techno_chatbot_aidb', $this->post_types, 'save_aidb_meta' );
+		$this->loader->add_filter( 'manage_edit-techno_chatbot_aidb_columns', $this->post_types, 'add_aidb_column' );
+		$this->loader->add_action( 'manage_techno_chatbot_aidb_posts_custom_column', $this->post_types, 'render_aidb_column', 10, 2 );
+		$this->loader->add_filter( 'views_edit-techno_chatbot_aidb', $this->post_types, 'add_aidb_post_type_views' );
+		$this->loader->add_action( 'pre_get_posts', $this->post_types, 'filter_aidb_requests' );
+
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_search_posts', $this->post_types, 'search_posts_for_exclude' );
+		$this->loader->add_action( 'admin_footer', $this->post_types, 'render_manage_multiple_modal' );
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_batch_crawl', $plugin_admin, 'batch_crawl_posts' );
+		$this->loader->add_action( 'wp_ajax_techno_chatbot_batch_delete_aidb', $plugin_admin, 'batch_delete_aidb_posts' );
 
 		$this->loader->add_filter( 'plugin_action_links_' . TECHNO_CHATBOT_FILEBASE, $plugin_admin, 'add_settings_link' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'add_plugin_admin_menu' );
@@ -254,6 +263,9 @@ class Techno_Chatbot {
 
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_new_conversation', $plugin_public, 'create_conversation' );
 		$this->loader->add_action( 'wp_ajax_techno_new_conversation', $plugin_public, 'create_conversation' );
+
+		$this->loader->add_action( 'wp_ajax_nopriv_techno_send_tracker_email', $plugin_public, 'send_tracker_email' );
+		$this->loader->add_action( 'wp_ajax_techno_send_tracker_email', $plugin_public, 'send_tracker_email' );
 
 		$this->loader->add_action( 'wp_ajax_nopriv_techno_update_conversation', $plugin_public, 'update_conversation' );
 		$this->loader->add_action( 'wp_ajax_techno_update_conversation', $plugin_public, 'update_conversation' );

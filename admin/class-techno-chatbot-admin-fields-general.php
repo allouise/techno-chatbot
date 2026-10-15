@@ -113,14 +113,6 @@ class Techno_Chatbot_Admin_Fields_General {
 			'description' => 'This will allow admin to receive a notification per each inquiry real time',
 		),
 
-		'techno_chatbot_pagecontentjs' => array(
-			'label'       => 'JS Loaded Page Fix',
-			'type'        => 'checkbox',
-			'section'     => 'general_section',
-			'default'     => 0,
-			'description' => 'Check this checkbox to fix incompatibilities with pages loaded via js',
-		),
-
 		'techno_chatbot_emails' => array(
 			'label'       => 'AI Chatbot Notification Emails',
 			'type'        => 'text',

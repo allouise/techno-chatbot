@@ -73,7 +73,7 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 #techno-chatbot-send[disabled] { pointer-events: none; cursor: not-allowed; }
 
 /* Disclaimer modal */
-.techno-chatbot-disclaimer-short { padding: 10px 10px; text-align: center; font-size: 0.9em; }
+.techno-chatbot-disclaimer-short { padding: 10px 10px; text-align: center; font-size: var(--techno-chatbot-sendbtnsize); }
 #techno-chatbot-disclaimer-modal { position: fixed;  z-index: var(--techno-chatbot-z-index); left: 0; top: 0; width: 100%; height: 100%; display: flex ; align-items: center; justify-content: center; background: var(--techno-dsclaimer_overlay); display: none; }
 #techno-chatbot-disclaimer-modal.active { display: flex; }
 .techno-chatbot-disclaimer-container { border-radius: 5px; width: 700px; background: var(--techno-dsclaimer_bg); color: var(--techno-dsclaimer_txt); max-width: 90%; max-height: 90%; overflow: auto; }

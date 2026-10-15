@@ -1,8 +1,8 @@
 <?php
-
 /**
- * License Helper
+ * Chatbot Helper
  */
+
 function techno_chatbot_license() {
     return Techno_Chatbot_License_Manager::instance();
 }
@@ -73,9 +73,30 @@ function techno_chatbot_get_ailimit() {
     return max( 0, $remaining );
 }
 
+function techno_chatbot_get_admin_emails( $allow_wp_default = false ) {
+    $emails = [];
+
+    $to_notify = get_option( 'techno_chatbot_emails', '' );
+    if ( !empty( $to_notify ) ) {
+        $raw_recipients = array_map( 'trim', explode( ',', $to_notify ) );
+        $emails = array_filter( $raw_recipients, 'is_email' );
+    }
+
+    if ( empty( $emails ) && $allow_wp_default ) {
+        $admin_email = get_option( 'admin_email' );
+        if ( is_email( $admin_email ) ) {
+            $emails = [ $admin_email ];
+        }
+    }
+
+    return $emails;
+}
+
+
 /**
  * Websocket Helper
  */
+
 function techno_chatbot_websocket() {
     return Techno_Chatbot_Websocket::instance();
 }

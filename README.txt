@@ -65,6 +65,20 @@ You can customize the following components:
 * Transfer rules and escalation behavior
 
 == Changelog ==
+= 1.2.6 =
+* Remvoal of Fix for issues on pages loaded with js
+* Created separate function for sending tracker email from create_conversation function to lighten the load
+* Helper for extracting admin emails
+* Disallow autocomplete in License Tab
+* Removed Unused postmetas
+* Added AI Database post list column and grouping
+* Added Custom AI Prompt
+* Added AI Custom Setting thresholds
+* Added AI answer to add links
+* Added Outdated column and view to see w/c AI db post is outdated
+* Fixed Package capability issue package one cant access live chat
+* Fixed Chatbot Disabled showing in dashboard
+
 = 1.2.5 =
 * Added show chatbot on specific pages only
 * Fix for issues on pages loaded with js
