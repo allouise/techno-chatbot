@@ -311,7 +311,7 @@ class Techno_Chatbot_Admin {
 		}
 
 		$aiallowed  = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies');
-		$enabled    = get_option('techno_chatbot_enabled', 0);
+		$enabled    = get_option('techno_chatbot_enabled', 1);
 		$basic_chat = techno_chatbot_feature('basic_chat');
 
 		$default_license = [

@@ -541,6 +541,7 @@ class Techno_Chatbot_Post_Types {
             $new_columns[ $key ] = $title;
             if ( 'title' === $key ) {
                 $new_columns['techno_post_type'] = __( 'Post Type', 'techno-chatbot' );
+                $new_columns['techno_sync_status'] = __( 'Sync Status', 'techno-chatbot' );
             }
         }
         return $new_columns;
@@ -561,6 +562,26 @@ class Techno_Chatbot_Post_Types {
             } else {
                 $ai_db_type = get_post_meta( $post_id, '_ai_db_type', true );
                 echo esc_html( ! empty( $ai_db_type ) ? ucfirst( $ai_db_type ) : __( 'N/A', 'techno-chatbot' ) );
+            }
+        }
+        if ( 'techno_sync_status' === $column_name && $post_id ) {
+            $target_post_id = get_post_meta( $post_id, '_ai_db_postID', true );
+
+            if ( ! empty( $target_post_id ) && intval( $target_post_id ) > 0 && get_post( $target_post_id ) ) {
+                // Get modified timestamps (UTC)
+                $source_modified = get_post_modified_time( 'U', true, $target_post_id );
+                
+                // Check against last crawled meta or AI DB post modified date
+                $ai_last_crawled = get_post_meta( $post_id, '_ai_last_crawled', true );
+                $crawled_time    = ! empty( $ai_last_crawled ) && strtotime( $ai_last_crawled ) ? strtotime( $ai_last_crawled ) : get_post_modified_time( 'U', true, $post_id );
+
+                if ( $source_modified > $crawled_time ) {
+                    echo '<span style="color: #fff; background: #d63638;padding: 3px 10px;display: inline-block;border-radius: 5px;">' . __( 'Outdated', 'techno-chatbot' ) . '</span>';
+                } else {
+                    echo '<span style="color: #fff; background: #53a568;padding: 3px 10px;display: inline-block;border-radius: 5px;">' . __( 'Up to Date', 'techno-chatbot' ) . '</span>';
+                }
+            } else {
+                echo '<span style="color: #666;">' . __( 'N/A (External/File)', 'techno-chatbot' ) . '</span>';
             }
         }
     }
@@ -620,6 +641,33 @@ class Techno_Chatbot_Post_Types {
             }
         }
 
+        // Efficient database-level check for "Recrawl Needed" count
+        $matched_ids = $wpdb->get_col( "
+            SELECT p1.ID 
+            FROM {$wpdb->posts} p1
+            INNER JOIN {$wpdb->postmeta} pm1 ON p1.ID = pm1.post_id AND pm1.meta_key = '_ai_db_postID'
+            INNER JOIN {$wpdb->posts} p2 ON pm1.meta_value = p2.ID
+            LEFT JOIN {$wpdb->postmeta} pm2 ON p1.ID = pm2.post_id AND pm2.meta_key = '_ai_last_crawled'
+            WHERE p1.post_type = 'techno_chatbot_aidb'
+              AND p1.post_status != 'trash'
+              AND p2.post_status = 'publish'
+              AND p2.post_modified > COALESCE(NULLIF(pm2.meta_value, ''), p1.post_modified)
+        " );
+
+        $recrawl_needed_count = ! empty( $matched_ids ) ? count( $matched_ids ) : 0;
+
+        if ( $recrawl_needed_count > 0 ) {
+            $recrawl_class = ( 'recrawl_needed' === $current ) ? 'current' : '';
+            $recrawl_url   = admin_url( 'edit.php?post_type=techno_chatbot_aidb&techno_ai_type_filter=recrawl_needed' );
+            $views['techno_recrawl_needed'] = sprintf(
+                '<a href="%s" class="%s" style="color: #d63638;">%s <span class="count">(%s)</span></a>',
+                esc_url( $recrawl_url ),
+                esc_attr( $recrawl_class ),
+                esc_html__( 'Recrawl Needed', 'techno-chatbot' ),
+                esc_html( $recrawl_needed_count )
+            );
+        }
+
         return $views;
     }
 
@@ -629,20 +677,41 @@ class Techno_Chatbot_Post_Types {
 	 * @since    1.2.6
 	 */
     public function filter_aidb_requests( $query ) {
-        global $pagenow;
+        global $pagenow, $wpdb;
         if ( is_admin() && 'edit.php' === $pagenow && $query->get( 'post_type' ) === 'techno_chatbot_aidb' ) {
             if ( isset( $_GET['techno_ai_type_filter'] ) && ! empty( $_GET['techno_ai_type_filter'] ) ) {
                 $filter_type = sanitize_text_field( $_GET['techno_ai_type_filter'] );
-                $meta_query  = $query->get( 'meta_query' );
-                if ( ! is_array( $meta_query ) ) {
-                    $meta_query = array();
+
+                if ( 'recrawl_needed' === $filter_type ) {
+                    $matched_ids = $wpdb->get_col( "
+                        SELECT p1.ID 
+                        FROM {$wpdb->posts} p1
+                        INNER JOIN {$wpdb->postmeta} pm1 ON p1.ID = pm1.post_id AND pm1.meta_key = '_ai_db_postID'
+                        INNER JOIN {$wpdb->posts} p2 ON pm1.meta_value = p2.ID
+                        LEFT JOIN {$wpdb->postmeta} pm2 ON p1.ID = pm2.post_id AND pm2.meta_key = '_ai_last_crawled'
+                        WHERE p1.post_type = 'techno_chatbot_aidb'
+                          AND p1.post_status != 'trash'
+                          AND p2.post_status = 'publish'
+                          AND p2.post_modified > COALESCE(NULLIF(pm2.meta_value, ''), p1.post_modified)
+                    " );
+
+                    if ( empty( $matched_ids ) ) {
+                        $matched_ids = array( 0 );
+                    }
+
+                    $query->set( 'post__in', $matched_ids );
+                } else {
+                    $meta_query  = $query->get( 'meta_query' );
+                    if ( ! is_array( $meta_query ) ) {
+                        $meta_query = array();
+                    }
+                    $meta_query[] = array(
+                        'key'     => '_ai_db_type',
+                        'value'   => $filter_type,
+                        'compare' => '=',
+                    );
+                    $query->set( 'meta_query', $meta_query );
                 }
-                $meta_query[] = array(
-                    'key'     => '_ai_db_type',
-                    'value'   => $filter_type,
-                    'compare' => '=',
-                );
-                $query->set( 'meta_query', $meta_query );
             }
         }
     }

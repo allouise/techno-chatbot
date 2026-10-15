@@ -39,6 +39,7 @@ class Techno_Chatbot_License_Manager {
 		// Backward compatibility for old 'standard' package
 		'standard' => [ 'label' => 'Package 1', 'url' => '#', 'features' => [ 
 			'basic_chat' => 'Basic Chat',
+			'live_chat' => 'Live Chat',
 			'multi_lang' => 'Multi Language'
 		] ], 
 		// Backward compatibility for old 'master' package
@@ -50,6 +51,7 @@ class Techno_Chatbot_License_Manager {
 		] ],
 		'package1' => [ 'label' => 'Package 1', 'url' => '#', 'features' => [ 
 			'basic_chat' => 'Basic Chat',
+			'live_chat' => 'Live Chat',
 			'multi_lang' => 'Multi Language'
 		] ], 
 		'package2' => [ 'label' => 'Package 2', 'url' => '#', 'features' => [

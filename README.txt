@@ -75,6 +75,9 @@ You can customize the following components:
 * Added Custom AI Prompt
 * Added AI Custom Setting thresholds
 * Added AI answer to add links
+* Added Outdated column and view to see w/c AI db post is outdated
+* Fixed Package capability issue package one cant access live chat
+* Fixed Chatbot Disabled showing in dashboard
 
 = 1.2.5 =
 * Added show chatbot on specific pages only
