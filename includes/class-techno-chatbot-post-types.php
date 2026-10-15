@@ -561,7 +561,7 @@ class Techno_Chatbot_Post_Types {
                 echo esc_html( $post_type_obj ? $post_type_obj->labels->singular_name : get_post_type( $target_post_id ) );
             } else {
                 $ai_db_type = get_post_meta( $post_id, '_ai_db_type', true );
-                echo esc_html( ! empty( $ai_db_type ) ? ucfirst( $ai_db_type ) : __( 'N/A', 'techno-chatbot' ) );
+                echo esc_html( ! empty( $ai_db_type ) ? ucfirst( $ai_db_type ) : __( 'Uncrawled', 'techno-chatbot' ) );
             }
         }
         if ( 'techno_sync_status' === $column_name && $post_id ) {
@@ -727,6 +727,9 @@ class Techno_Chatbot_Post_Types {
             return;
         }
 
+        $ai_check = techno_chatbot_feature('ai_training');
+        $ai_allowed = $ai_check['allowed'] === true;
+
         $post_types = get_post_types( array( 'public' => true ), 'objects' );
         unset( $post_types['attachment'] );
         unset( $post_types['techno_chatbot_aidb'] );
@@ -734,6 +737,7 @@ class Techno_Chatbot_Post_Types {
         ?>
         <div id="techno-manage-multiple-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100000; align-items:center; justify-content:center;">
             <div style="background:#fff; padding:30px; width:600px; max-width:90%; border-radius:4px; box-shadow:0 4px 10px rgba(0,0,0,0.3); position:relative; max-height:90vh; overflow-y:auto;">
+                <?php if( $ai_allowed ) { ?>
                 <h2><?php _e( 'Crawl Multiple Posts', 'techno-chatbot' ); ?></h2>
                 <button type="button" id="techno-close-modal" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:18px; cursor:pointer;">&times;</button>
                 
@@ -781,8 +785,9 @@ class Techno_Chatbot_Post_Types {
                         <button type="button" class="button button-primary" id="techno-multiple-crawl-btn"><?php _e( 'Batch Crawl', 'techno-chatbot' ); ?></button>
                     </p>
                 </form>
-                
+
                 <hr/>
+                <?php } ?>
 
                 <form id="techno-manage-delete-form">
                     <h2><?php _e( 'Bulk Permanent Delete All', 'techno-chatbot' ); ?></h2>
