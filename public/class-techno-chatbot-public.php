@@ -1379,8 +1379,6 @@ class Techno_Chatbot_Public {
 		$context_text
 		Question:
 		$question";
-	
-	error_log( 'Prompt: ' . $prompt . "\n\n" );
 
 		$response = wp_remote_post(
 			'https://api.openai.com/v1/chat/completions',
