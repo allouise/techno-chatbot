@@ -311,6 +311,8 @@ class Techno_Chatbot_Admin {
 		}
 
 		$aiallowed  = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies');
+		$aitraining_plan = techno_chatbot_feature('ai_training');
+    	$aitraining_enabled = $aitraining_plan['allowed'] === true;
 		$enabled    = get_option('techno_chatbot_enabled', 1);
 		$basic_chat = techno_chatbot_feature('basic_chat');
 
@@ -325,9 +327,17 @@ class Techno_Chatbot_Admin {
 		$license_data = wp_parse_args((array) get_option('techno_chatbot_license_data', []), $default_license);
 
 		$ai_assistance_limit  = (int) ($license_data['ai_assistance_limit'] ?? 0);
-		$remaining_limit      = (int) techno_chatbot_get_ailimit();
-		$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
-		$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+
+		if( $aitraining_enabled ) {
+			$remaining_limit      = (int) techno_chatbot_get_ailimit();
+			$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
+			$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+		}else{
+			$remaining_limit      = 0;
+			$remaining_percentage = 0;
+			$used_percentage      = 0;
+		}
+
 		$chatbot_status       = ($enabled && !empty($basic_chat['allowed'])) ? 'Active' : 'Disabled';
 		$counts 			  = get_transient('techno_chatbot_dashboard_counts');
 		$active_languages 	  = count( (array) get_option( 'techno_chatbot_active_languages', array() ) );

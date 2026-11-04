@@ -59,7 +59,6 @@ function techno_chatbot_get_ailimit() {
 
     global $wpdb;
     $table = $wpdb->prefix . 'techno_cb_messages';
-
     // Properly parameterized SQL query using %s placeholders
     $count = (int) $wpdb->get_var(
         $wpdb->prepare(

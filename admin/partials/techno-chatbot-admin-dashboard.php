@@ -56,7 +56,11 @@
                     <div class="techno-usage-details">
                         <div class="techno-usage-text">
                             <span class="techno-metric-label">Remaining Allowance</span>
-                            <span class="techno-usage-numbers"><strong><?php echo $remaining_limit; ?></strong> / <span id="techno-ai-limit"><?php echo $ai_assistance_limit; ?> requests</span></span>
+                            <?php if($aitraining_enabled == 1){ ?>
+                                <span class="techno-usage-numbers"><strong><?php echo $remaining_limit; ?></strong> / <span id="techno-ai-limit"><?php echo $ai_assistance_limit; ?> remaining requests</span></span>
+                            <?php }else{ ?>
+                                <span class="techno-usage-numbers"><span id="techno-ai-limit">Not available in your plan</span></span>
+                            <?php } ?>
                         </div>
                         <!-- Usage Bar -->
                         <div class="techno-progress-bar-bg">
@@ -89,13 +93,13 @@
             <div class="techno-card techno-card-multilang">
                 <div class="techno-card-header">
                     <h2 class="techno-card-title">Multi Language</h2>
-                    <span class="techno-status-pill <?php echo ($language_limit >= 0)? 'active' : ''; ?>" id="techno-ai-status"><?php echo ($language_limit >= 0)? 'Active' : 'Inactive'; ?></span>
+                    <span class="techno-status-pill <?php echo ($language_limit > 0)? 'active' : ''; ?>" id="techno-ai-status"><?php echo ($language_limit > 0)? 'Active' : 'Inactive'; ?></span>
                 </div>
                 <div class="techno-card-body">
                     <div class="techno-usage-details">
                         <div class="techno-usage-text">
                             <span class="techno-metric-label">Language Limit</span>
-                            <span class="techno-usage-numbers"><strong><?php echo $active_languages; ?></strong> / <span id="techno-ai-limit"><?php echo $language_limit; ?> languages</span></span>
+                            <span class="techno-usage-numbers"><strong><?php echo $active_languages; ?></strong> Used / <span id="techno-ai-limit"><?php echo $language_limit; ?> languages</span></span>
                         </div>
                         <!-- Usage Bar -->
                         <div class="techno-progress-bar-bg">

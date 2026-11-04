@@ -67,6 +67,8 @@ You can customize the following components:
 == Changelog ==
 = 1.2.9 =
 * Passed app license status to licensing 
+* Fixed chatbot reply bubble link text color
+* Fixed dashboard if multilanguage = 0 then show disabled
 
 = 1.2.8 =
 * Fixed capability restriction for Manage bulk crawl
