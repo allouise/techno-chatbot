@@ -1586,11 +1586,15 @@ class Techno_Chatbot_Public {
 
 		$remaining_allowance = techno_chatbot_get_ailimit();
 		$response = new WP_REST_Response( [
-			'success'   => true,
-			'remaining' => $remaining_allowance,
-			'license_data' => $license_data
-			/* 'limit'     => 0,
-			'used'      => 0, */
+			'success'		=> true,
+			'remaining'		=> $remaining_allowance,
+			'license_data'	=> $license_data,
+			/* 'plan'			=> $plan,
+			'status'		=> $status,
+			'expiry_from'	=> $expiry_from,
+			'expiry_to'		=> $expiry_to,
+			'limit'     	=> $limit,
+			'used'      	=> $used, */
 		], 200 );
 
 		$response->header( 'X-Robots-Tag', 'noindex' );
