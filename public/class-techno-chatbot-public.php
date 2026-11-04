@@ -1585,16 +1585,24 @@ class Techno_Chatbot_Public {
 		}
 
 		$remaining_allowance = techno_chatbot_get_ailimit();
+		$plan = isset( $license_data['plan'] )? $license_data['plan'] : '';
+		$status = isset( $license_data['status'] )? $license_data['status'] : '';
+		$limit = isset( $license_data['ai_assistance_limit'] )? intval( $license_data['ai_assistance_limit'] ) : 0;
+		$expiry_from = isset( $license_data['ailimit_start_date'] )? $license_data['ailimit_start_date'] : '';
+		$expiry_to = isset( $license_data['ailimit_end_date'] )? $license_data['ailimit_end_date'] : '';
+		$used = ( $limit > 0 && $limit > $remaining_allowance ) ? ( $limit - $remaining_allowance ) : 0;
+		$language_count = isset( $license_data['language_count'] )? intval( $license_data['language_count'] ) : 0;
+
 		$response = new WP_REST_Response( [
 			'success'		=> true,
 			'remaining'		=> $remaining_allowance,
-			'license_data'	=> $license_data,
-			/* 'plan'			=> $plan,
+			'plan'			=> $plan,
 			'status'		=> $status,
 			'expiry_from'	=> $expiry_from,
 			'expiry_to'		=> $expiry_to,
 			'limit'     	=> $limit,
-			'used'      	=> $used, */
+			'used'      	=> $used,
+			'language_count'=> $language_count,
 		], 200 );
 
 		$response->header( 'X-Robots-Tag', 'noindex' );
