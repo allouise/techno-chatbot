@@ -1117,8 +1117,8 @@ class Techno_Chatbot_Admin {
 
 		$results = $this->create_embeddings_batch( $chunks );
 		
-		if ( ! $results ) {
-			return new WP_Error( 'embedding_failed', 'Embedding failed' );
+		if ( is_wp_error( $results ) ) {
+			return $results;
 		}
 
 		$embedded_chunks = [];
@@ -1351,7 +1351,9 @@ class Techno_Chatbot_Admin {
 		$api_key = get_option('techno_chatbot_openai_secret');
 
 		if (!$api_key || empty($chunks)) {
-			return false;
+			$error_msg = 'OpenAI API key is missing or chunks array is empty.';
+			error_log('Techno Chatbot Error: ' . $error_msg);
+			return new WP_Error('embedding_config_error', $error_msg);
 		}
 
 		$response = wp_remote_post(
@@ -1370,13 +1372,17 @@ class Techno_Chatbot_Admin {
 		);
 
 		if (is_wp_error($response)) {
-			return false;
+			error_log('Techno Chatbot API Transport Error: ' . $response->get_error_message());
+			return $response; // Passes the WP_Error directly
 		}
 
-		$body = json_decode(wp_remote_retrieve_body($response), true);
+		$response_body = wp_remote_retrieve_body($response);
+		$body = json_decode($response_body, true);
 
 		if (!isset($body['data'])) {
-			return false;
+			$error_msg = isset($body['error']['message']) ? $body['error']['message'] : 'Unknown OpenAI API error response.';
+			error_log('Techno Chatbot OpenAI API Error: ' . $error_msg);
+			return new WP_Error('openai_api_error', $error_msg);
 		}
 
 		return $body['data'];
