@@ -263,6 +263,8 @@ class Techno_Chatbot_Admin_Fields_License {
 				'status' => 'invalid',
 				'expiry_date' => '',
 				'ai_assistance_limit' => 0,
+				'ailimit_start_date' => '',
+				'ailimit_end_date' => '',
 				'language_count' => 0,
 				'last_check' => ''
 			]);
@@ -272,6 +274,8 @@ class Techno_Chatbot_Admin_Fields_License {
 			$expiry_date = !empty($license_data['expiry_date']) ? date('M d, Y', strtotime($license_data['expiry_date'])) : 'Lifetime';
 			$last_check = !empty($license_data['last_check']) ? date('Y-m-d H:i:s', $license_data['last_check']) : '';
 			$ai_assistance_limit = (int) ( $license_data['ai_assistance_limit'] ?? 0 );
+			$aifrom = !empty($license_data['ailimit_start_date']) ? $license_data['ailimit_start_date'] : '';
+			$aito = !empty($license_data['ailimit_end_date']) ? $license_data['ailimit_end_date'] : '';
 			$language_count = (int) ( $license_data['language_count'] ?? 0 );
 
 			if( $status == 'Active' ){
@@ -280,7 +284,7 @@ class Techno_Chatbot_Admin_Fields_License {
 					Plan: <strong style='color: #0066ff;'>$plan</strong> | 
 					Status: <strong style='color: #03a756;'>$status</strong> | 
 					Expires: <strong>$expiry_date</strong> | 
-					AI Assitance Limit: <strong>$ai_assistance_limit</strong> |
+					AI Assitance Limit: <strong>$ai_assistance_limit</strong> ( $aifrom - $aito ) |
 					Language Limit: <strong>$language_count</strong>
 				</div>";
 			}else{

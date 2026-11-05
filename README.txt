@@ -69,6 +69,8 @@ You can customize the following components:
 * Passed app license status to licensing 
 * Fixed chatbot reply bubble link text color
 * Fixed dashboard if multilanguage = 0 then show disabled
+* Email techno admin if expired ai assistance
+
 
 = 1.2.8 =
 * Fixed capability restriction for Manage bulk crawl

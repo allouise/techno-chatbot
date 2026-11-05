@@ -114,7 +114,8 @@ body.techno-chatbot_page_techno-chatbot-settings .wrap form[action="options.php"
 .techno-card-title { margin: 0; font-size: 16px; font-weight: 600; color: #334155; } 
 .techno-badge { background-color: #d1fae5; color: #047857; font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: 600; } 
 .techno-badge.inactive { background-color: #e62727; color: #fff; } 
-.techno-status-pill { background-color: #e62727; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600; } 
+.techno-status-pill { background-color: #fad1d1; color: #780404; font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600; } 
+.techno-status-pill.expired { background-color: #faf7d1; color: #786304; } 
 .techno-status-pill.active { background-color: #d1fae5; color: #047857; } 
 .techno-status-pill.ai { background-color: #d1fae5; color: #047857; }
 .techno-status-pill.faq { background-color: #d1edfa; color: #044a78; }

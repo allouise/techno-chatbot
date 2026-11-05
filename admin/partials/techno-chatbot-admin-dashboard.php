@@ -50,7 +50,34 @@
             <div class="techno-card techno-card-ai">
                 <div class="techno-card-header">
                     <h2 class="techno-card-title">AI Assistance</h2>
-                    <span class="techno-status-pill <?php echo ($aiallowed == 1)? 'active' : ''; ?>" id="techno-ai-status"><?php echo ($aiallowed == 1)? 'Active' : 'Inactive'; ?></span>
+                    
+                    <?php
+                        $todayObj = new DateTime('today');
+                        $fromObj  = DateTime::createFromFormat('Y-m-d', $aifrom);
+                        $toObj    = DateTime::createFromFormat('Y-m-d', $aito); 
+
+                        // Check date boundaries first
+                        if ($toObj && $todayObj > $toObj) {
+                            $statusText = 'Expired';
+                            $statusClass = 'expired';
+                        } elseif ($fromObj && $todayObj < $fromObj) {
+                            $statusText = 'Not Yet Started';
+                            $statusClass = 'expired';
+                        } elseif ($aiallowed == 1) {
+                            $statusText = 'Active';
+                            $statusClass = 'active';
+                        } else {
+                            $statusText = 'Inactive';
+                            $statusClass = '';
+                        }
+                    ?>
+
+                    <span class="techno-status-pill <?php echo $statusClass; ?>" id="techno-ai-status">
+                        <?php echo $statusText; ?>
+                        <?php if ($aitraining_enabled == 1): ?>
+                            | (<?php echo $aifrom; ?> to <?php echo $aito; ?>)<br/>
+                        <?php endif; ?>
+                    </span>
                 </div>
                 <div class="techno-card-body">
                     <div class="techno-usage-details">

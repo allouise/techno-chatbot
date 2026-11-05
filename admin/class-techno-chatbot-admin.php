@@ -332,10 +332,14 @@ class Techno_Chatbot_Admin {
 			$remaining_limit      = (int) techno_chatbot_get_ailimit();
 			$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
 			$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+			$aifrom				  = $license_data['ailimit_start_date'];
+			$aito				  = $license_data['ailimit_end_date'];
 		}else{
 			$remaining_limit      = 0;
 			$remaining_percentage = 0;
 			$used_percentage      = 0;
+			$aifrom				  = '';
+			$aito				  = '';
 		}
 
 		$chatbot_status       = ($enabled && !empty($basic_chat['allowed'])) ? 'Active' : 'Disabled';

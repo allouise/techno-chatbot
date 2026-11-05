@@ -766,7 +766,7 @@ class Techno_Chatbot_Post_Types {
                                 <span class="dashicons dashicons-search" style="margin-top:3px;"></span>
                             </button>
                         </div>
-                        <div id="techno-search-results" style="position:absolute; background:#fff; border:1px solid #ccc; width:100%; max-height:150px; overflow-y:auto; display:none; z-index:10; box-shadow:0 2px 5px rgba(0,0,0,0.1);"></div>
+                        <div id="techno-search-results" style="position:absolute; background:#fff; border:1px solid #ccc; width:100%; max-height:150px; overflow-y:auto; display:none; z-index:10; box-shadow:0 2px 5px rgba(0,0,0,0.1); max-width: 90%;"></div>
                     </p>
 
                     <!-- Excluded List Container -->
@@ -841,6 +841,12 @@ class Techno_Chatbot_Post_Types {
                     selectedPostTypes.push($(this).val());
                 });
 
+                // Collect already excluded post IDs
+                let excludedIds = [];
+                $('#techno-excluded-items input[name="exclude_ids[]"]').each(function() {
+                    excludedIds.push($(this).val());
+                });
+
                 if (selectedPostTypes.length === 0) {
                     alert('Please select at least one post type to search within.');
                     return;
@@ -858,18 +864,21 @@ class Techno_Chatbot_Post_Types {
                         action: 'techno_chatbot_search_posts',
                         keyword: keyword,
                         post_types: selectedPostTypes,
+                        exclude_ids: excludedIds,
                         nonce: '<?php echo wp_create_nonce( "techno_exclude_nonce" ); ?>'
                     },
                     success: function(response) {
+                        // Add a close header bar at the top of the results dropdown
+                        let html = '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#f1f1f1; border-bottom:1px solid #ccc; font-size:12px;"><strong>Search Results</strong><button type="button" id="techno-close-search-results" style="background:none; border:none; font-size:1em; cursor:pointer; line-height:1;">Close <span style="font-size:16px;">&times;</span></button></div>';
+
                         if (response.success && response.data.length > 0) {
-                            let html = '';
                             response.data.forEach(function(post) {
-                                html += '<div class="techno-search-result-item" data-id="' + post.ID + '" data-title="' + post.title + '" style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;">' + post.display_title + '</div>';
+                                html += '<div class="techno-search-result-item" data-id="' + post.ID + '" data-title="' + post.title + '" style="padding:8px; cursor:pointer; border-bottom:1px solid #eee;">ID: ' + post.ID + ' - ' + post.display_title + '</div>';
                             });
-                            $('#techno-search-results').html(html).show();
                         } else {
-                            $('#techno-search-results').html('<div style="padding:8px; color:#666;">No posts found</div>').show();
+                            html += '<div style="padding:8px; color:#666;">No posts found</div>';
                         }
+                        $('#techno-search-results').html(html).show();
                     }
                 });
             });
@@ -902,6 +911,18 @@ class Techno_Chatbot_Post_Types {
 
             $(document).on('click', '.remove-exclude', function() {
                 $(this).parent('.tag').remove();
+            });
+
+            // Close search results when clicking the close button
+            $(document).on('click', '#techno-close-search-results', function() {
+                $('#techno-search-results').hide().html('');
+            });
+
+            // Optional: Close search results when clicking outside of the search area
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#techno-exclude-search, #techno-search-posts-btn, #techno-search-results').length) {
+                    $('#techno-search-results').hide();
+                }
             });
 
             // Multiple Crawl Batch Processing
@@ -1034,8 +1055,9 @@ class Techno_Chatbot_Post_Types {
     public function search_posts_for_exclude() {
         check_ajax_referer( 'techno_exclude_nonce', 'nonce' );
 
-        $keyword = sanitize_text_field( $_POST['keyword'] );
-        $post_types = isset( $_POST['post_types'] ) ? array_map( 'sanitize_text_field', $_POST['post_types'] ) : array();
+        $keyword     = sanitize_text_field( $_POST['keyword'] );
+        $post_types  = isset( $_POST['post_types'] ) ? array_map( 'sanitize_text_field', $_POST['post_types'] ) : array();
+        $exclude_ids = isset( $_POST['exclude_ids'] ) ? array_map( 'absint', $_POST['exclude_ids'] ) : array();
 
         if ( empty( $post_types ) ) {
             wp_send_json_success( array() );
@@ -1046,6 +1068,7 @@ class Techno_Chatbot_Post_Types {
             'post_status'    => 'publish',
             's'              => $keyword,
             'posts_per_page' => 10,
+            'post__not_in'   => $exclude_ids, // Exclude already selected items
         );
 
         $query = new WP_Query( $args );
@@ -1053,7 +1076,7 @@ class Techno_Chatbot_Post_Types {
 
         if ( $query->have_posts() ) {
             while ( $query->have_posts() ) {
-                $query->the_post(); // Fixed fatal memory leak bug from previous typo ($query->the_post;)
+                $query->the_post();
                 $pt = get_post_type();
                 $pt_obj = get_post_type_object( $pt );
                 $pt_label = $pt_obj ? $pt_obj->labels->singular_name : ucfirst( $pt );

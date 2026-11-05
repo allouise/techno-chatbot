@@ -1463,7 +1463,6 @@ class Techno_Chatbot_Public {
 	 * @since 1.1.4
 	 */
 	public function check_ai_limits() {
-
 		$aitraining_plan = techno_chatbot_feature( 'ai_training' );
 		$aitraining_enabled = is_array( $aitraining_plan ) && ! empty( $aitraining_plan['allowed'] );
 
@@ -1478,6 +1477,39 @@ class Techno_Chatbot_Public {
 		if ( $limits_left <= 0 ) {
 			update_option( 'techno_chatbot_aireplies', 0 );
 		}
+
+		// Check for AI Expiration
+		$todayObj = new DateTime('today');
+		$license_data = (array) get_option( 'techno_chatbot_license_data', [] );
+		$aito = !empty($license_data['ailimit_end_date']) ? $license_data['ailimit_end_date'] : '';
+		if( $aito != '' ){
+			
+			// ----------------------------------------------------
+			// Notify Site Admin (Every 2 days if Expired AI Allowance)
+			// ----------------------------------------------------
+			$toObj = DateTime::createFromFormat('Y-m-d', $aito); 
+			if ($toObj && $todayObj > $toObj) {
+				// Check transient (2-day throttle)
+				if ( false === get_transient( 'techno_chatbot_clientexpired_notified' ) ) {
+					$response_label = ( $limits_left === 1 ) ? 'response' : 'responses';
+					$site_domain = home_url();
+					$admin_subject = "TD Chatbot - AI Allowance Expired";
+					$admin_message = sprintf(
+						"Site URL: %s <br/> Notice: AI Subscription expired. Client currently have %d AI %s remaining on their plan. AI replies is paused automatically for this website.",
+						$site_domain,
+						$limits_left,
+						$response_label
+					);
+					$admin_headers = array( 
+						'Content-Type: text/html; charset=UTF-8',
+						'Bcc: ' . TECHNO_CHATBOT_SUPPORT_EMAIL_CC 
+					);
+					$sent = wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $admin_subject, $admin_message, $admin_headers );
+
+					set_transient( 'techno_chatbot_clientexpired_notified', true, 2 * DAY_IN_SECONDS );
+				}
+			}
+        }
 
 		// ----------------------------------------------------
 		// 1. Notify Site Admin (Every 2 days if limit <= 20)
@@ -1515,7 +1547,7 @@ class Techno_Chatbot_Public {
 					);
 					$admin_headers = array( 
 						'Content-Type: text/html; charset=UTF-8',
-        				'Bcc: cristine@technodreamcenter.com' 
+        				'Bcc: ' . TECHNO_CHATBOT_SUPPORT_EMAIL_CC 
 					);
 					wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $admin_subject, $admin_message, $admin_headers );
 
