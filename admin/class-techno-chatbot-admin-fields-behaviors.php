@@ -153,6 +153,16 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'step'        => '0.01',
 			'description' => 'Multiplier applied to best match similarity score (Default: 0.80)',
 		),
+
+		'techno_chatbot_aianswercache' => array(
+			'label'       => 'Cache AI Answers',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 2,
+			'min'         => 0,
+			'max'         => 30,
+			'description' => 'AI Answer caching (Default: 2 days)',
+		),
 	);
 
     /**

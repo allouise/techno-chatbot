@@ -1309,26 +1309,33 @@ class Techno_Chatbot_Admin {
 	 *
 	 * @since    1.0.0
 	 */
-	private function chunk_text($text, $maxLength = 800) {
-
-		$sentences = preg_split('/(?<=[.!?])\s+/', $text);
-
+	private function chunk_text($text, $maxLength = 400) {
+		// Split by paragraph breaks first to prevent mixing distinct topics/sections
+		$paragraphs = preg_split('/[\r\n]+/', $text);
 		$chunks = [];
-		$current = '';
 
-		foreach ($sentences as $sentence) {
+		foreach ($paragraphs as $para) {
+			$para = trim($para);
+			if (empty($para)) continue;
 
-			if (strlen($current . ' ' . $sentence) > $maxLength) {
-				$chunks[] = trim($current);
-				$current = $sentence;
-			} else {
-				$current = $current ? $current . ' ' . $sentence : $sentence;
+			$sentences = preg_split('/(?<=[.!?])\s+/', $para);
+			$current = '';
+
+			foreach ($sentences as $sentence) {
+				if (strlen($current . ' ' . $sentence) > $maxLength) {
+					if (!empty($current)) {
+						$chunks[] = trim($current);
+					}
+					$current = $sentence;
+				} else {
+					$current = $current ? $current . ' ' . $sentence : $sentence;
+				}
 			}
-		}
 
-		$current = trim($current);
-		if ($current !== '') {
-			$chunks[] = $current;
+			$current = trim($current);
+			if ($current !== '') {
+				$chunks[] = $current;
+			}
 		}
 
 		return $chunks;
@@ -1530,4 +1537,17 @@ class Techno_Chatbot_Admin {
             'has_more' => $has_more,
         ) );
     }
+
+	/**
+     * Clear transient 'techno_ai_ans_' when saving option 'techno_chatbot_aianswercache'
+     * 
+     * @since 1.2.9
+     */
+    public function clear_chatbotanswer_cache($option_name) {
+		if ( 'techno_chatbot_aianswercache' === $option_name ) {
+			global $wpdb;
+			$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_techno_ai_ans_%' OR option_name LIKE '_transient_timeout_techno_ai_ans_%'" );
+		}
+	}
+	
 }

@@ -70,7 +70,8 @@ You can customize the following components:
 * Fixed chatbot reply bubble link text color
 * Fixed dashboard if multilanguage = 0 then show disabled
 * Email techno admin if expired ai assistance
-
+* Controls for AI Answer caching
+* Removal of private page linking for AI replies
 
 = 1.2.8 =
 * Fixed capability restriction for Manage bulk crawl

@@ -1259,6 +1259,15 @@ class Techno_Chatbot_Public {
 			$source_url = $original_post_id ? get_permalink($original_post_id) : home_url(get_post_meta($post->ID, '_page_url', true));
 			$source_title = get_the_title($original_post_id ?: $post->ID);
 
+			$is_private = false;
+			if ($original_post_id) {
+				$post_status = get_post_status($original_post_id);
+				// Consider it private if status is 'private', 'draft', 'pending', etc., or if it's password protected
+				if ($post_status != 'publish' || post_password_required($original_post_id)) {
+					$is_private = true;
+				}
+			}
+
 			foreach ($chunks as $chunk) {
 				if ( empty($chunk['embedding']) || !is_array($chunk['embedding']) || empty($chunk['text']) ) continue;
 
@@ -1276,12 +1285,15 @@ class Techno_Chatbot_Public {
 					$chunk['embedding']
 				);
 				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
+				$score = $similarity * $lengthPenalty;
+
 				$results[] = [
 					'text'       => $chunk['text'],
 					'similarity' => $similarity,
-					'score'      => $similarity * $lengthPenalty,
+					'score'      => $score,
 					'url'        => $source_url,
 					'title'      => $source_title,
+					'is_private' => $is_private,
 				];
 
 				$page_counts[$page_key]++;
@@ -1310,6 +1322,7 @@ class Techno_Chatbot_Public {
 	 */
 	private function ask_openai($question, $context_chunks) {
 		$api_key = get_option('techno_chatbot_openai_secret');
+		$answer_cache_limit = get_option( 'techno_chatbot_aianswercache', 2 );
 
 		if (!$api_key || empty($context_chunks)) {
 			return [
@@ -1324,9 +1337,12 @@ class Techno_Chatbot_Public {
 		$sources = [];
 		foreach ($context_chunks as $chunk) {
 			$text = $this->limit_context_tokens($chunk['text'], 800);
+			
+			// 1. Always feed the text into $context_text so OpenAI can read it and answer the question
 			$context_text .= "SOURCE [Title: {$chunk['title']}, URL: {$chunk['url']}]:\n" . $text . "\n\n";
         
-			if (!empty($chunk['url'])) {
+			// 2. Only add to $sources if it has a URL AND is NOT private (so it never generates a link)
+			if (!empty($chunk['url']) && empty($chunk['is_private'])) {
 				$sources[] = [
 					'title' => $chunk['title'],
 					'url'   => $chunk['url']
@@ -1353,11 +1369,14 @@ class Techno_Chatbot_Public {
 		}
 
 		/* AI Cache */
-		$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
-		$cached = get_transient($cache_key);
-		if ($cached !== false) {
-			$cached['cached'] = true;
-			return $cached;
+		$cache_expiration_days = intval( $answer_cache_limit );
+		if ( $cache_expiration_days > 0 ) {
+			$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
+			$cached = get_transient($cache_key);
+			if ($cached !== false && is_array($cached)) {
+				$cached['cached'] = true;
+				return $cached;
+			}
 		}
 
 		$prompt = "You are a helpful customer support assistant.
@@ -1420,8 +1439,12 @@ class Techno_Chatbot_Public {
 			'cached' => false,
 		];
 
-		/* Cache for 30 days */
-		set_transient( $cache_key, $result, 30 * DAY_IN_SECONDS );
+		/* Cache for the duration specified by $answer_cache_limit (in days), if enabled */
+		if ( $cache_expiration_days > 0 ) {
+			$cache_expiration = $cache_expiration_days * DAY_IN_SECONDS;
+			set_transient( $cache_key, $result, $cache_expiration );
+		}
+
 		return $result;
 	}
 

@@ -540,7 +540,7 @@ class Techno_Chatbot_Post_Types {
         foreach ( $columns as $key => $title ) {
             $new_columns[ $key ] = $title;
             if ( 'title' === $key ) {
-                $new_columns['techno_post_type'] = __( 'Post Type', 'techno-chatbot' );
+                $new_columns['techno_post_type'] = __( 'Reference Post Type', 'techno-chatbot' );
                 $new_columns['techno_sync_status'] = __( 'Sync Status', 'techno-chatbot' );
             }
         }
@@ -558,7 +558,19 @@ class Techno_Chatbot_Post_Types {
             
             if ( ! empty( $target_post_id ) && intval( $target_post_id ) > 0 ) {
                 $post_type_obj = get_post_type_object( get_post_type( $target_post_id ) );
-                echo esc_html( $post_type_obj ? $post_type_obj->labels->singular_name : get_post_type( $target_post_id ) );
+                $post_type_name = $post_type_obj ? $post_type_obj->labels->singular_name : get_post_type( $target_post_id );
+                
+                // Get the post status (e.g., publish, draft, pending)
+                $post_status = get_post_status( $target_post_id );
+                $status_label = $post_status ? ucfirst( $post_status ) : '';
+
+                // Output the post type and status together
+                $output = $post_type_name;
+                if ( ! empty( $status_label ) ) {
+                    $output .= ' (' . $status_label . ')';
+                }
+                
+                echo esc_html( $output );
             } else {
                 $ai_db_type = get_post_meta( $post_id, '_ai_db_type', true );
                 echo esc_html( ! empty( $ai_db_type ) ? ucfirst( $ai_db_type ) : __( 'Uncrawled', 'techno-chatbot' ) );
