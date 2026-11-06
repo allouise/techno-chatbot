@@ -1021,7 +1021,7 @@ class Techno_Chatbot_Admin {
 	/**
      * AJAX Handler: Batch Re-Crawl Current DB AI Knowledgebase Posts.
      * 
-     * @since 1.2.6
+     * @since 1.2.9
      */
     public function batch_recrawl_aidb_posts() {
         check_ajax_referer( 'techno_batch_recrawl_nonce', 'nonce' );
