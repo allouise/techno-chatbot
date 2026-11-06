@@ -1238,18 +1238,80 @@ class Techno_Chatbot_Public {
 		
 		// Fallback safety if option is empty or zero
 		if ($threshold_multiplier <= 0) {
-			$threshold_multiplier = 0.80;
+			$threshold_multiplier = 0.60;
 		}
 		$results = [];
 		$page_counts = [];
 
 		$posts = get_posts([
-			'post_type'   => 'techno_chatbot_aidb',
+			'post_type'   => ['techno_chatbot_aidb', 'techno_chatbot_faq'],
 			'numberposts' => -1,
 			'post_status' => 'publish'
 		]);
 
+		$current_lang = $this->get_current_language('code');
+
 		foreach ($posts as $post) {
+
+			// --- CASE A: Handle FAQ Post Type ---
+			if ( 'techno_chatbot_faq' === $post->post_type ) {
+				$primary_questions = get_post_meta( $post->ID, '_possible_questions', true );
+				$primary_answer    = get_post_meta( $post->ID, '_faq_answer', true );
+
+				// Check translations if secondary language active
+				if ( 'en' !== $current_lang ) {
+					global $wpdb;
+					$table_name = $wpdb->prefix . 'techno_cb_translations';
+					$q_key = "faq_{$post->ID}_questions";
+					$a_key = "faq_{$post->ID}_answer";
+
+					$translations = $wpdb->get_results(
+						$wpdb->prepare(
+							"SELECT option_key, option_value FROM {$table_name} WHERE lang_code = %s AND option_key IN (%s, %s)",
+							$current_lang,
+							$q_key,
+							$a_key
+						),
+						OBJECT_K
+					);
+
+					if ( isset( $translations[ $q_key ] ) && ! empty( $translations[ $q_key ]->option_value ) ) {
+						$primary_questions = $translations[ $q_key ]->option_value;
+					}
+					if ( isset( $translations[ $a_key ] ) && ! empty( $translations[ $a_key ]->option_value ) ) {
+						$primary_answer = $translations[ $a_key ]->option_value;
+					}
+				}
+
+				if ( empty( $primary_questions ) || empty( $primary_answer ) ) continue;
+
+				// Format FAQ content into clean Q&A text for AI context
+				$faq_text = "FAQ Item: " . get_the_title($post->ID) . "\n";
+				$faq_text .= "Possible Questions: " . $primary_questions . "\n";
+				$faq_text .= "Official Answer: " . wp_strip_all_tags( $primary_answer );
+
+				// Read pre-saved embedding from post meta
+				$faq_embedding = get_post_meta($post->ID, '_faq_embedding', true);
+				if ( empty($faq_embedding) || !is_array($faq_embedding) ) continue;
+
+				$similarity = $this->cosine_similarity($question_embedding, $faq_embedding);
+
+				if ($similarity < 0.15) continue;
+
+				$score = $similarity * 1.15; // Give FAQs a slight 15% relevance boost over general scraped text
+
+				$results[] = [
+					'text'       => $faq_text,
+					'similarity' => $similarity,
+					'score'      => $score,
+					'url'        => '', // FAQs don't require URL citations
+					'title'      => 'FAQ: ' . get_the_title($post->ID),
+					'is_private' => false,
+				];
+				continue;
+			}
+
+			// --- CASE B: Handle standard techno_chatbot_aidb Crawled Pages ---
 			$chunks = get_post_meta($post->ID, '_ai_embeddings', true);
 			
 			if (is_string($chunks)) $chunks = maybe_unserialize($chunks);
@@ -1262,7 +1324,6 @@ class Techno_Chatbot_Public {
 			$is_private = false;
 			if ($original_post_id) {
 				$post_status = get_post_status($original_post_id);
-				// Consider it private if status is 'private', 'draft', 'pending', etc., or if it's password protected
 				if ($post_status != 'publish' || post_password_required($original_post_id)) {
 					$is_private = true;
 				}
@@ -1271,21 +1332,27 @@ class Techno_Chatbot_Public {
 			foreach ($chunks as $chunk) {
 				if ( empty($chunk['embedding']) || !is_array($chunk['embedding']) || empty($chunk['text']) ) continue;
 
-				// Enforce per-page limit
 				$page_key = $source_url ?: $source_title;
 				if (!isset($page_counts[$page_key])) {
 					$page_counts[$page_key] = 0;
 				}
 				if ($page_counts[$page_key] >= $max_chunks_per_page) {
-					continue; // Skip if this page already reached the chunk limit
+					continue; 
 				}
 
 				$similarity = $this->cosine_similarity(
 					$question_embedding,
 					$chunk['embedding']
 				);
+
+				// OPTIONAL: Quick pre-filter to drop trash results instantly before scoring/logging
+				if ($similarity < 0.15) continue;
+				
 				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
-				$score = $similarity * $lengthPenalty;
+				
+				// $score = $similarity * $lengthPenalty;
+				// Prioritize techno_chatbot_aidb chunks with a 15% boost
+				$score = ($similarity * $lengthPenalty) * 1.15;
 
 				$results[] = [
 					'text'       => $chunk['text'],
@@ -1295,7 +1362,6 @@ class Techno_Chatbot_Public {
 					'title'      => $source_title,
 					'is_private' => $is_private,
 				];
-
 				$page_counts[$page_key]++;
 			}
 		}
@@ -1303,9 +1369,8 @@ class Techno_Chatbot_Public {
 
 		/* Find highest similarity */
 		$bestSimilarity = max(array_column($results, 'similarity'));
-		/* Set Threshold 
-		Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
-		$minimumFloor = 0.12; 
+		/* Set Threshold - Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
+		$minimumFloor = 0.25; 
 		$threshold = max($minimumFloor, $bestSimilarity * $threshold_multiplier);
 		/* Keep only relevant chunks */
 		$results = array_filter($results, function ($chunk) use ($threshold) {
@@ -1338,8 +1403,12 @@ class Techno_Chatbot_Public {
 		foreach ($context_chunks as $chunk) {
 			$text = $this->limit_context_tokens($chunk['text'], 800);
 			
-			// 1. Always feed the text into $context_text so OpenAI can read it and answer the question
-			$context_text .= "SOURCE [Title: {$chunk['title']}, URL: {$chunk['url']}]:\n" . $text . "\n\n";
+			// Format the score and similarity for display in the context prompt
+			$score_val      = isset($chunk['score']) ? number_format($chunk['score'], 4) : 'N/A';
+			$similarity_val = isset($chunk['similarity']) ? number_format($chunk['similarity'], 4) : 'N/A';
+
+			// 1. Feed the text, title, URL, score, and similarity into $context_text
+			$context_text .= "SOURCE [Title: {$chunk['title']}, URL: {$chunk['url']}, Score: {$score_val}, Similarity: {$similarity_val}]:\n" . $text . "\n\n";
         
 			// 2. Only add to $sources if it has a URL AND is NOT private (so it never generates a link)
 			if (!empty($chunk['url']) && empty($chunk['is_private'])) {
@@ -1381,19 +1450,18 @@ class Techno_Chatbot_Public {
 
 		$prompt = "You are a helpful customer support assistant.
 		Instructions:
-		- Use the provided context to answer the user's question naturally and conversationally.
-		- Always produce a complete, self-contained answer.
 		- Keep answers direct, concise, informative, and avoid repeating information.
 		- Do NOT assume the user has seen previous messages or context.
-		- Pay close attention to synonyms and alternative phrasings (e.g., 'service area', 'locations covered', 'where do you operate', 'delivery zones', or regional lists).
 		- $sources_instruction
 		" . ( ! empty( $custom_prompt_instruction ) ? "{$custom_prompt_instruction}\n		" : "" ) . "
 		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>, <li>, <a>.
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
 		- Write your entire response strictly in $lang_name.
 		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
-		- If the exact answer or pricing details are not explicitly present in the provided context, do not guess or use external data. Instead, respond only with: 'NO_ANSWER'.
-		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
+		- Answer using only the provided context. You may use synonyms, equivalent terminology, and logical rephrasing based on the provided text, but do NOT invent facts or use outside knowledge not mentioned in the context.
+		- For pricing, only provide prices or pricing details that are explicitly stated in the provided context. Do not estimate, calculate, or invent pricing.
+		- If the requested information cannot be determined or logically inferred from the context (even using synonyms), respond only with: 'NO_ANSWER'.
+		- If responding with 'NO_ANSWER', output strictly 'NO_ANSWER' without any HTML tags or extra text.
 		Context:
 		$context_text
 		Question:

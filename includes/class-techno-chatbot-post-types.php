@@ -326,7 +326,7 @@ class Techno_Chatbot_Post_Types {
 	 *
 	 * @since    1.0.0
 	 */
-   public function save_faq_meta( $post_id ) {
+    public function save_faq_meta( $post_id ) {
 
         if ( ! isset( $_POST['techno_chatbot_faq_nonce_field'] ) ) {
             return;
@@ -395,6 +395,53 @@ class Techno_Chatbot_Post_Types {
             } else {
                 $wpdb->delete( $table_name, array( 'lang_code' => $code, 'option_key' => $a_key ), array( '%s', '%s' ) );
             }
+        }
+
+        // 3. Generate and Save Vector Embedding on Save
+        $primary_questions = get_post_meta( $post_id, '_possible_questions', true );
+        $primary_answer    = get_post_meta( $post_id, '_faq_answer', true );
+
+        if ( ! empty( $primary_questions ) && ! empty( $primary_answer ) ) {
+            $faq_text = "FAQ Item: " . get_the_title( $post_id ) . "\n";
+            $faq_text .= "Possible Questions: " . $primary_questions . "\n";
+            $faq_text .= "Official Answer: " . wp_strip_all_tags( $primary_answer );
+
+            $this->generate_faq_embedding( $post_id, $faq_text );
+        }
+    }
+
+    /**
+     * Generate OpenAI embedding for FAQ post on save.
+     * 
+     * @since    1.2.9
+     */
+    private function generate_faq_embedding( $post_id, $faq_text ) {
+        $api_key = get_option( 'techno_chatbot_openai_secret' );
+        if ( ! $api_key ) return;
+
+        $response = wp_remote_post(
+            'https://api.openai.com/v1/embeddings',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $api_key,
+                    'Content-Type'  => 'application/json',
+                ],
+                'body' => wp_json_encode([
+                    'model' => 'text-embedding-3-small',
+                    'input' => $faq_text
+                ]),
+                'timeout' => 60
+            ]
+        );
+
+        if ( is_wp_error( $response ) ) {
+            error_log( 'FAQ Embedding Error: ' . $response->get_error_message() );
+            return;
+        }
+
+        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( isset( $body['data'][0]['embedding'] ) ) {
+            update_post_meta( $post_id, '_faq_embedding', $body['data'][0]['embedding'] );
         }
     }
 

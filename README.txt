@@ -74,6 +74,7 @@ You can customize the following components:
 * Removal of private page linking for AI replies
 * Improved error logging for crawling posts
 * Added bulk re-crawl
+* Added ai embedding for FAQ
 
 = 1.2.8 =
 * Fixed capability restriction for Manage bulk crawl

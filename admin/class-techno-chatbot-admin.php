@@ -1366,26 +1366,38 @@ class Techno_Chatbot_Admin {
 	}
 	
 	/**
-	 * AI Chunking
+	 * AI Chunking — Paragraph-first with sentence fallback
 	 *
 	 * @since    1.0.0
+	 * @param    string $text
+	 * @param    int    $maxParagraphLength Safeguard character limit per chunk (default: 1500)
+	 * @return   array  Clean array of text chunks
 	 */
-	private function chunk_text($text, $maxLength = 400) {
-		// Split by paragraph breaks first to prevent mixing distinct topics/sections
-		$paragraphs = preg_split('/[\r\n]+/', $text);
-		$chunks = [];
+	private function chunk_text( $text, $maxParagraphLength = 1500 ) {
+		// 1. Split by paragraph breaks first
+		$paragraphs = preg_split( '/[\r\n]+/', $text );
+		$chunks     = [];
 
-		foreach ($paragraphs as $para) {
-			$para = trim($para);
-			if (empty($para)) continue;
+		foreach ( $paragraphs as $para ) {
+			$para = trim( $para );
+			if ( empty( $para ) ) {
+				continue;
+			}
 
-			$sentences = preg_split('/(?<=[.!?])\s+/', $para);
-			$current = '';
+			// If the paragraph is under the safety limit, keep it whole
+			if ( mb_strlen( $para ) <= $maxParagraphLength ) {
+				$chunks[] = $para;
+				continue;
+			}
 
-			foreach ($sentences as $sentence) {
-				if (strlen($current . ' ' . $sentence) > $maxLength) {
-					if (!empty($current)) {
-						$chunks[] = trim($current);
+			// Fallback: If paragraph is massive, split it cleanly into sentence-level chunks
+			$sentences = preg_split( '/(?<=[.!?])\s+/', $para );
+			$current   = '';
+
+			foreach ( $sentences as $sentence ) {
+				if ( mb_strlen( $current . ' ' . $sentence ) > $maxParagraphLength ) {
+					if ( ! empty( $current ) ) {
+						$chunks[] = trim( $current );
 					}
 					$current = $sentence;
 				} else {
@@ -1393,8 +1405,8 @@ class Techno_Chatbot_Admin {
 				}
 			}
 
-			$current = trim($current);
-			if ($current !== '') {
+			$current = trim( $current );
+			if ( $current !== '' ) {
 				$chunks[] = $current;
 			}
 		}
