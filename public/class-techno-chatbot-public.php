@@ -1237,7 +1237,6 @@ class Techno_Chatbot_Public {
 		$threshold_multiplier = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithreshold');
 		$similaritymin = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithresholdmin');
 		
-		
 		// Fallback safety if option is empty or zero
 		if ($threshold_multiplier <= 0) {
 			$threshold_multiplier = 0.60;
@@ -1310,6 +1309,7 @@ class Techno_Chatbot_Public {
 					'title'      => 'FAQ: ' . get_the_title($post->ID),
 					'is_private' => false,
 				];
+
 				continue;
 			}
 
@@ -1350,11 +1350,11 @@ class Techno_Chatbot_Public {
 				// OPTIONAL: Quick pre-filter to drop trash results instantly before scoring/logging
 				if ($similarity < $similaritymin) continue;
 				
-				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
+				// $lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
 				
 				// $score = $similarity * $lengthPenalty;
 				// Prioritize techno_chatbot_aidb chunks with a 15% boost
-				$score = ($similarity * $lengthPenalty) * 1.15;
+				$score = ($similarity/*  * $lengthPenalty */) * 1.15;
 
 				$results[] = [
 					'text'       => $chunk['text'],
@@ -1364,6 +1364,7 @@ class Techno_Chatbot_Public {
 					'title'      => $source_title,
 					'is_private' => $is_private,
 				];
+
 				$page_counts[$page_key]++;
 			}
 		}
@@ -1460,7 +1461,7 @@ class Techno_Chatbot_Public {
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
 		- Write your entire response strictly in $lang_name.
 		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
-		- Answer using only the provided context. You may use synonyms, equivalent terminology, and logical rephrasing based on the provided text, but do NOT invent facts or use outside knowledge not mentioned in the context.
+		- Answer using only the provided context. You may use synonyms, equivalent terminology, and logical rephrasing based on the provided text.
 		- For pricing, only provide prices or pricing details that are explicitly stated in the provided context. Do not estimate, calculate, or invent pricing.
 		- If the requested information cannot be determined or logically inferred from the context (even using synonyms), respond only with: 'NO_ANSWER'.
 		- If responding with 'NO_ANSWER', output strictly 'NO_ANSWER' without any HTML tags or extra text.
