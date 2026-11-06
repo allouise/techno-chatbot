@@ -899,14 +899,17 @@ class TechnoChatbot {
             params.token = JSON.stringify(token);
         }
 
+        this.disableInput(true);
         const res = await this.apiCall("techno_save_chat_message", params, { urlEncoded: true, keepalive: true });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             if (data.data.message) {
                 this.addMessage(data.data.message, 'bot', false);
             }
+            this.disableInput(false);
             throw new Error(`Failed to save message (${res.status})`);
         }
+        this.disableInput(false);
     }
 
     async requestTranscript() {
@@ -1081,7 +1084,7 @@ class TechnoChatbot {
                 if (matchesKeyword(this.botData.transferKeywords)) {
                     await this.addMessage(userMessage, 'visitor');
                     this.resetFailCount();
-
+ 
                     const replyMsg = this.botData.nextStepMsg || this.botData.noAnswerFinalDefault || this.botData.noAnswer || '...';
                     await this.addMessage(replyMsg, 'bot', true, 'system');
                     this.showOptions(this.optionType.noAnswer);
@@ -1155,6 +1158,7 @@ class TechnoChatbot {
 
             /* Usual Add Message */
             await this.addMessage(userMessage, 'visitor');
+            this.showTyping();
 
             /* Transferred to Live Chat Message */
             if (this.socket && this.socket.connected && this.socketId != null) {
@@ -1163,10 +1167,12 @@ class TechnoChatbot {
                     message: userMessage,
                     sender: "visitor"
                 });
+                this.hideTyping();
                 return;
             } else {
                 /* FAQ/AI Answers */
                 await this.handleFaqReply(userMessage);
+                this.hideTyping();
             }
 
         } finally {

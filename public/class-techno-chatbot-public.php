@@ -125,7 +125,7 @@ class Techno_Chatbot_Public {
 			'end_msgidleguest' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message', $current_language),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
-			'timeToCall' => get_option('techno_chatbot_timetocall'),
+			'timeToCall' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 			'greetingsIntent' =>  explode(',', Techno_Chatbot_Admin_Fields_General::get_value( 'techno_chatbot_greetings_intent' )),
 			'greetingsIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_greetings_intent_answer', $current_language ),
