@@ -154,6 +154,17 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'description' => 'Multiplier applied to best match similarity score (Default: 0.80)',
 		),
 
+		'techno_chatbot_aithresholdmin' => array(
+			'label'       => 'AI Similarity Minimum',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 0.15,
+			'min'         => 0.15,
+			'max'         => 0.50,
+			'step'        => '0.01',
+			'description' => 'Multiplier applied to best match similarity score (Default: 0.80)',
+		),
+
 		'techno_chatbot_aianswercache' => array(
 			'label'       => 'Cache AI Answers',
 			'type'        => 'number',

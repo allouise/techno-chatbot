@@ -1232,9 +1232,11 @@ class Techno_Chatbot_Public {
 
 		if (!$question_embedding) return [];
 
-		$limit = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_airelchunk');
 		$max_chunks_per_page = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aipagechunk');
+		$limit = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_airelchunk');
 		$threshold_multiplier = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithreshold');
+		$similaritymin = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithresholdmin');
+		
 		
 		// Fallback safety if option is empty or zero
 		if ($threshold_multiplier <= 0) {
@@ -1296,7 +1298,7 @@ class Techno_Chatbot_Public {
 
 				$similarity = $this->cosine_similarity($question_embedding, $faq_embedding);
 
-				if ($similarity < 0.15) continue;
+				if ($similarity < $similaritymin) continue;
 
 				$score = $similarity * 1.15; // Give FAQs a slight 15% relevance boost over general scraped text
 
@@ -1346,7 +1348,7 @@ class Techno_Chatbot_Public {
 				);
 
 				// OPTIONAL: Quick pre-filter to drop trash results instantly before scoring/logging
-				if ($similarity < 0.15) continue;
+				if ($similarity < $similaritymin) continue;
 				
 				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
 				
@@ -1370,7 +1372,7 @@ class Techno_Chatbot_Public {
 		/* Find highest similarity */
 		$bestSimilarity = max(array_column($results, 'similarity'));
 		/* Set Threshold - Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
-		$minimumFloor = 0.25; 
+		$minimumFloor = $similaritymin; 
 		$threshold = max($minimumFloor, $bestSimilarity * $threshold_multiplier);
 		/* Keep only relevant chunks */
 		$results = array_filter($results, function ($chunk) use ($threshold) {
