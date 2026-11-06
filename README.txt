@@ -73,6 +73,7 @@ You can customize the following components:
 * Controls for AI Answer caching
 * Removal of private page linking for AI replies
 * Improved error logging for crawling posts
+* Added bulk re-crawl
 
 = 1.2.8 =
 * Fixed capability restriction for Manage bulk crawl

@@ -1019,6 +1019,67 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+     * AJAX Handler: Batch Re-Crawl Current DB AI Knowledgebase Posts.
+     * 
+     * @since 1.2.6
+     */
+    public function batch_recrawl_aidb_posts() {
+        check_ajax_referer( 'techno_batch_recrawl_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'techno_chat_support' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied', 'techno-chatbot' ) ) );
+        }
+
+        $ai_allowed = techno_chatbot_feature('ai_training');
+        if ( empty( $ai_allowed['allowed'] ) ) {
+            wp_send_json_error( array( 'message' => __( 'Invalid Plan', 'techno-chatbot' ) ) );
+        }
+
+        $paged = isset( $_POST['paged'] ) ? intval( $_POST['paged'] ) : 1;
+        $posts_per_page = 10;
+
+        $query = new WP_Query( array(
+            'post_type'      => 'techno_chatbot_aidb',
+            'post_status'    => 'any',
+            'posts_per_page' => $posts_per_page,
+            'paged'          => $paged,
+            'fields'         => 'ids',
+        ) );
+
+        $total_posts = $query->found_posts;
+        $post_ids = $query->posts;
+
+        if ( empty( $post_ids ) && $paged === 1 ) {
+            wp_send_json_success( array(
+                'percent'  => 100,
+                'message'  => __( 'No AI knowledgebase posts found to re-crawl.', 'techno-chatbot' ),
+                'has_more' => false,
+            ) );
+        }
+
+        $processed_in_batch = 0;
+        foreach ( $post_ids as $aidb_post_id ) {
+            $target_post_id = get_post_meta( $aidb_post_id, '_ai_db_postID', true );
+            
+            // Re-crawl using core knowledgebase crawl helper
+            $result = $this->process_knowledgebase_crawl( $aidb_post_id );
+            if ( ! is_wp_error( $result ) ) {
+                $processed_in_batch++;
+            }
+        }
+
+        $processed_count = min( $paged * $posts_per_page, $total_posts );
+        $percent = $total_posts > 0 ? min( round( ( $processed_count / $total_posts ) * 100 ), 100 ) : 100;
+        $has_more = $processed_count < $total_posts;
+
+        wp_send_json_success( array(
+            'percent'  => $percent,
+            'message'  => sprintf( __( 'Re-crawled %d of %d AI knowledgebase posts...', 'techno-chatbot' ), $processed_count, $total_posts ),
+            'has_more' => $has_more,
+        ) );
+    }
+
+	/**
 	 * Core Knowledgebase Crawler Helper
 	 *
 	 * @since    1.2.6

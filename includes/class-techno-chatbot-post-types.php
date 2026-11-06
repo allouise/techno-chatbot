@@ -749,82 +749,125 @@ class Techno_Chatbot_Post_Types {
         ?>
         <div id="techno-manage-multiple-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100000; align-items:center; justify-content:center;">
             <div style="background:#fff; padding:30px; width:600px; max-width:90%; border-radius:4px; box-shadow:0 4px 10px rgba(0,0,0,0.3); position:relative; max-height:90vh; overflow-y:auto;">
-                <?php if( $ai_allowed ) { ?>
-                <h2><?php _e( 'Crawl Multiple Posts', 'techno-chatbot' ); ?></h2>
-                <button type="button" id="techno-close-modal" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:18px; cursor:pointer;">&times;</button>
+                <button type="button" id="techno-close-modal" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:18px; cursor:pointer; z-index: 10;">&times;</button>
                 
-                <form id="techno-manage-multiple-form">
-                    <!-- Post Types Checkboxes -->
-                    <p>
-                        <label><strong><?php _e( 'Select Post Types:', 'techno-chatbot' ); ?></strong></label><br>
-                        <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:15px;">
-                            <?php foreach ( $post_types as $pt_slug => $pt_obj ) : 
-                                $checked = ( 'page' === $pt_slug ) ? 'checked' : '';
-                            ?>
-                                <label>
-                                    <input type="checkbox" name="post_types[]" value="<?php echo esc_attr( $pt_slug ); ?>" <?php echo $checked; ?>>
-                                    <?php echo esc_html( $pt_obj->labels->name ); ?>
-                                </label>
-                            <?php endforeach; ?>
+                <div class="techno-accordion">
+                    <?php if( $ai_allowed ) { ?>
+                    <!-- Accordion Item 1: Crawl Multiple Posts -->
+                    <div class="techno-accordion-item" style="margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; overflow: hidden;">
+                        <div class="techno-accordion-header" data-target="crawl-content" style="background: #f1f1f1; padding: 12px 15px; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                            <span><?php _e( 'Crawl Multiple Posts', 'techno-chatbot' ); ?></span>
+                            <span class="dashicons dashicons-arrow-down-alt2"></span>
                         </div>
-                    </p>
+                        <div id="crawl-content" class="techno-accordion-content" style="padding: 20px; display: block;">
+                            <form id="techno-manage-multiple-form">
+                                <!-- Post Types Checkboxes -->
+                                <p>
+                                    <label><strong><?php _e( 'Select Post Types:', 'techno-chatbot' ); ?></strong></label><br>
+                                    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:15px;">
+                                        <?php foreach ( $post_types as $pt_slug => $pt_obj ) : 
+                                            $checked = ( 'page' === $pt_slug ) ? 'checked' : '';
+                                        ?>
+                                            <label>
+                                                <input type="checkbox" name="post_types[]" value="<?php echo esc_attr( $pt_slug ); ?>" <?php echo $checked; ?>>
+                                                <?php echo esc_html( $pt_obj->labels->name ); ?>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </p>
 
-                    <!-- Exclude Search Field with Button -->
-                    <p style="position:relative;">
-                        <label><strong><?php _e( 'Exclude Specific Posts:', 'techno-chatbot' ); ?></strong></label><br>
-                        <div style="display:flex; gap:5px; margin-top:5px;">
-                            <input type="text" id="techno-exclude-search" placeholder="<?php esc_attr_e( 'Search by post title to exclude...', 'techno-chatbot' ); ?>" style="flex:1;" autocomplete="off">
-                            <button type="button" class="button" id="techno-search-posts-btn" title="<?php esc_attr_e( 'Search Posts', 'techno-chatbot' ); ?>">
-                                <span class="dashicons dashicons-search" style="margin-top:3px;"></span>
-                            </button>
+                                <!-- Exclude Search Field with Button -->
+                                <p style="position:relative;">
+                                    <label><strong><?php _e( 'Exclude Specific Posts:', 'techno-chatbot' ); ?></strong></label><br>
+                                    <div style="display:flex; gap:5px; margin-top:5px;">
+                                        <input type="text" id="techno-exclude-search" placeholder="<?php esc_attr_e( 'Search by post title to exclude...', 'techno-chatbot' ); ?>" style="flex:1;" autocomplete="off">
+                                        <button type="button" class="button" id="techno-search-posts-btn" title="<?php esc_attr_e( 'Search Posts', 'techno-chatbot' ); ?>">
+                                            <span class="dashicons dashicons-search" style="margin-top:3px;"></span>
+                                        </button>
+                                    </div>
+                                    <div id="techno-search-results" style="position:absolute; background:#fff; border:1px solid #ccc; width:100%; max-height:150px; overflow-y:auto; display:none; z-index:10; box-shadow:0 2px 5px rgba(0,0,0,0.1); max-width: 90%;"></div>
+                                </p>
+
+                                <!-- Excluded List Container -->
+                                <div id="techno-excluded-items" style="margin-bottom:15px; display:flex; flex-wrap:wrap; gap:5px;"></div>
+
+                                <!-- Progress Bar -->
+                                <div id="techno-progress-container" style="display:none; margin-bottom:15px;">
+                                    <div style="background:#f1f1f1; border-radius:4px; overflow:hidden; height:20px; border:1px solid #ccc;">
+                                        <div id="techno-progress-bar" style="background:#007cba; width:0%; height:100%; text-align:center; color:#fff; font-size:12px; line-height:20px; transition:width 0.3s;">0%</div>
+                                    </div>
+                                    <p id="techno-progress-text" style="margin:5px 0 0; font-size:13px; color:#666;"></p>
+                                </div>
+
+                                <!-- Action Button -->
+                                <p style="text-align:right; margin-top:20px;">
+                                    <button type="button" class="button button-primary" id="techno-multiple-crawl-btn"><?php _e( 'Batch Crawl', 'techno-chatbot' ); ?></button>
+                                </p>
+                            </form>
                         </div>
-                        <div id="techno-search-results" style="position:absolute; background:#fff; border:1px solid #ccc; width:100%; max-height:150px; overflow-y:auto; display:none; z-index:10; box-shadow:0 2px 5px rgba(0,0,0,0.1); max-width: 90%;"></div>
-                    </p>
-
-                    <!-- Excluded List Container -->
-                    <div id="techno-excluded-items" style="margin-bottom:15px; display:flex; flex-wrap:wrap; gap:5px;"></div>
-
-                    <!-- Progress Bar -->
-                    <div id="techno-progress-container" style="display:none; margin-bottom:15px;">
-                        <div style="background:#f1f1f1; border-radius:4px; overflow:hidden; height:20px; border:1px solid #ccc;">
-                            <div id="techno-progress-bar" style="background:#007cba; width:0%; height:100%; text-align:center; color:#fff; font-size:12px; line-height:20px; transition:width 0.3s;">0%</div>
-                        </div>
-                        <p id="techno-progress-text" style="margin:5px 0 0; font-size:13px; color:#666;"></p>
                     </div>
 
-                    <!-- Action Button -->
-                    <p style="text-align:right; margin-top:20px;">
-                        <button type="button" class="button button-primary" id="techno-multiple-crawl-btn"><?php _e( 'Batch Crawl', 'techno-chatbot' ); ?></button>
-                    </p>
-                </form>
-
-                <hr/>
-                <?php } ?>
-
-                <form id="techno-manage-delete-form">
-                    <h2><?php _e( 'Bulk Permanent Delete All', 'techno-chatbot' ); ?></h2>
-                    <p style="color:#d63638; font-weight:500;">
-                        <?php _e( 'Notice: This will permanently delete all AI knowledgebase data and associated posts.', 'techno-chatbot' ); ?>
-                    </p>
-                    <p>
-                        <label>
-                            <input type="checkbox" id="techno-delete-confirm" required>
-                            <?php _e( 'I understand and want to permanently delete all AI Knowledgebase data.', 'techno-chatbot' ); ?>
-                        </label>
-                    </p>
-
-                    <!-- Delete Progress Bar -->
-                    <div id="techno-delete-progress-container" style="display:none; margin-bottom:15px;">
-                        <div style="background:#f1f1f1; border-radius:4px; overflow:hidden; height:20px; border:1px solid #ccc;">
-                            <div id="techno-delete-progress-bar" style="background:#d63638; width:0%; height:100%; text-align:center; color:#fff; font-size:12px; line-height:20px; transition:width 0.3s;">0%</div>
+                    <!-- Accordion Item 2: Re-Crawl Current DB -->
+                    <div class="techno-accordion-item" style="margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; overflow: hidden;">
+                        <div class="techno-accordion-header" data-target="recrawl-content" style="background: #f1f1f1; padding: 12px 15px; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                            <span><?php _e( 'Re-Crawl Current DB', 'techno-chatbot' ); ?></span>
+                            <span class="dashicons dashicons-arrow-right-alt2"></span>
                         </div>
-                        <p id="techno-delete-progress-text" style="margin:5px 0 0; font-size:13px; color:#666;"></p>
-                    </div>
+                        <div id="recrawl-content" class="techno-accordion-content" style="padding: 20px; display: none;">
+                            <form id="techno-manage-recrawl-form">
+                                <p style="color:#007cba; font-weight:500;">
+                                    <?php _e( 'Notice: This will re-crawl all existing items in your AI knowledgebase using their stored reference post IDs.', 'techno-chatbot' ); ?>
+                                </p>
 
-                    <p style="text-align:right; margin-top:20px;">
-                        <button type="button" class="button button-link-delete" id="techno-multiple-delete-btn" disabled><?php _e( 'Delete All AI Knowledgebase', 'techno-chatbot' ); ?></button>
-                    </p>
-                </form>
+                                <!-- Re-crawl Progress Bar -->
+                                <div id="techno-recrawl-progress-container" style="display:none; margin-bottom:15px;">
+                                    <div style="background:#f1f1f1; border-radius:4px; overflow:hidden; height:20px; border:1px solid #ccc;">
+                                        <div id="techno-recrawl-progress-bar" style="background:#007cba; width:0%; height:100%; text-align:center; color:#fff; font-size:12px; line-height:20px; transition:width 0.3s;">0%</div>
+                                    </div>
+                                    <p id="techno-recrawl-progress-text" style="margin:5px 0 0; font-size:13px; color:#666;"></p>
+                                </div>
+
+                                <p style="text-align:right; margin-top:20px;">
+                                    <button type="button" class="button button-primary" id="techno-multiple-recrawl-btn"><?php _e( 'Re-crawl All', 'techno-chatbot' ); ?></button>
+                                </p>
+                            </form>
+                        </div>
+                    </div>
+                    <?php } ?>
+
+                    <!-- Accordion Item 3: Bulk Permanent Delete All -->
+                    <div class="techno-accordion-item" style="margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; overflow: hidden;">
+                        <div class="techno-accordion-header" data-target="delete-content" style="background: #f1f1f1; padding: 12px 15px; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                            <span><?php _e( 'Bulk Permanent Delete All', 'techno-chatbot' ); ?></span>
+                            <span class="dashicons dashicons-arrow-right-alt2"></span>
+                        </div>
+                        <div id="delete-content" class="techno-accordion-content" style="padding: 20px; display: none;">
+                            <form id="techno-manage-delete-form">
+                                <p style="color:#d63638; font-weight:500;">
+                                    <?php _e( 'Notice: This will permanently delete all AI knowledgebase data and associated posts.', 'techno-chatbot' ); ?>
+                                </p>
+                                <p>
+                                    <label>
+                                        <input type="checkbox" id="techno-delete-confirm" required>
+                                        <?php _e( 'I understand and want to permanently delete all AI Knowledgebase data.', 'techno-chatbot' ); ?>
+                                    </label>
+                                </p>
+
+                                <!-- Delete Progress Bar -->
+                                <div id="techno-delete-progress-container" style="display:none; margin-bottom:15px;">
+                                    <div style="background:#f1f1f1; border-radius:4px; overflow:hidden; height:20px; border:1px solid #ccc;">
+                                        <div id="techno-delete-progress-bar" style="background:#d63638; width:0%; height:100%; text-align:center; color:#fff; font-size:12px; line-height:20px; transition:width 0.3s;">0%</div>
+                                    </div>
+                                    <p id="techno-delete-progress-text" style="margin:5px 0 0; font-size:13px; color:#666;"></p>
+                                </div>
+
+                                <p style="text-align:right; margin-top:20px;">
+                                    <button type="button" class="button button-link-delete" id="techno-multiple-delete-btn" disabled><?php _e( 'Delete All AI Knowledgebase', 'techno-chatbot' ); ?></button>
+                                </p>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -929,6 +972,78 @@ class Techno_Chatbot_Post_Types {
             $(document).on('click', '#techno-close-search-results', function() {
                 $('#techno-search-results').hide().html('');
             });
+
+            // Accordion Toggle Behavior (Only one active at a time)
+            $('.techno-accordion-header').on('click', function() {
+                let targetContent = $('#' + $(this).data('target'));
+                
+                // If this accordion is already open, do nothing (keep it open or toggle depending on preference)
+                if (targetContent.is(':visible')) {
+                    return; 
+                }
+
+                // Hide all contents and reset icons to right-arrow
+                $('.techno-accordion-content').slideUp(200);
+                $('.techno-accordion-header .dashicons')
+                    .removeClass('dashicons-arrow-down-alt2')
+                    .addClass('dashicons-arrow-right-alt2');
+
+                // Show selected content and flip icon to down-arrow
+                targetContent.slideDown(200);
+                $(this).find('.dashicons')
+                    .removeClass('dashicons-arrow-right-alt2')
+                    .addClass('dashicons-arrow-down-alt2');
+            });
+
+            // Re-Crawl Current DB Batch Processing
+            $('#techno-multiple-recrawl-btn').on('click', function() {
+                $('#techno-recrawl-progress-container').show();
+                $('#techno-recrawl-progress-bar').css('width', '0%').text('0%');
+                $('#techno-recrawl-progress-text').text('Initializing database re-crawl...');
+                $('#techno-manage-recrawl-form input, #techno-multiple-recrawl-btn').prop('disabled', true);
+
+                runBatchRecrawl(1);
+            });
+
+            function runBatchRecrawl(page) {
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'techno_chatbot_batch_recrawl_aidb',
+                        paged: page,
+                        nonce: '<?php echo wp_create_nonce( "techno_batch_recrawl_nonce" ); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            let percent = response.data.percent;
+                            $('#techno-recrawl-progress-bar').css('width', percent + '%').text(percent + '%');
+                            $('#techno-recrawl-progress-text').text(response.data.message);
+
+                            if (response.data.has_more) {
+                                runBatchRecrawl(page + 1);
+                            } else {
+                                $('#techno-recrawl-progress-text').html(
+                                    response.data.message + '<br><br>' +
+                                    'Re-crawling completed successfully! ' +
+                                    '<button type="button" class="button button-primary" id="techno-recrawl-reload-btn" style="margin-left: 10px;">Success Reload Now</button>'
+                                );
+                                
+                                $(document).on('click', '#techno-recrawl-reload-btn', function() {
+                                    location.reload();
+                                });
+                            }
+                        } else {
+                            alert(response.data.message || 'An error occurred during re-crawling.');
+                            $('#techno-manage-recrawl-form input, #techno-multiple-recrawl-btn').prop('disabled', false);
+                        }
+                    },
+                    error: function() {
+                        alert('Server error during batch re-crawling.');
+                        $('#techno-manage-recrawl-form input, #techno-multiple-recrawl-btn').prop('disabled', false);
+                    }
+                });
+            }
 
             // Optional: Close search results when clicking outside of the search area
             $(document).on('click', function(e) {
