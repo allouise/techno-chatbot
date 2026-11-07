@@ -311,6 +311,8 @@ class Techno_Chatbot_Admin {
 		}
 
 		$aiallowed  = Techno_Chatbot_Admin_Fields_General::get_value('techno_chatbot_aireplies');
+		$aitraining_plan = techno_chatbot_feature('ai_training');
+    	$aitraining_enabled = $aitraining_plan['allowed'] === true;
 		$enabled    = get_option('techno_chatbot_enabled', 1);
 		$basic_chat = techno_chatbot_feature('basic_chat');
 
@@ -325,9 +327,21 @@ class Techno_Chatbot_Admin {
 		$license_data = wp_parse_args((array) get_option('techno_chatbot_license_data', []), $default_license);
 
 		$ai_assistance_limit  = (int) ($license_data['ai_assistance_limit'] ?? 0);
-		$remaining_limit      = (int) techno_chatbot_get_ailimit();
-		$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
-		$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+
+		if( $aitraining_enabled ) {
+			$remaining_limit      = (int) techno_chatbot_get_ailimit();
+			$remaining_percentage = $ai_assistance_limit > 0 ? round(($remaining_limit / $ai_assistance_limit) * 100, 1) : 0;
+			$used_percentage      = $ai_assistance_limit > 0 ? round((($ai_assistance_limit - $remaining_limit) / $ai_assistance_limit) * 100, 1) : 0;
+			$aifrom				  = $license_data['ailimit_start_date'];
+			$aito				  = $license_data['ailimit_end_date'];
+		}else{
+			$remaining_limit      = 0;
+			$remaining_percentage = 0;
+			$used_percentage      = 0;
+			$aifrom				  = '';
+			$aito				  = '';
+		}
+
 		$chatbot_status       = ($enabled && !empty($basic_chat['allowed'])) ? 'Active' : 'Disabled';
 		$counts 			  = get_transient('techno_chatbot_dashboard_counts');
 		$active_languages 	  = count( (array) get_option( 'techno_chatbot_active_languages', array() ) );
@@ -1005,6 +1019,67 @@ class Techno_Chatbot_Admin {
 	}
 
 	/**
+     * AJAX Handler: Batch Re-Crawl Current DB AI Knowledgebase Posts.
+     * 
+     * @since 1.2.9
+     */
+    public function batch_recrawl_aidb_posts() {
+        check_ajax_referer( 'techno_batch_recrawl_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'techno_chat_support' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Permission denied', 'techno-chatbot' ) ) );
+        }
+
+        $ai_allowed = techno_chatbot_feature('ai_training');
+        if ( empty( $ai_allowed['allowed'] ) ) {
+            wp_send_json_error( array( 'message' => __( 'Invalid Plan', 'techno-chatbot' ) ) );
+        }
+
+        $paged = isset( $_POST['paged'] ) ? intval( $_POST['paged'] ) : 1;
+        $posts_per_page = 10;
+
+        $query = new WP_Query( array(
+            'post_type'      => 'techno_chatbot_aidb',
+            'post_status'    => 'any',
+            'posts_per_page' => $posts_per_page,
+            'paged'          => $paged,
+            'fields'         => 'ids',
+        ) );
+
+        $total_posts = $query->found_posts;
+        $post_ids = $query->posts;
+
+        if ( empty( $post_ids ) && $paged === 1 ) {
+            wp_send_json_success( array(
+                'percent'  => 100,
+                'message'  => __( 'No AI knowledgebase posts found to re-crawl.', 'techno-chatbot' ),
+                'has_more' => false,
+            ) );
+        }
+
+        $processed_in_batch = 0;
+        foreach ( $post_ids as $aidb_post_id ) {
+            $target_post_id = get_post_meta( $aidb_post_id, '_ai_db_postID', true );
+            
+            // Re-crawl using core knowledgebase crawl helper
+            $result = $this->process_knowledgebase_crawl( $aidb_post_id );
+            if ( ! is_wp_error( $result ) ) {
+                $processed_in_batch++;
+            }
+        }
+
+        $processed_count = min( $paged * $posts_per_page, $total_posts );
+        $percent = $total_posts > 0 ? min( round( ( $processed_count / $total_posts ) * 100 ), 100 ) : 100;
+        $has_more = $processed_count < $total_posts;
+
+        wp_send_json_success( array(
+            'percent'  => $percent,
+            'message'  => sprintf( __( 'Re-crawled %d of %d AI knowledgebase posts...', 'techno-chatbot' ), $processed_count, $total_posts ),
+            'has_more' => $has_more,
+        ) );
+    }
+
+	/**
 	 * Core Knowledgebase Crawler Helper
 	 *
 	 * @since    1.2.6
@@ -1103,8 +1178,8 @@ class Techno_Chatbot_Admin {
 
 		$results = $this->create_embeddings_batch( $chunks );
 		
-		if ( ! $results ) {
-			return new WP_Error( 'embedding_failed', 'Embedding failed' );
+		if ( is_wp_error( $results ) ) {
+			return $results;
 		}
 
 		$embedded_chunks = [];
@@ -1291,30 +1366,49 @@ class Techno_Chatbot_Admin {
 	}
 	
 	/**
-	 * AI Chunking
+	 * AI Chunking — Paragraph-first with sentence fallback
 	 *
 	 * @since    1.0.0
+	 * @param    string $text
+	 * @param    int    $maxParagraphLength Safeguard character limit per chunk (default: 1500)
+	 * @return   array  Clean array of text chunks
 	 */
-	private function chunk_text($text, $maxLength = 800) {
+	private function chunk_text( $text, $maxParagraphLength = 1500 ) {
+		// 1. Split by paragraph breaks first
+		$paragraphs = preg_split( '/[\r\n]+/', $text );
+		$chunks     = [];
 
-		$sentences = preg_split('/(?<=[.!?])\s+/', $text);
-
-		$chunks = [];
-		$current = '';
-
-		foreach ($sentences as $sentence) {
-
-			if (strlen($current . ' ' . $sentence) > $maxLength) {
-				$chunks[] = trim($current);
-				$current = $sentence;
-			} else {
-				$current = $current ? $current . ' ' . $sentence : $sentence;
+		foreach ( $paragraphs as $para ) {
+			$para = trim( $para );
+			if ( empty( $para ) ) {
+				continue;
 			}
-		}
 
-		$current = trim($current);
-		if ($current !== '') {
-			$chunks[] = $current;
+			// If the paragraph is under the safety limit, keep it whole
+			if ( mb_strlen( $para ) <= $maxParagraphLength ) {
+				$chunks[] = $para;
+				continue;
+			}
+
+			// Fallback: If paragraph is massive, split it cleanly into sentence-level chunks
+			$sentences = preg_split( '/(?<=[.!?])\s+/', $para );
+			$current   = '';
+
+			foreach ( $sentences as $sentence ) {
+				if ( mb_strlen( $current . ' ' . $sentence ) > $maxParagraphLength ) {
+					if ( ! empty( $current ) ) {
+						$chunks[] = trim( $current );
+					}
+					$current = $sentence;
+				} else {
+					$current = $current ? $current . ' ' . $sentence : $sentence;
+				}
+			}
+
+			$current = trim( $current );
+			if ( $current !== '' ) {
+				$chunks[] = $current;
+			}
 		}
 
 		return $chunks;
@@ -1330,7 +1424,9 @@ class Techno_Chatbot_Admin {
 		$api_key = get_option('techno_chatbot_openai_secret');
 
 		if (!$api_key || empty($chunks)) {
-			return false;
+			$error_msg = 'OpenAI API key is missing or chunks array is empty.';
+			error_log('Techno Chatbot Error: ' . $error_msg);
+			return new WP_Error('embedding_config_error', $error_msg);
 		}
 
 		$response = wp_remote_post(
@@ -1349,13 +1445,17 @@ class Techno_Chatbot_Admin {
 		);
 
 		if (is_wp_error($response)) {
-			return false;
+			error_log('Techno Chatbot API Transport Error: ' . $response->get_error_message());
+			return $response; // Passes the WP_Error directly
 		}
 
-		$body = json_decode(wp_remote_retrieve_body($response), true);
+		$response_body = wp_remote_retrieve_body($response);
+		$body = json_decode($response_body, true);
 
 		if (!isset($body['data'])) {
-			return false;
+			$error_msg = isset($body['error']['message']) ? $body['error']['message'] : 'Unknown OpenAI API error response.';
+			error_log('Techno Chatbot OpenAI API Error: ' . $error_msg);
+			return new WP_Error('openai_api_error', $error_msg);
 		}
 
 		return $body['data'];
@@ -1516,4 +1616,17 @@ class Techno_Chatbot_Admin {
             'has_more' => $has_more,
         ) );
     }
+
+	/**
+     * Clear transient 'techno_ai_ans_' when saving option 'techno_chatbot_aianswercache'
+     * 
+     * @since 1.2.9
+     */
+    public function clear_chatbotanswer_cache($option_name) {
+		if ( 'techno_chatbot_aianswercache' === $option_name ) {
+			global $wpdb;
+			$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_techno_ai_ans_%' OR option_name LIKE '_transient_timeout_techno_ai_ans_%'" );
+		}
+	}
+	
 }

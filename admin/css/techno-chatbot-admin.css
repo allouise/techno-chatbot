@@ -114,7 +114,8 @@ body.techno-chatbot_page_techno-chatbot-settings .wrap form[action="options.php"
 .techno-card-title { margin: 0; font-size: 16px; font-weight: 600; color: #334155; } 
 .techno-badge { background-color: #d1fae5; color: #047857; font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: 600; } 
 .techno-badge.inactive { background-color: #e62727; color: #fff; } 
-.techno-status-pill { background-color: #e62727; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600; } 
+.techno-status-pill { background-color: #fad1d1; color: #780404; font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600; } 
+.techno-status-pill.expired { background-color: #faf7d1; color: #786304; } 
 .techno-status-pill.active { background-color: #d1fae5; color: #047857; } 
 .techno-status-pill.ai { background-color: #d1fae5; color: #047857; }
 .techno-status-pill.faq { background-color: #d1edfa; color: #044a78; }
@@ -139,6 +140,8 @@ body.techno-chatbot_page_techno-chatbot-settings .wrap form[action="options.php"
 .techno-support-link { color: #2563eb; text-decoration: none; font-weight: 500; } 
 .techno-support-link:hover { text-decoration: underline; }
 .techno-card input.techno-date-input { font-size: 12px; width: 100px; padding: 0 5px 0 5px; }
+
+#wp-settings-section-aibehavior_section-2 + table tbody > tr:not(:first-of-type):not(:nth-of-type(5)):not(:nth-of-type(4)) { display: none; }
 
 /* Manage Multiple Crawl */
 #techno-open-manage-modal, .wp-core-ui .button#techno-open-manage-modal { vertical-align: bottom; min-height: 32px; line-height: unset; }

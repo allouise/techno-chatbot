@@ -153,6 +153,27 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			'step'        => '0.01',
 			'description' => 'Multiplier applied to best match similarity score (Default: 0.80)',
 		),
+
+		'techno_chatbot_aithresholdmin' => array(
+			'label'       => 'AI Similarity Minimum',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 0.15,
+			'min'         => 0.15,
+			'max'         => 0.50,
+			'step'        => '0.01',
+			'description' => 'Multiplier applied to best match similarity score (Default: 0.15)',
+		),
+
+		'techno_chatbot_aianswercache' => array(
+			'label'       => 'Cache AI Answers',
+			'type'        => 'number',
+			'section'     => 'aibehavior_section',
+			'default'     => 2,
+			'min'         => 0,
+			'max'         => 30,
+			'description' => 'AI Answer caching (Default: 2 days)',
+		),
 	);
 
     /**
@@ -176,7 +197,9 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 		foreach ( self::$fields as $option => $data ) {
 
 			if ( $data['type'] === 'number' ) {
-				$sanitize_callback = array( $this, 'sanitize_number' );
+				$sanitize_callback = function( $value ) use ( $option ) {
+					return $this->sanitize_number_by_key( $value, $option );
+				};
 			} elseif ( $data['type'] === 'textarea' ) {
 				$sanitize_callback = array( $this, 'sanitize_textarea' );
 			} elseif ( $data['type'] === 'checkbox' ) {
@@ -351,18 +374,47 @@ class Techno_Chatbot_Admin_Fields_Behaviors {
 			return '';
 		}
 
-		$val = floatval( $value );
+		$val = is_numeric( $value ) ? floatval( $value ) : 0;
 
-		// Look up constraints from field definitions
+		// Identify which field is being saved by looking at the current filter or global POST data
+		// WordPress passes the option name via register_setting, but sanitize callbacks 
+		// receive only $value. We can inspect $_POST to find which field matches the value.
 		foreach ( self::$fields as $key => $data ) {
-			if ( isset( $_POST[$key] ) ) {
+			if ( isset( $_POST[$key] ) && $_POST[$key] == $value ) {
 				if ( isset( $data['min'] ) && '' !== $data['min'] && $val < floatval( $data['min'] ) ) {
-					return floatval( $data['min'] );
+					$val = floatval( $data['min'] );
 				}
 				if ( isset( $data['max'] ) && '' !== $data['max'] && $val > floatval( $data['max'] ) ) {
-					return floatval( $data['max'] );
+					$val = floatval( $data['max'] );
 				}
-				return $val;
+				break;
+			}
+		}
+
+		// Also check if step requires integer or float handling (e.g., threshold uses 0.01)
+		return $val;
+	}
+
+	/**
+	 * Sanitize number input using explicit field keys
+	 *
+	 * @since    1.2.9
+	 */
+	public function sanitize_number_by_key( $value, $option_key ) {
+		if ( '' === trim( $value ) ) {
+			return '';
+		}
+
+		$val = floatval( $value );
+
+		if ( isset( self::$fields[$option_key] ) ) {
+			$data = self::$fields[$option_key];
+			
+			if ( isset( $data['min'] ) && '' !== $data['min'] && $val < floatval( $data['min'] ) ) {
+				return floatval( $data['min'] );
+			}
+			if ( isset( $data['max'] ) && '' !== $data['max'] && $val > floatval( $data['max'] ) ) {
+				return floatval( $data['max'] );
 			}
 		}
 

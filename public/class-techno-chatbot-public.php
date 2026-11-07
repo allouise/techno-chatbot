@@ -125,7 +125,7 @@ class Techno_Chatbot_Public {
 			'end_msgidleguest' => Techno_Chatbot_Admin_Fields_Texts::get_value('techno_chatbot_idle_guests_message', $current_language),
 			'noAnswerTrigger' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_no_answer_trigger'),
 			'idleTimer' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_idle_support'),
-			'timeToCall' => get_option('techno_chatbot_timetocall'),
+			'timeToCall' => Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_timetocall'),
 			'transferKeywords' => explode(',', get_option( 'techno_chatbot_transfer_trigger_keyword' )),
 			'greetingsIntent' =>  explode(',', Techno_Chatbot_Admin_Fields_General::get_value( 'techno_chatbot_greetings_intent' )),
 			'greetingsIntentAnswer' => Techno_Chatbot_Admin_Fields_Texts::get_value( 'techno_chatbot_greetings_intent_answer', $current_language ),
@@ -1232,24 +1232,88 @@ class Techno_Chatbot_Public {
 
 		if (!$question_embedding) return [];
 
-		$limit = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_airelchunk');
 		$max_chunks_per_page = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aipagechunk');
+		$limit = (int) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_airelchunk');
 		$threshold_multiplier = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithreshold');
+		$similaritymin = (float) Techno_Chatbot_Admin_Fields_Behaviors::get_value('techno_chatbot_aithresholdmin');
 		
 		// Fallback safety if option is empty or zero
 		if ($threshold_multiplier <= 0) {
-			$threshold_multiplier = 0.80;
+			$threshold_multiplier = 0.60;
 		}
 		$results = [];
 		$page_counts = [];
 
 		$posts = get_posts([
-			'post_type'   => 'techno_chatbot_aidb',
+			'post_type'   => ['techno_chatbot_aidb', 'techno_chatbot_faq'],
 			'numberposts' => -1,
 			'post_status' => 'publish'
 		]);
 
+		$current_lang = $this->get_current_language('code');
+
 		foreach ($posts as $post) {
+
+			// --- CASE A: Handle FAQ Post Type ---
+			if ( 'techno_chatbot_faq' === $post->post_type ) {
+				$primary_questions = get_post_meta( $post->ID, '_possible_questions', true );
+				$primary_answer    = get_post_meta( $post->ID, '_faq_answer', true );
+
+				// Check translations if secondary language active
+				if ( 'en' !== $current_lang ) {
+					global $wpdb;
+					$table_name = $wpdb->prefix . 'techno_cb_translations';
+					$q_key = "faq_{$post->ID}_questions";
+					$a_key = "faq_{$post->ID}_answer";
+
+					$translations = $wpdb->get_results(
+						$wpdb->prepare(
+							"SELECT option_key, option_value FROM {$table_name} WHERE lang_code = %s AND option_key IN (%s, %s)",
+							$current_lang,
+							$q_key,
+							$a_key
+						),
+						OBJECT_K
+					);
+
+					if ( isset( $translations[ $q_key ] ) && ! empty( $translations[ $q_key ]->option_value ) ) {
+						$primary_questions = $translations[ $q_key ]->option_value;
+					}
+					if ( isset( $translations[ $a_key ] ) && ! empty( $translations[ $a_key ]->option_value ) ) {
+						$primary_answer = $translations[ $a_key ]->option_value;
+					}
+				}
+
+				if ( empty( $primary_questions ) || empty( $primary_answer ) ) continue;
+
+				// Format FAQ content into clean Q&A text for AI context
+				$faq_text = "FAQ Item: " . get_the_title($post->ID) . "\n";
+				$faq_text .= "Possible Questions: " . $primary_questions . "\n";
+				$faq_text .= "Official Answer: " . wp_strip_all_tags( $primary_answer );
+
+				// Read pre-saved embedding from post meta
+				$faq_embedding = get_post_meta($post->ID, '_faq_embedding', true);
+				if ( empty($faq_embedding) || !is_array($faq_embedding) ) continue;
+
+				$similarity = $this->cosine_similarity($question_embedding, $faq_embedding);
+
+				if ($similarity < $similaritymin) continue;
+
+				$score = $similarity * 1.15; // Give FAQs a slight 15% relevance boost over general scraped text
+
+				$results[] = [
+					'text'       => $faq_text,
+					'similarity' => $similarity,
+					'score'      => $score,
+					'url'        => '', // FAQs don't require URL citations
+					'title'      => 'FAQ: ' . get_the_title($post->ID),
+					'is_private' => false,
+				];
+
+				continue;
+			}
+
+			// --- CASE B: Handle standard techno_chatbot_aidb Crawled Pages ---
 			$chunks = get_post_meta($post->ID, '_ai_embeddings', true);
 			
 			if (is_string($chunks)) $chunks = maybe_unserialize($chunks);
@@ -1259,29 +1323,46 @@ class Techno_Chatbot_Public {
 			$source_url = $original_post_id ? get_permalink($original_post_id) : home_url(get_post_meta($post->ID, '_page_url', true));
 			$source_title = get_the_title($original_post_id ?: $post->ID);
 
+			$is_private = false;
+			if ($original_post_id) {
+				$post_status = get_post_status($original_post_id);
+				if ($post_status != 'publish' || post_password_required($original_post_id)) {
+					$is_private = true;
+				}
+			}
+
 			foreach ($chunks as $chunk) {
 				if ( empty($chunk['embedding']) || !is_array($chunk['embedding']) || empty($chunk['text']) ) continue;
 
-				// Enforce per-page limit
 				$page_key = $source_url ?: $source_title;
 				if (!isset($page_counts[$page_key])) {
 					$page_counts[$page_key] = 0;
 				}
 				if ($page_counts[$page_key] >= $max_chunks_per_page) {
-					continue; // Skip if this page already reached the chunk limit
+					continue; 
 				}
 
 				$similarity = $this->cosine_similarity(
 					$question_embedding,
 					$chunk['embedding']
 				);
-				$lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
+
+				// OPTIONAL: Quick pre-filter to drop trash results instantly before scoring/logging
+				if ($similarity < $similaritymin) continue;
+				
+				// $lengthPenalty = 1 / (1 + (strlen($chunk['text']) / 1000));
+				
+				// $score = $similarity * $lengthPenalty;
+				// Prioritize techno_chatbot_aidb chunks with a 15% boost
+				$score = ($similarity/*  * $lengthPenalty */) * 1.15;
+
 				$results[] = [
 					'text'       => $chunk['text'],
 					'similarity' => $similarity,
-					'score'      => $similarity * $lengthPenalty,
+					'score'      => $score,
 					'url'        => $source_url,
 					'title'      => $source_title,
+					'is_private' => $is_private,
 				];
 
 				$page_counts[$page_key]++;
@@ -1291,9 +1372,8 @@ class Techno_Chatbot_Public {
 
 		/* Find highest similarity */
 		$bestSimilarity = max(array_column($results, 'similarity'));
-		/* Set Threshold 
-		Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
-		$minimumFloor = 0.12; 
+		/* Set Threshold - Can set a lower absolute minimum (e.g., 0.10 or 0.15) to prevent trash results */
+		$minimumFloor = $similaritymin; 
 		$threshold = max($minimumFloor, $bestSimilarity * $threshold_multiplier);
 		/* Keep only relevant chunks */
 		$results = array_filter($results, function ($chunk) use ($threshold) {
@@ -1310,6 +1390,7 @@ class Techno_Chatbot_Public {
 	 */
 	private function ask_openai($question, $context_chunks) {
 		$api_key = get_option('techno_chatbot_openai_secret');
+		$answer_cache_limit = get_option( 'techno_chatbot_aianswercache', 2 );
 
 		if (!$api_key || empty($context_chunks)) {
 			return [
@@ -1324,9 +1405,16 @@ class Techno_Chatbot_Public {
 		$sources = [];
 		foreach ($context_chunks as $chunk) {
 			$text = $this->limit_context_tokens($chunk['text'], 800);
-			$context_text .= "SOURCE [Title: {$chunk['title']}, URL: {$chunk['url']}]:\n" . $text . "\n\n";
+			
+			// Format the score and similarity for display in the context prompt
+			$score_val      = isset($chunk['score']) ? number_format($chunk['score'], 4) : 'N/A';
+			$similarity_val = isset($chunk['similarity']) ? number_format($chunk['similarity'], 4) : 'N/A';
+
+			// 1. Feed the text, title, URL, score, and similarity into $context_text
+			$context_text .= "SOURCE [Title: {$chunk['title']}, URL: {$chunk['url']}, Score: {$score_val}, Similarity: {$similarity_val}]:\n" . $text . "\n\n";
         
-			if (!empty($chunk['url'])) {
+			// 2. Only add to $sources if it has a URL AND is NOT private (so it never generates a link)
+			if (!empty($chunk['url']) && empty($chunk['is_private'])) {
 				$sources[] = [
 					'title' => $chunk['title'],
 					'url'   => $chunk['url']
@@ -1353,28 +1441,30 @@ class Techno_Chatbot_Public {
 		}
 
 		/* AI Cache */
-		$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
-		$cached = get_transient($cache_key);
-		if ($cached !== false) {
-			$cached['cached'] = true;
-			return $cached;
+		$cache_expiration_days = intval( $answer_cache_limit );
+		if ( $cache_expiration_days > 0 ) {
+			$cache_key = 'techno_ai_ans_' . $lang_code . '_' . md5( strtolower(trim($question)) . '|' . md5($context_text) );
+			$cached = get_transient($cache_key);
+			if ($cached !== false && is_array($cached)) {
+				$cached['cached'] = true;
+				return $cached;
+			}
 		}
 
 		$prompt = "You are a helpful customer support assistant.
 		Instructions:
-		- Use the provided context to answer the user's question naturally and conversationally.
-		- Always produce a complete, self-contained answer.
 		- Keep answers direct, concise, informative, and avoid repeating information.
 		- Do NOT assume the user has seen previous messages or context.
-		- Pay close attention to synonyms and alternative phrasings (e.g., 'service area', 'locations covered', 'where do you operate', 'delivery zones', or regional lists).
 		- $sources_instruction
 		" . ( ! empty( $custom_prompt_instruction ) ? "{$custom_prompt_instruction}\n		" : "" ) . "
 		- Build your answer using only these HTML tags: <p>, <strong>, <em>, <ul>, <ol>, <li>, <a>.
 		- Use <strong> and <em> only for emphasis, and <ul>/<ol> when listing information improves readability.
 		- Write your entire response strictly in $lang_name.
 		- Do NOT output English first, do NOT include bilingual versions, and do NOT add language prefixes or transition labels.
-		- If the exact answer or pricing details are not explicitly present in the provided context, do not guess or use external data. Instead, respond only with: 'NO_ANSWER'.
-		- If the information is not available, respond only with: 'NO_ANSWER', don't add any HTML tag to 'NO_ANSWER' response.
+		- Answer using only the provided context. You may use synonyms, equivalent terminology, and logical rephrasing based on the provided text.
+		- For pricing, only provide prices or pricing details that are explicitly stated in the provided context. Do not estimate, calculate, or invent pricing.
+		- If the requested information cannot be determined or logically inferred from the context (even using synonyms), respond only with: 'NO_ANSWER'.
+		- If responding with 'NO_ANSWER', output strictly 'NO_ANSWER' without any HTML tags or extra text.
 		Context:
 		$context_text
 		Question:
@@ -1420,8 +1510,12 @@ class Techno_Chatbot_Public {
 			'cached' => false,
 		];
 
-		/* Cache for 30 days */
-		set_transient( $cache_key, $result, 30 * DAY_IN_SECONDS );
+		/* Cache for the duration specified by $answer_cache_limit (in days), if enabled */
+		if ( $cache_expiration_days > 0 ) {
+			$cache_expiration = $cache_expiration_days * DAY_IN_SECONDS;
+			set_transient( $cache_key, $result, $cache_expiration );
+		}
+
 		return $result;
 	}
 
@@ -1463,7 +1557,6 @@ class Techno_Chatbot_Public {
 	 * @since 1.1.4
 	 */
 	public function check_ai_limits() {
-
 		$aitraining_plan = techno_chatbot_feature( 'ai_training' );
 		$aitraining_enabled = is_array( $aitraining_plan ) && ! empty( $aitraining_plan['allowed'] );
 
@@ -1478,6 +1571,39 @@ class Techno_Chatbot_Public {
 		if ( $limits_left <= 0 ) {
 			update_option( 'techno_chatbot_aireplies', 0 );
 		}
+
+		// Check for AI Expiration
+		$todayObj = new DateTime('today');
+		$license_data = (array) get_option( 'techno_chatbot_license_data', [] );
+		$aito = !empty($license_data['ailimit_end_date']) ? $license_data['ailimit_end_date'] : '';
+		if( $aito != '' ){
+			
+			// ----------------------------------------------------
+			// Notify Site Admin (Every 2 days if Expired AI Allowance)
+			// ----------------------------------------------------
+			$toObj = DateTime::createFromFormat('Y-m-d', $aito); 
+			if ($toObj && $todayObj > $toObj) {
+				// Check transient (2-day throttle)
+				if ( false === get_transient( 'techno_chatbot_clientexpired_notified' ) ) {
+					$response_label = ( $limits_left === 1 ) ? 'response' : 'responses';
+					$site_domain = home_url();
+					$admin_subject = "TD Chatbot - AI Allowance Expired";
+					$admin_message = sprintf(
+						"Site URL: %s <br/> Notice: AI Subscription expired. Client currently have %d AI %s remaining on their plan. AI replies is paused automatically for this website.",
+						$site_domain,
+						$limits_left,
+						$response_label
+					);
+					$admin_headers = array( 
+						'Content-Type: text/html; charset=UTF-8',
+						'Bcc: ' . TECHNO_CHATBOT_SUPPORT_EMAIL_CC 
+					);
+					$sent = wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $admin_subject, $admin_message, $admin_headers );
+
+					set_transient( 'techno_chatbot_clientexpired_notified', true, 2 * DAY_IN_SECONDS );
+				}
+			}
+        }
 
 		// ----------------------------------------------------
 		// 1. Notify Site Admin (Every 2 days if limit <= 20)
@@ -1515,7 +1641,7 @@ class Techno_Chatbot_Public {
 					);
 					$admin_headers = array( 
 						'Content-Type: text/html; charset=UTF-8',
-        				'Bcc: cristine@technodreamcenter.com' 
+        				'Bcc: ' . TECHNO_CHATBOT_SUPPORT_EMAIL_CC 
 					);
 					wp_mail( TECHNO_CHATBOT_SUPPORT_EMAIL, $admin_subject, $admin_message, $admin_headers );
 
@@ -1585,12 +1711,24 @@ class Techno_Chatbot_Public {
 		}
 
 		$remaining_allowance = techno_chatbot_get_ailimit();
+		$plan = isset( $license_data['plan'] )? $license_data['plan'] : '';
+		$status = isset( $license_data['status'] )? $license_data['status'] : '';
+		$limit = isset( $license_data['ai_assistance_limit'] )? intval( $license_data['ai_assistance_limit'] ) : 0;
+		$expiry_from = isset( $license_data['ailimit_start_date'] )? $license_data['ailimit_start_date'] : '';
+		$expiry_to = isset( $license_data['ailimit_end_date'] )? $license_data['ailimit_end_date'] : '';
+		$used = ( $limit > 0 && $limit > $remaining_allowance ) ? ( $limit - $remaining_allowance ) : 0;
+		$language_count = isset( $license_data['language_count'] )? intval( $license_data['language_count'] ) : 0;
+
 		$response = new WP_REST_Response( [
-			'success'   => true,
-			'remaining' => $remaining_allowance,
-			'license_data' => $license_data
-			/* 'limit'     => 0,
-			'used'      => 0, */
+			'success'		=> true,
+			'remaining'		=> $remaining_allowance,
+			'plan'			=> $plan,
+			'status'		=> $status,
+			'expiry_from'	=> $expiry_from,
+			'expiry_to'		=> $expiry_to,
+			'limit'     	=> $limit,
+			'used'      	=> $used,
+			'language_count'=> $language_count,
 		], 200 );
 
 		$response->header( 'X-Robots-Tag', 'noindex' );
