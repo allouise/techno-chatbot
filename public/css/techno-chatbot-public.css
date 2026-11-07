@@ -60,7 +60,7 @@ button#techno-chatbot-close:hover{ background: var(--techno-header-text); color:
 .techno-chatbot-message ol li, .techno-chatbot-message ul li{ margin: 0; }
 
 /* Typing */
-.techno-chatbot-message.typing { display: flex; gap: 4px; align-items: center; width: 50px; justify-content: center; } 
+.techno-chatbot-message.typing { display: flex; gap: 4px; align-items: center; width: 50px; justify-content: center; order: 1; } 
 .techno-chatbot-message.typing span { width: 6px; height: 6px; background: var(--techno-admin-bubble-text); border-radius: 50%; animation: technoTyping 1.2s infinite ease-in-out; } 
 .techno-chatbot-message.typing span:nth-child(2) { animation-delay: 0.2s; } 
 .techno-chatbot-message.typing span:nth-child(3) { animation-delay: 0.4s; } 

@@ -1157,8 +1157,8 @@ class TechnoChatbot {
             }
 
             /* Usual Add Message */
-            await this.addMessage(userMessage, 'visitor');
             this.showTyping();
+            await this.addMessage(userMessage, 'visitor');
 
             /* Transferred to Live Chat Message */
             if (this.socket && this.socket.connected && this.socketId != null) {
